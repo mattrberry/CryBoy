@@ -1,0 +1,13 @@
+name: gb
+version: 0.1.0
+
+authors:
+  - Matthew Berry <me@mattrb.com>
+
+targets:
+  gb:
+    main: src/gb.cr
+
+crystal: 0.34.0
+
+license: MIT
