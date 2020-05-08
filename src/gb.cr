@@ -1,6 +1,19 @@
-# TODO: Write documentation for `Gb`
+require "./gb/motherboard"
+
 module Gb
   VERSION = "0.1.0"
 
-  # TODO: Put your code here
+  extend self
+
+  def run
+    if ARGV.size != 1
+      raise "Only arg should be the path to the rom"
+    end
+
+    motherboard = Motherboard.new ARGV[0]
+  end
+end
+
+unless PROGRAM_NAME.includes?("crystal-run-spec")
+  Gb.run
 end

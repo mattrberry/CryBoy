@@ -10,4 +10,11 @@ targets:
 
 crystal: 0.34.0
 
+dependencies:
+  bindata:
+    github: spider-gazelle/bindata
+  crsfml:
+    github: oprypin/crsfml
+    version: ~> 2.5.1
+
 license: MIT
