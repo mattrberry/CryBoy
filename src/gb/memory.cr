@@ -30,7 +30,7 @@ class Memory
     when IO_PORTS      then return @memory[index]
     when HRAM          then return @memory[index]
     when INTERRUPT_REG then return @memory[index]
-    else raise "FAILED TO SET INDEX #{index}"
+    else                    raise "FAILED TO SET INDEX #{index}"
     end
   end
 
@@ -46,7 +46,7 @@ class Memory
     when WORK_RAM_N    then @memory[index] = value
     when ECHO          then @memory[index - 0x2000] = value
     when SPRITE_TABLE  then @memory[index] = value
-    when NOT_USABLE    then raise "Wrote to non-usable memory (todo)"
+    when NOT_USABLE    then nil # todo: should I raise here?
     when 0xFF46        then dma_transfer(value.to_u16 << 8)
     when IO_PORTS      then @memory[index] = value
     when HRAM          then @memory[index] = value
