@@ -1,18 +1,18 @@
-# gb
+# CryBoy
 
-TODO: Write a description here
+CryBoy is a Gameboy emulator written in Crystal. The goal of this project is an efficient Gameboy emulator with highly readable code. So far, neither aspect of the goal is accomplished.
+
+This would not be possible without the [Pan Docs](https://bgb.bircd.org/pandocs.htm). A thanks also goes out to [PyBoy](https://github.com/Baekalfen/PyBoy), which was occasionally used as a reference.
 
 ## Installation
 
-TODO: Write installation instructions here
+SDL2 is a requirement for this project. install that however you see fit.
+
+After cloning the respository, you'll need to install the required shards with `shards install`.
 
 ## Usage
 
-TODO: Write usage instructions here
-
-## Development
-
-TODO: Write development instructions here
+After installing the dependencies, the project can be build with `shards build --release`. At this point, the binary lives in `bin/gb`. The binary takes a rom path as its only argument: `bin/gb /path/to/rom`.
 
 ## Contributing
 
