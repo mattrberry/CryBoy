@@ -24,17 +24,16 @@ class PPU
         if window_enabled? && scanline.wy <= y && scanline.wx <= x
           puts "window enabled"
         elsif bg_display?
-          bt = @memory[bg_ptr + (y + scanline.scy) // 8 * 32 % 0x400 + (x + scanline.scx) // 8 % 32]
-          start = 0x8000
+          tile_idx = @memory[bg_ptr + (y + scanline.scy) // 8 * 32 % 0x400 + (x + scanline.scx) // 8 % 32]
+          tile_map_ptr = scanline.tile_map == 0 ? 0x9000 : 0x8000
           if scanline.tile_map == 0
-            bt = bt.to_i8!
-            start = 0x9000
+            tile_idx = tile_idx.to_i8!
           end
-          tile_start_ptr = start + bt * 16
-          tile_row_1 = @memory[tile_start_ptr + ((y + scanline.scy) % 8)]
-          tile_row_2 = @memory[tile_start_ptr + ((y + scanline.scy) % 8) + 1]
+          tile_ptr = tile_map_ptr + tile_idx * 16
+          tile_row_1 = @memory[tile_ptr + ((y + scanline.scy) % 8)]
+          tile_row_2 = @memory[tile_ptr + ((y + scanline.scy) % 8) + 1]
           @framebuffer[y][x] = (((tile_row_1 >> (7 - x)) & 0x1) << 1) | ((tile_row_2 >> (7 - x)) & 0x1)
-          @framebuffer[y][x] = ((x + y) % 4).to_u8
+          # @framebuffer[y][x] = ((x + y) % 4).to_u8
         end
       end
     end
