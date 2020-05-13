@@ -1,5 +1,12 @@
+enum FlagOp
+  ZERO
+  ONE
+  DEFAULT
+  UNCHANGED
+end
+
 class CPU
-  macro define_register(upper, lower)
+  macro register(upper, lower)
     property {{upper.id}} : UInt8 = 0_u8
     property {{lower.id}} : UInt8 = 0_u8
 
@@ -18,12 +25,40 @@ class CPU
     end
   end
 
-  define_register a, f
-  define_register b, c
-  define_register d, e
-  define_register h, l
+  macro flag(name, mask)
+    def f_{{name.id}}=(on : Int | Bool)
+      if on == false || on == 0
+        @f &= ~{{mask}}
+      else
+        @f |= {{mask.id}}
+      end
+    end
+
+    def f_{{name.id}} : Bool
+      @f & {{mask.id}} == {{mask.id}}
+    end
+
+    def f_n{{name.id}} : Bool
+      !f_{{name.id}}
+    end
+  end
+
+  register a, f
+  register b, c
+  register d, e
+  register h, l
+
+  flag z, 0b10000000
+  flag n, 0b01000000
+  flag h, 0b00100000
+  flag c, 0b00010000
 
   @ime = true
+
+  property sp
+  property pc
+  property ime
+  property memory
 
   def initialize(@memory : Memory, boot = false)
     @pc = 0x0000_u16
@@ -63,75 +98,12 @@ class CPU
     @memory[0xFF50] = 0x01_u8
   end
 
-  def f_z=(on : Int | Bool)
-    if on == false || on == 0
-      @f &= 0b0111_0000
-    else
-      @f |= 0b1000_0000
-    end
-  end
-
-  def f_z : Bool
-    (@f >> 7) & 0xF != 0
-  end
-
-  def f_nz : Bool
-    !f_z
-  end
-
-  def f_n=(on : Int | Bool)
-    if on == false || on == 0
-      @f &= 0b1011_0000
-    else
-      @f |= 0b0100_0000
-    end
-  end
-
-  def f_n : Bool
-    (@f >> 6) & 0xF != 0
-  end
-
-  def f_h=(on : Int | Bool)
-    if on == false || on == 0
-      @f &= 0b1101_0000
-    else
-      @f |= 0b0010_0000
-    end
-  end
-
-  def f_h : Bool
-    (@f >> 5) & 0xF != 0
-  end
-
-  def f_c=(on : Int | Bool)
-    if on == false || on == 0
-      @f &= 0b1110_0000
-    else
-      @f |= 0b0001_0000
-    end
-  end
-
-  def f_c : Bool
-    (@f >> 4) & 0xF != 0
-  end
-
-  def f_nc : Bool
-    !f_c
-  end
-
   def pop : UInt16
     @memory.read_word (@sp += 2) - 2
   end
 
   def push(value : UInt16) : Nil
     @memory[@sp -= 2] = value
-  end
-
-  enum FlagOp
-    ZERO
-    ONE
-    DEFAULT
-    UNCHANGED
   end
 
   def set_flags(res : UInt8, op1 : UInt8, op2 : UInt8, z : FlagOp, n : FlagOp, h : FlagOp, c : FlagOp, add_sub = false)
@@ -209,8 +181,8 @@ class CPU
   end
 
   def add(op1 : UInt16, op2 : Int8, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt16
+    # todo this case is very specific, should be moved elsewhere
     res = op1 &+ op2
-    # set_flags res, op1, op2, z, n, h, c, add_sub = true
     @f = 0b00000000
     @f += (((@sp & 0xF) + (op2.to_u8! & 0xF)) > 0xF) ? 1 : 0 << 5
     @f += (((@sp & 0xFF) + (op2.to_u8! & 0xF)) > 0xF) ? 1 : 0 << 4
@@ -221,57 +193,27 @@ class CPU
     res = operand_1 &+ operand_2
 
     if z == FlagOp::ZERO
-      @f &= 0b0111_0000
+      self.f_z = false
     elsif z == FlagOp::ONE || (z == FlagOp::DEFAULT && res == 0)
-      @f |= 0b1000_0000
+      self.f_z = true
     end
 
     if n == FlagOp::ZERO
-      @f &= 0b1011_0000
+      self.f_n = false
     elsif n == FlagOp::ONE # || todo
-      @f |= 0b0100_0000
+      self.f_n = true
     end
 
     if h == FlagOp::ZERO
-      @f &= 0b1101_0000
+      self.f_h = false
     elsif h == FlagOp::ONE # || todo
-      @f |= 0b0010_0000
+      self.f_h = true
     end
 
     if c == FlagOp::ZERO
-      @f &= 0b1110_0000
+      self.f_c = false
     elsif c == FlagOp::ONE || (c == FlagOp::DEFAULT && res < operand_1)
-      @f |= 0b0001_0000
-    end
-
-    res
-  end
-
-  def sub(operand_1 : UInt16, operand_2 : UInt16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt16
-    res = operand_1 &- operand_2
-
-    if z == FlagOp::ZERO
-      @f &= 0b0111_0000
-    elsif z == FlagOp::ONE || (z == FlagOp::DEFAULT && res == 0)
-      @f |= 0b1000_0000
-    end
-
-    if n == FlagOp::ZERO
-      @f &= 0b1011_0000
-    elsif n == FlagOp::ONE # || todo
-      @f |= 0b0100_0000
-    end
-
-    if h == FlagOp::ZERO
-      @f &= 0b1101_0000
-    elsif h == FlagOp::ONE # || todo
-      @f |= 0b0010_0000
-    end
-
-    if c == FlagOp::ZERO
-      @f &= 0b1110_0000
-    elsif c == FlagOp::ONE || (c == FlagOp::DEFAULT && res > operand_1)
-      @f |= 0b0001_0000
+      self.f_c = true
     end
 
     res
@@ -283,20 +225,70 @@ class CPU
     f_h = true
   end
 
-  def tick : Nil
-    opcode = read_opcode
-    process_opcode opcode
+  def handle_interrupts
+    # bit 0: v-blank
+    if @memory.vblank && @memory.vblank_enabled
+      @memory.vblank = false
+      @sp -= 2
+      @memory[@sp] = @pc
+      @pc = 0x0040_u16
+    end
+    # bit 1: lcd stat
+    if @memory.lcd_stat && @memory.lcd_stat_enabled
+      @memory.lcd_stat = false
+      @sp -= 2
+      @memory[@sp] = @pc
+      @pc = 0x0048_u16
+    end
+    # bit 2: timer
+    if @memory.timer && @memory.timer_enabled
+      @memory.timer = false
+      @sp -= 2
+      @memory[@sp] = @pc
+      @pc = 0x0050_u16
+    end
+    # bit 3: serial
+    if @memory.serial && @memory.serial_enabled
+      @memory.serial = false
+      @sp -= 2
+      @memory[@sp] = @pc
+      @pc = 0x0058_u16
+    end
+    # bit 4: joypad
+    if @memory.joypad && @memory.joypad_enabled
+      @memory.joypad = false
+      @sp -= 2
+      @memory[@sp] = @pc
+      @pc = 0x0060_u16
+    end
+    # clear Interrupt Master Enable
+    @ime = false
+  end
+
+  # Runs for the specified number of machine cycles. If no argument provided,
+  # runs only one instruction. Handles interrupts _after_ the instruction is
+  # executed.
+  def tick(cycles = 1)
+    while cycles > 0
+      opcode = read_opcode
+      cycles -= process_opcode opcode
+      # interrupts
+      if opcode == 0x76
+        puts "HALT, who goes there (todo)"
+      end
+      handle_interrupts if @ime
+    end
   end
 
   def read_opcode : UInt8
-    opcode = @memory[@pc]
-    opcode
+    @memory[@pc]
   end
 
-  def process_opcode(opcode : UInt8, cb = false) : Int
-    length = cb ? 1 : OPCODE_LENGTHS[opcode] # all cb-prefixed opcodes have a length of 1
-    # puts "opcode: 0x#{opcode.to_s(16).rjust(2, '0').upcase}, length: #{length}, pc: #{@pc}"
-    puts "op:0x#{opcode.to_s(16).rjust(2, '0').upcase}, pc:#{@pc + 1}, sp:#{@sp}, a:#{@a}, b:#{@b}, c:#{@c}, d:#{@d}, e:#{@e}, f:#{(@f >> 4).to_s(2).rjust(4, '0')}, h:#{@h}, l:#{@l}"
+  # process the given opcode
+  # returns the number of machine cycles taken (where gb runs at 4.19MHz)
+  def process_opcode(opcode : UInt8, cb = false) : Int32
+    # all cb-prefixed opcodes have a length of 1 + the prefix
+    length = cb ? 1 : OPCODE_LENGTHS[opcode]
     d8 : UInt8 = 0_u8
     r8 : Int8 = 0_u8
     d16 : UInt16 = 0_u16
@@ -310,6 +302,8 @@ class CPU
     end
     @pc += length
 
+    # Everything below is automatically generated. Once the codegen code is
+    # finished and cleaned up, I'll add it to the repo as well.
     if !cb
       case opcode
       when 0x00
@@ -507,7 +501,7 @@ class CPU
       when 0x3F
         raise "FAILED TO MATCH 0x3F"
       when 0x40
-      # @b = @b
+        # @b = @b
         return 4
       when 0x41
         @b = @c
@@ -534,7 +528,7 @@ class CPU
         @c = @b
         return 4
       when 0x49
-      # @c = @c
+        # @c = @c
         return 4
       when 0x4A
         @c = @d
@@ -561,7 +555,7 @@ class CPU
         @d = @c
         return 4
       when 0x52
-      # @d = @d
+        # @d = @d
         return 4
       when 0x53
         @d = @e
@@ -588,7 +582,7 @@ class CPU
         @e = @d
         return 4
       when 0x5B
-      # @e = @e
+        # @e = @e
         return 4
       when 0x5C
         @e = @h
@@ -615,7 +609,7 @@ class CPU
         @h = @e
         return 4
       when 0x64
-      # @h = @h
+        # @h = @h
         return 4
       when 0x65
         @h = @l
@@ -642,7 +636,7 @@ class CPU
         @l = @h
         return 4
       when 0x6D
-      # @l = @l
+        # @l = @l
         return 4
       when 0x6E
         @l = @memory[self.hl]
@@ -695,7 +689,7 @@ class CPU
         @a = @memory[self.hl]
         return 8
       when 0x7F
-      # @a = @a
+        # @a = @a
         return 4
       when 0x80
         @a = add @a, @b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
@@ -932,8 +926,8 @@ class CPU
         end
         return 8
       when 0xC9
-          @pc = @memory.read_word @sp; @sp += 2
-          return 16
+        @pc = @memory.read_word @sp; @sp += 2
+        return 16
         return 16
       when 0xCA
         if f_z
@@ -954,10 +948,10 @@ class CPU
         end
         return 12
       when 0xCD
-          @sp -= 2
-          @memory[@sp] = @pc
-          @pc = d16
-          return 24
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = d16
+        return 24
         return 24
       when 0xCE
         @a = adc @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
@@ -980,7 +974,7 @@ class CPU
           return 16
         end
         return 12
-      # 0xD3 has no functionality
+        # 0xD3 has no functionality
       when 0xD4
         if f_nc
           @sp -= 2
@@ -1005,14 +999,17 @@ class CPU
         end
         return 8
       when 0xD9
-        raise "FAILED TO MATCH 0xD9"
+        @ime = true
+        @pc = @memory.read_word @sp; @sp += 2
+        return 16
+        return 16
       when 0xDA
         if f_c
           @pc = d16.to_u16
           return 16
         end
         return 12
-      # 0xDB has no functionality
+        # 0xDB has no functionality
       when 0xDC
         if f_c
           @sp -= 2
@@ -1021,7 +1018,7 @@ class CPU
           return 24
         end
         return 12
-      # 0xDD has no functionality
+        # 0xDD has no functionality
       when 0xDE
         @a = sbc @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
@@ -1037,8 +1034,8 @@ class CPU
       when 0xE2
         @memory[@c] = @a
         return 8
-      # 0xE3 has no functionality
-      # 0xE4 has no functionality
+        # 0xE3 has no functionality
+        # 0xE4 has no functionality
       when 0xE5
         push self.hl
         return 16
@@ -1057,9 +1054,9 @@ class CPU
       when 0xEA
         @memory[d16] = @a
         return 16
-      # 0xEB has no functionality
-      # 0xEC has no functionality
-      # 0xED has no functionality
+        # 0xEB has no functionality
+        # 0xEC has no functionality
+        # 0xED has no functionality
       when 0xEE
         @a = xor @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 8
@@ -1078,7 +1075,7 @@ class CPU
       when 0xF3
         @ime = false
         return 4
-      # 0xF4 has no functionality
+        # 0xF4 has no functionality
       when 0xF5
         push self.af
         return 16
@@ -1098,16 +1095,17 @@ class CPU
         @a = @memory[d16]
         return 16
       when 0xFB
-        raise "FAILED TO MATCH 0xFB"
-      # 0xFC has no functionality
-      # 0xFD has no functionality
+        @ime = true
+        return 4
+        # 0xFC has no functionality
+        # 0xFD has no functionality
       when 0xFE
         sub @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0xFF
         raise "FAILED TO MATCH 0xFF"
       end
-      else
+    else
       case opcode
       when 0x00
         raise "FAILED TO MATCH CB-0x00"
@@ -1878,9 +1876,9 @@ class CPU
         raise "FAILED TO MATCH CB-0xFF"
         return 8
       end
-      end
-      raise "MEMES?"
-        end
+    end
+    raise "MEMES?"
+  end
 end
 
 OPCODE_LENGTHS = [

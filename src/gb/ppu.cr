@@ -1,30 +1,44 @@
+struct Scanline
+  property scx, scy, wx, wy, tile_map
+
+  def initialize(@scx : UInt8, @scy : UInt8, @wx : UInt8, @wy : UInt8, @tile_map : UInt8)
+  end
+end
+
 class PPU
-  #   getter frame : Bytes
+  property scanlines
 
   def initialize(@memory : Memory)
-    @frame = Bytes.new 160 * 144 { |i| (((i + i/144) % 2) + 1).to_u8 }
+    @scanlines = Array(Scanline).new 144, Scanline.new(0, 0, 0, 0, 0)
+    @framebuffer = Array(Array(UInt8)).new 144 { Array(UInt8).new 160, 0_u8 }
   end
 
-  def frame : Bytes
-    (0...32).each_with_index do |row|
-      (0...32).each_with_index do |col|
-        tile_number = @memory[0x9800 + row * 32 + col]
-        set_tile tile_number, col + scx, row + scy
-      end
-    end
-
-    @frame
+  def scanline(y : Int)
+    @scanlines[y] = Scanline.new scx, scy, wx, wy, bg_window_tile_map
   end
 
-  def set_tile(tile_number : Int, x : Int, y : Int)
-    (0...8).each do |line|
-      first_byte = @memory[0x8000 + line * 2]
-      second_byte = @memory[0x8000 + line * 2 + 1]
-      (0...8).each do |col|
-        color = (((first_byte >> (7 - col)) & 0x1) << 1) | ((second_byte >> (7 - col)) & 0x1)
-        @frame[line * 160 + col] = color
+  def framebuffer : Array(Array(UInt8))
+    bg_ptr = bg_tile_map == 0 ? 0x9800 : 0x9C00
+    @scanlines.each_with_index do |scanline, y|
+      (0...160).each do |x|
+        if window_enabled? && scanline.wy <= y && scanline.wx <= x
+          puts "window enabled"
+        elsif bg_display?
+          bt = @memory[bg_ptr + (y + scanline.scy) // 8 * 32 % 0x400 + (x + scanline.scx) // 8 % 32]
+          start = 0x8000
+          if scanline.tile_map == 0
+            bt = bt.to_i8!
+            start = 0x9000
+          end
+          tile_start_ptr = start + bt * 16
+          tile_row_1 = @memory[tile_start_ptr + ((y + scanline.scy) % 8)]
+          tile_row_2 = @memory[tile_start_ptr + ((y + scanline.scy) % 8) + 1]
+          @framebuffer[y][x] = (((tile_row_1 >> (7 - x)) & 0x1) << 1) | ((tile_row_2 >> (7 - x)) & 0x1)
+          @framebuffer[y][x] = ((x + y) % 4).to_u8
+        end
       end
     end
+    @framebuffer
   end
 
   # LCD Control Register
@@ -36,8 +50,20 @@ class PPU
     lcd_control >> 7 == 1
   end
 
+  def window_tile_map : UInt8
+    (lcd_control >> 6) & 0x1
+  end
+
   def window_enabled? : Bool
     (lcd_control >> 5) & 0x1 == 1
+  end
+
+  def bg_window_tile_map : UInt8
+    (lcd_control >> 4) & 0x1
+  end
+
+  def bg_tile_map : UInt8
+    (lcd_control >> 3) & 0x1
   end
 
   def sprite_height

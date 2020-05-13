@@ -13,8 +13,43 @@ class Memory
   INTERRUPT_REG = 0xFFFF
 
   def initialize(@cartridge : Cartridge)
-    @memory = Array(UInt8).new 0xFFFF + 1, 0_u8
+    @memory = Bytes.new 0xFFFF + 1
   end
+
+  macro bit(name, location, mask)
+    {{name.id.upcase}}_MASK = {{mask}}
+    def {{name.id}}=(on : Int | Bool)
+      if on == false || on == 0
+        self[{{location}}] &= ~{{name.id.upcase}}_MASK
+      else
+        self[{{location}}] |= {{name.id.upcase}}_MASK
+      end
+    end
+    def {{name.id}} : Bool
+      self[{{location}}] & {{name.id.upcase}}_MASK == {{name.id.upcase}}_MASK
+    end
+  end
+
+  bit vblank, 0xFF0F, 0b00000001
+  bit lcd_stat, 0xFF0F, 0b00000010
+  bit timer, 0xFF0F, 0b00000100
+  bit serial, 0xFF0F, 0b00001000
+  bit joypad, 0xFF0F, 0b00010000
+
+  bit vblank_enabled, 0xFFFF, 0b00000001
+  bit lcd_stat_enabled, 0xFFFF, 0b00000010
+  bit timer_enabled, 0xFFFF, 0b00000100
+  bit serial_enabled, 0xFFFF, 0b00001000
+  bit joypad_enabled, 0xFFFF, 0b00010000
+
+  bit lcd_enabled, 0xFF40, 0b10000000
+  bit window_tile_map, 0xFF40, 0b01000000
+  bit window_enabled, 0xFF40, 0b00100000
+  bit bg_window_tile_map, 0xFF40, 0b00010000
+  bit bg_tile_map, 0xFF40, 0b00001000
+  bit sprite_height, 0xFF40, 0b00000100
+  bit sprite_enabled, 0xFF40, 0b00000010
+  bit bg_display, 0xFF40, 0b00000001
 
   def [](index : Int) : UInt8
     case index
@@ -35,27 +70,32 @@ class Memory
   end
 
   def []=(index : Int, value : UInt8) : Nil
-    puts "write 0x#{value.to_s(16).rjust(2, '0').upcase} to index #{index}"
+    # puts "write 0x#{value.to_s(16).rjust(2, '0').upcase} to index #{index.to_s(16).rjust(4, '0').upcase}"
     # todo other dma stuff
     case index
-    when ROM_BANK_0    then @cartridge[index] = value
-    when ROM_BANK_N    then @cartridge[index] = value
-    when VRAM          then @memory[index] = value
-    when EXTERNAL_RAM  then @cartridge[index] = value
-    when WORK_RAM_0    then @memory[index] = value
-    when WORK_RAM_N    then @memory[index] = value
-    when ECHO          then @memory[index - 0x2000] = value
-    when SPRITE_TABLE  then @memory[index] = value
-    when NOT_USABLE    then nil # todo: should I raise here?
-    when 0xFF46        then dma_transfer(value.to_u16 << 8)
-    when IO_PORTS      then @memory[index] = value
+    when ROM_BANK_0   then @cartridge[index] = value
+    when ROM_BANK_N   then @cartridge[index] = value
+    when VRAM         then @memory[index] = value
+    when EXTERNAL_RAM then @cartridge[index] = value
+    when WORK_RAM_0   then @memory[index] = value
+    when WORK_RAM_N   then @memory[index] = value
+    when ECHO         then @memory[index - 0x2000] = value
+    when SPRITE_TABLE then @memory[index] = value
+    when NOT_USABLE   then nil # todo: should I raise here?
+    when IO_PORTS
+      case index
+      when 0xFF01 then @memory[index] = value; puts value.chr
+      when 0xFF04 then @memory[index] = 0x00_u8
+      when 0xFF46 then dma_transfer(value.to_u16 << 8)
+      else             @memory[index] = value
+      end
     when HRAM          then @memory[index] = value
     when INTERRUPT_REG then @memory[index] = value
     end
   end
 
   def []=(index : Int, value : UInt16) : Nil
-    puts "write 0x#{value.to_s(16).rjust(4, '0').upcase} to index #{index}"
+    # puts "write 0x#{value.to_s(16).rjust(4, '0').upcase} to index #{index.to_s(16).rjust(4, '0').upcase}"
     self[index] = (value && 0xFF).to_u8
     self[index + 1] = (value >> 8).to_u8
   end

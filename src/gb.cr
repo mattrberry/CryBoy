@@ -11,6 +11,7 @@ module Gb
     end
 
     motherboard = Motherboard.new ARGV[0]
+    motherboard.run
   end
 end
 
