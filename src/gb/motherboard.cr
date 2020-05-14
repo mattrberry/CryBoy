@@ -51,13 +51,15 @@ class Motherboard
     # repeat hz: 60, in_fiber: true { @display.draw @ppu.frame }
     # repeat hz: 16384, in_fiber: true { timer_divider }
     # repeat hz: @memory[0xFF07] == 0b00 ? 4096 : @memory[0xFF07] == 0b01 ? 262144 : @memory[0xFF07] == 0b10 ? 65536 : 16384, in_fiber: true { timer_counter }
-    total = 0
-    start = Time.utc
     repeat hz: 60 do
       event = SDL::Event.poll
       case event
       when SDL::Event::Quit
         puts "quit"
+        (0x8000..0x9FFF).each do |ptr|
+          print @memory[ptr].to_s(16).rjust(2, '0').upcase
+        end
+        print "\n"
         exit 0
       when SDL::Event::Keyboard
         if event.mod.lctrl? && event.sym.q?
@@ -86,6 +88,13 @@ class Motherboard
           check_lyc y
           @cpu.tick 456
         end
+      else
+        # todo render blank screen
+        stat_mode = 0
+        # set ly
+        @memory[0xFF44] = 0_u8
+        # tick 1 full screen time
+        @cpu.tick 154 * 456
       end
     end
   end

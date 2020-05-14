@@ -3,6 +3,10 @@ struct Scanline
 
   def initialize(@scx : UInt8, @scy : UInt8, @wx : UInt8, @wy : UInt8, @tile_map : UInt8)
   end
+
+  def to_s(io : IO)
+    io << "Scanline(scx:#{scx}, scy:#{scy}, wx:#{wx}, wy:#{wy}, tile_map:#{tile_map}"
+  end
 end
 
 class PPU
@@ -18,21 +22,19 @@ class PPU
   end
 
   def framebuffer : Array(Array(UInt8))
-    bg_ptr = bg_tile_map == 0 ? 0x9800 : 0x9C00
+    background_map = bg_tile_map == 0_u8 ? 0x9800 : 0x9C00
     @scanlines.each_with_index do |scanline, y|
       (0...160).each do |x|
         if window_enabled? && scanline.wy <= y && scanline.wx <= x
           puts "window enabled"
         elsif bg_display?
-          tile_idx = @memory[bg_ptr + (y + scanline.scy) // 8 * 32 % 0x400 + (x + scanline.scx) // 8 % 32]
-          tile_map_ptr = scanline.tile_map == 0 ? 0x9000 : 0x8000
-          if scanline.tile_map == 0
-            tile_idx = tile_idx.to_i8!
-          end
-          tile_ptr = tile_map_ptr + tile_idx * 16
+          tile_num = @memory[background_map + (((x + scanline.scx) // 8) % 32) + ((((y + scanline.scy) * 32) // 8) % 1024)]
+          tile_num = tile_num.to_i8! if scanline.tile_map == 0
+          tile_data_table = scanline.tile_map == 0 ? 0x9000 : 0x8000
+          tile_ptr = tile_data_table + 16 * tile_num
           tile_row_1 = @memory[tile_ptr + ((y + scanline.scy) % 8)]
           tile_row_2 = @memory[tile_ptr + ((y + scanline.scy) % 8) + 1]
-          @framebuffer[y][x] = (((tile_row_1 >> (7 - x)) & 0x1) << 1) | ((tile_row_2 >> (7 - x)) & 0x1)
+          @framebuffer[y][x] = (((tile_row_1 >> (7 - (x % 8))) & 0x1) << 1) | ((tile_row_2 >> (7 - (x % 8))) & 0x1)
           # @framebuffer[y][x] = ((x + y) % 4).to_u8
         end
       end

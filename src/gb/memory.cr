@@ -70,7 +70,6 @@ class Memory
   end
 
   def []=(index : Int, value : UInt8) : Nil
-    # puts "write 0x#{value.to_s(16).rjust(2, '0').upcase} to index #{index.to_s(16).rjust(4, '0').upcase}"
     # todo other dma stuff
     case index
     when ROM_BANK_0   then @cartridge[index] = value
@@ -84,7 +83,7 @@ class Memory
     when NOT_USABLE   then nil # todo: should I raise here?
     when IO_PORTS
       case index
-      when 0xFF01 then @memory[index] = value; puts value.chr
+      when 0xFF01 then @memory[index] = value; print value.chr
       when 0xFF04 then @memory[index] = 0x00_u8
       when 0xFF46 then dma_transfer(value.to_u16 << 8)
       else             @memory[index] = value
@@ -95,8 +94,7 @@ class Memory
   end
 
   def []=(index : Int, value : UInt16) : Nil
-    # puts "write 0x#{value.to_s(16).rjust(4, '0').upcase} to index #{index.to_s(16).rjust(4, '0').upcase}"
-    self[index] = (value && 0xFF).to_u8
+    self[index] = (value & 0xFF).to_u8
     self[index + 1] = (value >> 8).to_u8
   end
 

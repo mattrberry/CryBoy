@@ -1,3 +1,5 @@
+require "./util"
+
 enum FlagOp
   ZERO
   ONE
@@ -107,8 +109,6 @@ class CPU
   end
 
   def set_flags(res : UInt8, op1 : UInt8, op2 : UInt8, z : FlagOp, n : FlagOp, h : FlagOp, c : FlagOp, add_sub = false)
-    # puts "set_flags >> res:#{res}, op1:#{op1}, op2:#{op2}, z:#{z}, n:#{n}, h:#{h}, c:#{c}, add_sub:#{add_sub}"
-
     case z
     when FlagOp::ZERO    then self.f_z = 0
     when FlagOp::ONE     then self.f_z = 1
@@ -219,6 +219,36 @@ class CPU
     res
   end
 
+  def sub(operand_1 : UInt16, operand_2 : UInt16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt16
+    res = operand_1 &- operand_2
+
+    if z == FlagOp::ZERO
+      @f &= 0b0111_0000
+    elsif z == FlagOp::ONE || (z == FlagOp::DEFAULT && res == 0)
+      @f |= 0b1000_0000
+    end
+
+    if n == FlagOp::ZERO
+      @f &= 0b1011_0000
+    elsif n == FlagOp::ONE # || todo
+      @f |= 0b0100_0000
+    end
+
+    if h == FlagOp::ZERO
+      @f &= 0b1101_0000
+    elsif h == FlagOp::ONE # || todo
+      @f |= 0b0010_0000
+    end
+
+    if c == FlagOp::ZERO
+      @f &= 0b1110_0000
+    elsif c == FlagOp::ONE || (c == FlagOp::DEFAULT && res > operand_1)
+      @f |= 0b0001_0000
+    end
+
+    res
+  end
+
   def bit(op : UInt8, bit : Int) : Nil
     f_z = (op >> bit) & 0x1
     f_n = false
@@ -287,6 +317,7 @@ class CPU
   # process the given opcode
   # returns the number of machine cycles taken (where gb runs at 4.19MHz)
   def process_opcode(opcode : UInt8, cb = false) : Int32
+    # puts "op:#{hex_str opcode}, pc:#{hex_str @pc}, sp:#{hex_str @sp}, a:#{hex_str @a}, b:#{hex_str @b}, c:#{hex_str @c}, d:#{hex_str @d}, h:#{hex_str @h}, l:#{hex_str @l}, f:#{@f.to_s(2).rjust(8, '0')}"
     # all cb-prefixed opcodes have a length of 1 + the prefix
     length = cb ? 1 : OPCODE_LENGTHS[opcode]
     d8 : UInt8 = 0_u8
@@ -315,19 +346,24 @@ class CPU
         @memory[self.bc] = @a
         return 8
       when 0x03
-        @a = add @a, 1, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
+        self.bc = add self.bc, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x04
-        @a = add @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @b = add @b, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x05
-        @a = sub @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @b = sub @b, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x06
         @b = d8
         return 8
       when 0x07
-        raise "FAILED TO MATCH 0x07"
+        self.f_z = false
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @a & 0x80
+        @a = (@a << 1) + (@a >> 7)
+        return 4
       when 0x08
         @memory[d16] = @sp
         return 20
@@ -338,19 +374,24 @@ class CPU
         @a = @memory[self.bc]
         return 8
       when 0x0B
-        @a = sub @a, 1, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
+        self.bc = sub self.bc, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x0C
-        @a = add @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @c = add @c, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x0D
-        @a = sub @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @c = sub @c, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x0E
         @c = d8
         return 8
       when 0x0F
-        raise "FAILED TO MATCH 0x0F"
+        self.f_z = false
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @a & 0x1
+        @a = (@a >> 1) + (@a << 7)
+        return 4
       when 0x10
         raise "FAILED TO MATCH 0x10"
       when 0x11
@@ -360,19 +401,24 @@ class CPU
         @memory[self.de] = @a
         return 8
       when 0x13
-        @a = add @a, 1, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
+        self.de = add self.de, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x14
-        @a = add @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @d = add @d, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x15
-        @a = sub @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @d = sub @d, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x16
         @d = d8
         return 8
       when 0x17
-        raise "FAILED TO MATCH 0x17"
+        self.f_z = false
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @a & 0x80
+        @a = (@a << 1) + (f_c ? 1 : 0)
+        return 4
       when 0x18
         @pc &+= r8
         return 12
@@ -383,19 +429,24 @@ class CPU
         @a = @memory[self.de]
         return 8
       when 0x1B
-        @a = sub @a, 1, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
+        self.de = sub self.de, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x1C
-        @a = add @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @e = add @e, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x1D
-        @a = sub @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @e = sub @e, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x1E
         @e = d8
         return 8
       when 0x1F
-        raise "FAILED TO MATCH 0x1F"
+        self.f_z = false
+        self.f_n = false
+        self.f_h = false
+        # f_c remains the same. if it was set, we have a carry
+        @a = (@a >> 1) + (f_c ? 0x80 : 0x00)
+        return 4
       when 0x20
         if f_nz
           @pc &+= r8
@@ -407,15 +458,16 @@ class CPU
         return 12
       when 0x22
         @memory[self.hl] = @a
+        self.hl &+= 1
         return 8
       when 0x23
-        @a = add @a, 1, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
+        self.hl = add self.hl, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x24
-        @a = add @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @h = add @h, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x25
-        @a = sub @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @h = sub @h, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x26
         @h = d8
@@ -433,15 +485,16 @@ class CPU
         return 8
       when 0x2A
         @a = @memory[self.hl]
+        self.hl &+= 1
         return 8
       when 0x2B
-        @a = sub @a, 1, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
+        self.hl = sub self.hl, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x2C
-        @a = add @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @l = add @l, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x2D
-        @a = sub @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @l = sub @l, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x2E
         @l = d8
@@ -459,21 +512,25 @@ class CPU
         return 12
       when 0x32
         @memory[self.hl] = @a
+        self.hl &-= 1
         return 8
       when 0x33
-        @a = add @a, 1, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
+        @sp = add @sp, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x34
-        @a = add @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @memory[self.hl] = add @memory[self.hl], 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 12
       when 0x35
-        @a = sub @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @memory[self.hl] = sub @memory[self.hl], 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 12
       when 0x36
         @memory[self.hl] = d8
         return 12
       when 0x37
-        raise "FAILED TO MATCH 0x37"
+        self.f_n = false
+        self.f_h = false
+        self.f_c = true
+        return 4
       when 0x38
         if f_c
           @pc &+= r8
@@ -485,21 +542,25 @@ class CPU
         return 8
       when 0x3A
         @a = @memory[self.hl]
+        self.hl &-= 1
         return 8
       when 0x3B
-        @a = sub @a, 1, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
+        @sp = sub @sp, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x3C
-        @a = add @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @a = add @a, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x3D
-        @a = sub @a, 1, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        @a = sub @a, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x3E
         @a = d8
         return 8
       when 0x3F
-        raise "FAILED TO MATCH 0x3F"
+        self.f_n = false
+        self.f_h = false
+        self.f_c = !self.f_c
+        return 4
       when 0x40
         # @b = @b
         return 4
@@ -740,25 +801,25 @@ class CPU
         @a = adc @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x90
-        @a = sub @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        @a = sub @a, @b, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x91
-        @a = sub @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        @a = sub @a, @c, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x92
-        @a = sub @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        @a = sub @a, @d, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x93
-        @a = sub @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        @a = sub @a, @e, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x94
-        @a = sub @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        @a = sub @a, @h, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x95
-        @a = sub @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        @a = sub @a, @l, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x96
-        @a = sub @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        @a = sub @a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0x97
         @a = sub @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
@@ -788,73 +849,73 @@ class CPU
         @a = sbc @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0xA0
-        @a = and @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        @a = and @a, @b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA1
-        @a = and @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        @a = and @a, @c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA2
-        @a = and @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        @a = and @a, @d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA3
-        @a = and @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        @a = and @a, @e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA4
-        @a = and @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        @a = and @a, @h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA5
-        @a = and @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        @a = and @a, @l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA6
-        @a = and @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        @a = and @a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 8
       when 0xA7
         @a = and @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA8
-        @a = xor @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = xor @a, @b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xA9
-        @a = xor @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = xor @a, @c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xAA
-        @a = xor @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = xor @a, @d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xAB
-        @a = xor @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = xor @a, @e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xAC
-        @a = xor @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = xor @a, @h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xAD
-        @a = xor @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = xor @a, @l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xAE
-        @a = xor @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = xor @a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 8
       when 0xAF
         @a = xor @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB0
-        @a = or @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = or @a, @b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB1
-        @a = or @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = or @a, @c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB2
-        @a = or @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = or @a, @d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB3
-        @a = or @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = or @a, @e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB4
-        @a = or @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = or @a, @h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB5
-        @a = or @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = or @a, @l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB6
-        @a = or @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = or @a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 8
       when 0xB7
         @a = or @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
@@ -892,7 +953,6 @@ class CPU
       when 0xC1
         self.bc = pop
         return 12
-        return 12
       when 0xC2
         if f_nz
           @pc = d16.to_u16
@@ -912,7 +972,6 @@ class CPU
         return 12
       when 0xC5
         push self.bc
-        return 16
         return 16
       when 0xC6
         @a = add @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
@@ -967,7 +1026,6 @@ class CPU
       when 0xD1
         self.de = pop
         return 12
-        return 12
       when 0xD2
         if f_nc
           @pc = d16.to_u16
@@ -986,9 +1044,8 @@ class CPU
       when 0xD5
         push self.de
         return 16
-        return 16
       when 0xD6
-        @a = sub @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        @a = sub @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0xD7
         raise "FAILED TO MATCH 0xD7"
@@ -1030,7 +1087,6 @@ class CPU
       when 0xE1
         self.hl = pop
         return 12
-        return 12
       when 0xE2
         @memory[@c] = @a
         return 8
@@ -1039,9 +1095,8 @@ class CPU
       when 0xE5
         push self.hl
         return 16
-        return 16
       when 0xE6
-        @a = and @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        @a = and @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 8
       when 0xE7
         raise "FAILED TO MATCH 0xE7"
@@ -1058,7 +1113,7 @@ class CPU
         # 0xEC has no functionality
         # 0xED has no functionality
       when 0xEE
-        @a = xor @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = xor @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 8
       when 0xEF
         raise "FAILED TO MATCH 0xEF"
@@ -1067,7 +1122,6 @@ class CPU
         return 12
       when 0xF1
         self.af = pop
-        return 12
         return 12
       when 0xF2
         @a = @memory[@c]
@@ -1079,9 +1133,8 @@ class CPU
       when 0xF5
         push self.af
         return 16
-        return 16
       when 0xF6
-        @a = or @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        @a = or @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 8
       when 0xF7
         raise "FAILED TO MATCH 0xF7"
