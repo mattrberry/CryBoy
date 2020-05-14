@@ -1,4 +1,4 @@
-# CryBoy
+# CryBoy ![CryBoy Graphic](README/gameboy.png)
 
 CryBoy is a Gameboy emulator written in Crystal. The goal of this project is an efficient Gameboy emulator with highly readable code. So far, neither aspect of the goal is accomplished.
 
