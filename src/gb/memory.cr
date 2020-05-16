@@ -65,7 +65,7 @@ class Memory
     when IO_PORTS      then return @memory[index]
     when HRAM          then return @memory[index]
     when INTERRUPT_REG then return @memory[index]
-    else                    raise "FAILED TO SET INDEX #{index}"
+    else                    raise "FAILED TO GET INDEX #{index}"
     end
   end
 
@@ -83,7 +83,7 @@ class Memory
     when NOT_USABLE   then nil # todo: should I raise here?
     when IO_PORTS
       case index
-      when 0xFF01 then @memory[index] = value; print value.chr
+      when 0xFF01 then @memory[index] = value #; print value.chr
       when 0xFF04 then @memory[index] = 0x00_u8
       when 0xFF46 then dma_transfer(value.to_u16 << 8)
       else             @memory[index] = value

@@ -28,14 +28,27 @@ class PPU
         if window_enabled? && scanline.wy <= y && scanline.wx <= x
           puts "window enabled"
         elsif bg_display?
-          tile_num = @memory[background_map + (((x + scanline.scx) // 8) % 32) + ((((y + scanline.scy) * 32) // 8) % 1024)]
+          tile_num = @memory[background_map + (((x + scanline.scx) // 8) % 32) + ((((y + scanline.scy) // 8) * 32) % 1024)]
           tile_num = tile_num.to_i8! if scanline.tile_map == 0
           tile_data_table = scanline.tile_map == 0 ? 0x9000 : 0x8000
           tile_ptr = tile_data_table + 16 * tile_num
           tile_row_1 = @memory[tile_ptr + ((y + scanline.scy) % 8)]
           tile_row_2 = @memory[tile_ptr + ((y + scanline.scy) % 8) + 1]
           @framebuffer[y][x] = (((tile_row_1 >> (7 - (x % 8))) & 0x1) << 1) | ((tile_row_2 >> (7 - (x % 8))) & 0x1)
-          # @framebuffer[y][x] = ((x + y) % 4).to_u8
+
+          # ################### Experimentation ####################
+          # tile_num = (y // 8) * 32 + x // 8 # just renders the top left of the tile map
+          # tile_num = @memory[background_map + (x // 8) + (y // 8) * 32] # should be correct ignoring scroll
+          # puts "#{hex_str (background_map + (x // 8) + (y // 8) * 32).to_u16} #{tile_num}" if tile_num != 32 && tile_num != 0
+          # tile_data_table = 0x8000
+          # tile_ptr = tile_data_table + 16 * tile_num
+          # tile_row = y % 8
+          # byte_1 = @memory[tile_ptr + tile_row * 2]
+          # byte_2 = @memory[tile_ptr + tile_row * 2 + 1]
+          # lsb = (byte_1 >> (7 - (x % 8))) & 0x1
+          # msb = (byte_2 >> (7 - (x % 8))) & 0x1
+          # color = (msb << 1) | lsb
+          # @framebuffer[y][x] = color
         end
       end
     end

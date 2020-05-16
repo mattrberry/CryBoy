@@ -56,10 +56,10 @@ class Motherboard
       case event
       when SDL::Event::Quit
         puts "quit"
-        (0x8000..0x9FFF).each do |ptr|
-          print @memory[ptr].to_s(16).rjust(2, '0').upcase
+        (0x9800..0x9BFF).each do |ptr|
+          print "#{hex_str @memory[ptr]} "
         end
-        print "\n"
+        puts ""
         exit 0
       when SDL::Event::Keyboard
         if event.mod.lctrl? && event.sym.q?
@@ -83,6 +83,7 @@ class Motherboard
         end
         @memory.vblank = true
         @display.draw @ppu.framebuffer
+        # @display.draw_all_tiles @memory, @ppu.scanlines
 
         (144...154).each do |y|
           check_lyc y
