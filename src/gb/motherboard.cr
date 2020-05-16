@@ -82,7 +82,7 @@ class Motherboard
           @cpu.tick 206
         end
         @memory.vblank = true
-        @display.draw @ppu.framebuffer
+        @display.draw @ppu.framebuffer, @memory[0xFF47] # 0xFF47 defines the color palette
         # @display.draw_all_tiles @memory, @ppu.scanlines
 
         (144...154).each do |y|
