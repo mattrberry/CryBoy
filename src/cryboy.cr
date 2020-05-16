@@ -1,6 +1,6 @@
-require "./gb/motherboard"
+require "./cryboy/motherboard"
 
-module Gb
+module CryBoy
   VERSION = "0.1.0"
 
   extend self
@@ -16,5 +16,5 @@ module Gb
 end
 
 unless PROGRAM_NAME.includes?("crystal-run-spec")
-  Gb.run
+  CryBoy.run
 end

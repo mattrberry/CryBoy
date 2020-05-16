@@ -12,11 +12,11 @@ After cloning the respository, you'll need to install the required shards with `
 
 ## Usage
 
-After installing the dependencies, the project can be build with `shards build --release`. At this point, the binary lives in `bin/gb`. The binary takes a rom path as its only argument: `bin/gb /path/to/rom`.
+After installing the dependencies, the project can be build with `shards build --release`. At this point, the binary lives in `bin/cryboy`. The binary takes a rom path as its only argument: `bin/cryboy /path/to/rom`.
 
 ## Contributing
 
-1. Fork it (<https://github.com/mattrberry/gb/fork>)
+1. Fork it (<https://github.com/mattrberry/CryBoy/fork>)
 2. Create your feature branch (`git checkout -b my-new-feature`)
 3. Commit your changes (`git commit -am 'Add some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)

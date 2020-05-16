@@ -1,12 +1,12 @@
-name: gb
+name: cryboy
 version: 0.1.0
 
 authors:
   - Matthew Berry <me@mattrb.com>
 
 targets:
-  gb:
-    main: src/gb.cr
+  cryboy:
+    main: src/cryboy.cr
 
 crystal: 0.34.0
 
