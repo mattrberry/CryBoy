@@ -99,7 +99,11 @@ class Cartridge < BinData
       @program = Bytes.new file.size
       file.read @program
     end
-    @ram = Bytes.new Memory::EXTERNAL_RAM.size, 0
+    @ram = Bytes.new Memory::EXTERNAL_RAM.size
+  end
+
+  def initialize(@program : Bytes)
+    @ram = Bytes.new Memory::EXTERNAL_RAM.size
   end
 
   def [](index : Int) : UInt8
@@ -110,6 +114,6 @@ class Cartridge < BinData
   end
 
   def []=(index : Int, value : UInt8) : Nil
-    @ram[index - Memory::EXTERNAL_RAM.begin] if Memory::EXTERNAL_RAM.includes? index
+    @ram[index - Memory::EXTERNAL_RAM.begin] = value if Memory::EXTERNAL_RAM.includes? index
   end
 end

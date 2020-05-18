@@ -59,7 +59,7 @@ class CPU
 
   property sp
   property pc
-  property ime
+  property ime # todo test how this changes
   property memory
 
   def initialize(@memory : Memory, boot = false)
