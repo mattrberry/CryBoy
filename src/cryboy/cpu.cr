@@ -1162,6 +1162,7 @@ class CPU
         return 8
       when 0xFF
         raise "FAILED TO MATCH 0xFF"
+      else raise "UNMATCHED OPCODE #{opcode}"
       end
     else
       case opcode
@@ -1933,6 +1934,7 @@ class CPU
       when 0xFF
         raise "FAILED TO MATCH CB-0xFF"
         return 8
+      else raise "UNMATCHED CB-OPCODE #{opcode}"
       end
     end
     raise "MEMES?"

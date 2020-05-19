@@ -90,6 +90,7 @@ class Memory
       end
     when HRAM          then @memory[index] = value
     when INTERRUPT_REG then @memory[index] = value
+    else               raise "FAILED TO SET INDEX #{index}"
     end
   end
 

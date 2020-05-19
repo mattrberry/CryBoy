@@ -66,6 +66,7 @@ class Motherboard
           puts "ctrl+q"
           exit 0
         end
+      else nil # Crystal will soon require exhaustive cases
       end
       if @ppu.lcd_enabled?
         (0...144).each do |y|
