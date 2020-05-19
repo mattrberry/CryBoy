@@ -235,6 +235,265 @@ describe CPU do
         cpu.f_c.should eq true
       end
     end
+
+    describe "0x10" do
+      it "stops execution" do
+        # todo: implement and test
+      end
+    end
+
+    describe "0x11" do
+      it "loads de with d16" do
+        d16 = 0x1234
+        cpu = new_cpu [0x11, d16 & 0xFF, d16 >> 8]
+        cpu.tick
+
+        cpu.pc.should eq 3
+        cpu.sp.should eq 0xFFFE
+        cpu.de.should eq d16
+      end
+    end
+
+    describe "0x12" do
+      it "loads (de) with a" do
+        cpu = new_cpu [0x12]
+        cpu.a = 0x34
+        cpu.de = 0xA000
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.memory[0xA000].should eq 0x34
+      end
+    end
+
+    describe "0x13" do
+      it "increments de" do
+        cpu = new_cpu [0x13]
+        cpu.de = 0x1234
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.de.should eq 0x1235
+      end
+    end
+
+    describe "0x14" do
+      it "increments d" do
+        cpu = new_cpu [0x14]
+        cpu.d = 0x12
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.d.should eq 0x13
+      end
+    end
+
+    describe "0x15" do
+      it "decrements d" do
+        cpu = new_cpu [0x15]
+        cpu.d = 0x12
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.d.should eq 0x11
+      end
+    end
+
+    describe "0x16" do
+      it "loads d with d8" do
+        d8 = 0x12
+        cpu = new_cpu [0x16, d8]
+        cpu.tick
+
+        cpu.pc.should eq 2
+        cpu.sp.should eq 0xFFFE
+        cpu.d.should eq d8
+      end
+    end
+
+    describe "0x17" do
+      it "rotates accumulator left through carry w/o carry" do
+        cpu = new_cpu [0x17]
+        cpu.a = 0b01011010
+        cpu.f_c = true
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.a.should eq 0b10110101
+        cpu.f_c.should eq false
+      end
+
+      it "rotates accumulator left through carry w/ carry" do
+        cpu = new_cpu [0x17]
+        cpu.a = 0b10100101
+        cpu.f_c = false
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.a.should eq 0b01001010
+        cpu.f_c.should eq true
+      end
+    end
+
+    # todo codes here
+
+    describe "0x21" do
+      it "loads hl with d16" do
+        d16 = 0x1234
+        cpu = new_cpu [0x21, d16 & 0xFF, d16 >> 8]
+        cpu.tick
+
+        cpu.pc.should eq 3
+        cpu.sp.should eq 0xFFFE
+        cpu.hl.should eq d16
+      end
+    end
+
+    describe "0x22" do
+      it "loads (hl+) with a" do
+        cpu = new_cpu [0x22]
+        cpu.a = 0x34
+        cpu.hl = 0xA000
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.memory[0xA000].should eq 0x34
+        cpu.hl.should eq 0xA001
+      end
+    end
+
+    describe "0x23" do
+      it "increments hl" do
+        cpu = new_cpu [0x23]
+        cpu.hl = 0x1234
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.hl.should eq 0x1235
+      end
+    end
+
+    describe "0x24" do
+      it "increments h" do
+        cpu = new_cpu [0x24]
+        cpu.h = 0x12
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.h.should eq 0x13
+      end
+    end
+
+    describe "0x25" do
+      it "decrements h" do
+        cpu = new_cpu [0x25]
+        cpu.h = 0x12
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.h.should eq 0x11
+      end
+    end
+
+    describe "0x26" do
+      it "loads h with d8" do
+        d8 = 0x12
+        cpu = new_cpu [0x26, d8]
+        cpu.tick
+
+        cpu.pc.should eq 2
+        cpu.sp.should eq 0xFFFE
+        cpu.h.should eq d8
+      end
+    end
+
+    # todo codes here
+
+    describe "0x31" do
+      it "loads sp with d16" do
+        d16 = 0x1234
+        cpu = new_cpu [0x31, d16 & 0xFF, d16 >> 8]
+        cpu.tick
+
+        cpu.pc.should eq 3
+        cpu.sp.should eq d16
+      end
+    end
+
+    describe "0x32" do
+      it "loads (hl-) with a" do
+        cpu = new_cpu [0x32]
+        cpu.a = 0x34
+        cpu.hl = 0xA000
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.memory[0xA000].should eq 0x34
+        cpu.hl.should eq 0x9FFF
+      end
+    end
+
+    describe "0x33" do
+      it "increments sp" do
+        cpu = new_cpu [0x33]
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFF
+      end
+    end
+
+    describe "0x34" do
+      it "increments (hl)" do
+        cpu = new_cpu [0x34]
+        cpu.memory[0xA000] = 0x12_u8
+        cpu.hl = 0xA000
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.memory[0xA000].should eq 0x13
+      end
+    end
+
+    describe "0x35" do
+      it "decrements (hl)" do
+        cpu = new_cpu [0x35]
+        cpu.memory[0xA000] = 0x12_u8
+        cpu.hl = 0xA000
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+        cpu.memory[0xA000].should eq 0x11
+      end
+    end
+
+    describe "0x36" do
+      it "loads (hl) with d8" do
+        d8 = 0x12
+        cpu = new_cpu [0x36, d8]
+        cpu.hl = 0xA000
+        cpu.tick
+
+        cpu.pc.should eq 2
+        cpu.sp.should eq 0xFFFE
+        cpu.memory[0xA000].should eq d8
+      end
+    end
+
+    # todo codes here
   end
 
   describe "prefixed opcode" do
@@ -254,5 +513,7 @@ describe CPU do
         cpu.f_h.should eq true
       end
     end
+
+    # todo codes here
   end
 end

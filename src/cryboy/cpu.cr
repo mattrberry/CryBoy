@@ -413,11 +413,12 @@ class CPU
         @d = d8
         return 8
       when 0x17
+        carry = @a & 0x80
+        @a = (@a << 1) + (self.f_c ? 1 : 0)
         self.f_z = false
         self.f_n = false
         self.f_h = false
-        self.f_c = @a & 0x80
-        @a = (@a << 1) + (f_c ? 1 : 0)
+        self.f_c = carry
         return 4
       when 0x18
         @pc &+= r8
@@ -445,7 +446,7 @@ class CPU
         self.f_n = false
         self.f_h = false
         # f_c remains the same. if it was set, we have a carry
-        @a = (@a >> 1) + (f_c ? 0x80 : 0x00)
+        @a = (@a >> 1) + (self.f_c ? 0x80 : 0x00)
         return 4
       when 0x20
         if self.f_nz
