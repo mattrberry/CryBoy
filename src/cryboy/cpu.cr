@@ -250,9 +250,9 @@ class CPU
   end
 
   def bit(op : UInt8, bit : Int) : Nil
-    f_z = (op >> bit) & 0x1
-    f_n = false
-    f_h = true
+    self.f_z = (op >> bit) & 0x1
+    self.f_n = false
+    self.f_h = true
   end
 
   def handle_interrupts
@@ -448,7 +448,7 @@ class CPU
         @a = (@a >> 1) + (f_c ? 0x80 : 0x00)
         return 4
       when 0x20
-        if f_nz
+        if self.f_nz
           @pc &+= r8
           return 12
         end
@@ -475,7 +475,7 @@ class CPU
       when 0x27
         raise "FAILED TO MATCH 0x27"
       when 0x28
-        if f_z
+        if self.f_z
           @pc &+= r8
           return 12
         end
@@ -502,7 +502,7 @@ class CPU
       when 0x2F
         raise "FAILED TO MATCH 0x2F"
       when 0x30
-        if f_nc
+        if self.f_nc
           @pc &+= r8
           return 12
         end
@@ -532,7 +532,7 @@ class CPU
         self.f_c = true
         return 4
       when 0x38
-        if f_c
+        if self.f_c
           @pc &+= r8
           return 12
         end
@@ -945,7 +945,7 @@ class CPU
         sub @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0xC0
-        if f_nz
+        if self.f_nz
           @pc = @memory.read_word @sp; @sp += 2
           return 20
         end
@@ -954,7 +954,7 @@ class CPU
         self.bc = pop
         return 12
       when 0xC2
-        if f_nz
+        if self.f_nz
           @pc = d16.to_u16
           return 16
         end
@@ -963,7 +963,7 @@ class CPU
         @pc = d16.to_u16
         return 16
       when 0xC4
-        if f_nz
+        if self.f_nz
           @sp -= 2
           @memory[@sp] = @pc
           @pc = d16
@@ -979,7 +979,7 @@ class CPU
       when 0xC7
         raise "FAILED TO MATCH 0xC7"
       when 0xC8
-        if f_z
+        if self.f_z
           @pc = @memory.read_word @sp; @sp += 2
           return 20
         end
@@ -989,17 +989,21 @@ class CPU
         return 16
         return 16
       when 0xCA
-        if f_z
+        if self.f_z
           @pc = d16.to_u16
           return 16
         end
         return 12
       when 0xCB
+        # todo: This should operate as a seperate instruction, but can't be interrupted.
+        #       This will require a restructure where the CPU leads the timing, rather than the PPU.
+        #       https://discordapp.com/channels/465585922579103744/465586075830845475/712358911151177818
+        #       https://discordapp.com/channels/465585922579103744/465586075830845475/712359253255520328
         next_op = read_opcode
         return process_opcode next_op, cb = true
         return 4
       when 0xCC
-        if f_z
+        if self.f_z
           @sp -= 2
           @memory[@sp] = @pc
           @pc = d16
@@ -1018,7 +1022,7 @@ class CPU
       when 0xCF
         raise "FAILED TO MATCH 0xCF"
       when 0xD0
-        if f_nc
+        if self.f_nc
           @pc = @memory.read_word @sp; @sp += 2
           return 20
         end
@@ -1027,14 +1031,14 @@ class CPU
         self.de = pop
         return 12
       when 0xD2
-        if f_nc
+        if self.f_nc
           @pc = d16.to_u16
           return 16
         end
         return 12
         # 0xD3 has no functionality
       when 0xD4
-        if f_nc
+        if self.f_nc
           @sp -= 2
           @memory[@sp] = @pc
           @pc = d16
@@ -1050,7 +1054,7 @@ class CPU
       when 0xD7
         raise "FAILED TO MATCH 0xD7"
       when 0xD8
-        if f_c
+        if self.f_c
           @pc = @memory.read_word @sp; @sp += 2
           return 20
         end
@@ -1061,14 +1065,14 @@ class CPU
         return 16
         return 16
       when 0xDA
-        if f_c
+        if self.f_c
           @pc = d16.to_u16
           return 16
         end
         return 12
         # 0xDB has no functionality
       when 0xDC
-        if f_c
+        if self.f_c
           @sp -= 2
           @memory[@sp] = @pc
           @pc = d16
