@@ -996,7 +996,7 @@ class CPU
         return 12
       when 0xCB
         next_op = read_opcode
-        return 4 + process_opcode next_op, cb = true
+        return process_opcode next_op, cb = true
         return 4
       when 0xCC
         if f_z
