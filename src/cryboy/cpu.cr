@@ -65,36 +65,44 @@ class CPU
   end
 
   def skip_boot
+    # https://gbdev.io/pandocs/#power-up-sequence
     @pc = 0x0100_u16
     @sp = 0xFFFE_u16
     self.af = 0x01B0_u16
     self.bc = 0x0013_u16
     self.de = 0x00D8_u16
     self.hl = 0x014D_u16
-    @sp = 0xFFFE_u16
-    # set IO reigster state
-    @memory[0xFF10] = 0x80_u8
-    @memory[0xFF11] = 0xBF_u8
-    @memory[0xFF12] = 0xF3_u8
-    @memory[0xFF14] = 0xBF_u8
-    @memory[0xFF16] = 0x3F_u8
-    @memory[0xFF19] = 0xBF_u8
-    @memory[0xFF1A] = 0x7F_u8
-    @memory[0xFF1B] = 0xFF_u8
-    @memory[0xFF1C] = 0x9F_u8
-    @memory[0xFF1E] = 0xBF_u8
-    @memory[0xFF20] = 0xFF_u8
-    @memory[0xFF23] = 0xBF_u8
-    @memory[0xFF24] = 0x77_u8
-    @memory[0xFF25] = 0xF3_u8
-    @memory[0xFF26] = 0xF1_u8
-    @memory[0xFF40] = 0x91_u8
-    @memory[0xFF41] = 0x05_u8
-    @memory[0xFF47] = 0xFC_u8
-    @memory[0xFF48] = 0xFF_u8
-    @memory[0xFF49] = 0xFF_u8
-    # unmap the boot rom
-    @memory[0xFF50] = 0x01_u8
+    @memory[0xFF05] = 0x00_u8 # TIMA
+    @memory[0xFF06] = 0x00_u8 # TMA
+    @memory[0xFF07] = 0x00_u8 # TAC
+    @memory[0xFF10] = 0x80_u8 # NR10
+    @memory[0xFF11] = 0xBF_u8 # NR11
+    @memory[0xFF12] = 0xF3_u8 # NR12
+    @memory[0xFF14] = 0xBF_u8 # NR14
+    @memory[0xFF16] = 0x3F_u8 # NR21
+    @memory[0xFF17] = 0x00_u8 # NR22
+    @memory[0xFF19] = 0xBF_u8 # NR24
+    @memory[0xFF1A] = 0x7F_u8 # NR30
+    @memory[0xFF1B] = 0xFF_u8 # NR31
+    @memory[0xFF1C] = 0x9F_u8 # NR32
+    @memory[0xFF1E] = 0xBF_u8 # NR33
+    @memory[0xFF20] = 0xFF_u8 # NR41
+    @memory[0xFF21] = 0x00_u8 # NR42
+    @memory[0xFF22] = 0x00_u8 # NR43
+    @memory[0xFF23] = 0xBF_u8 # NR44
+    @memory[0xFF24] = 0x77_u8 # NR50
+    @memory[0xFF25] = 0xF3_u8 # NR51
+    @memory[0xFF26] = 0xF1_u8 # NR52
+    @memory[0xFF40] = 0x91_u8 # LCDC
+    @memory[0xFF42] = 0x00_u8 # SCY
+    @memory[0xFF43] = 0x00_u8 # SCX
+    @memory[0xFF45] = 0x00_u8 # LYC
+    @memory[0xFF47] = 0xFC_u8 # BGP
+    @memory[0xFF48] = 0xFF_u8 # OBP0
+    @memory[0xFF49] = 0xFF_u8 # OBP1
+    @memory[0xFF4A] = 0x00_u8 # WY
+    @memory[0xFF4B] = 0x00_u8 # WX
+    @memory[0xFFFF] = 0x00_u8 # IE
   end
 
   def pop : UInt16
@@ -497,7 +505,10 @@ class CPU
         @l = d8
         return 8
       when 0x2F
-        raise "FAILED TO MATCH 0x2F"
+        @a = ~a
+        self.f_n = true
+        self.f_h = true
+        return 4
       when 0x30
         if self.f_nc
           @pc &+= r8
@@ -1030,7 +1041,10 @@ class CPU
         @a = add @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0xC7
-        raise "FAILED TO MATCH 0xC7"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x0000_u16
+        return 16
       when 0xC8
         if self.f_z
           @pc = @memory.read_word @sp; @sp += 2
@@ -1073,7 +1087,10 @@ class CPU
         @a = adc @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0xCF
-        raise "FAILED TO MATCH 0xCF"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x0008_u16
+        return 16
       when 0xD0
         if self.f_nc
           @pc = @memory.read_word @sp; @sp += 2
@@ -1109,7 +1126,10 @@ class CPU
         @a &-= d8
         return 8
       when 0xD7
-        raise "FAILED TO MATCH 0xD7"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x0010_u16
+        return 16
       when 0xD8
         if self.f_c
           @pc = @memory.read_word @sp; @sp += 2
@@ -1141,7 +1161,10 @@ class CPU
         @a = sbc @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0xDF
-        raise "FAILED TO MATCH 0xDF"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x0018_u16
+        return 16
       when 0xE0
         @memory[0xFF00 + d8] = @a
         return 12
@@ -1160,7 +1183,10 @@ class CPU
         @a = and @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 8
       when 0xE7
-        raise "FAILED TO MATCH 0xE7"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x0020_u16
+        return 16
       when 0xE8
         @sp = add @sp, r8, z = FlagOp::ZERO, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 16
@@ -1177,7 +1203,10 @@ class CPU
         @a = xor @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 8
       when 0xEF
-        raise "FAILED TO MATCH 0xEF"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x0028_u16
+        return 16
       when 0xF0
         @a = @memory[0xFF00 + d8]
         return 12
@@ -1198,7 +1227,10 @@ class CPU
         @a = or @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 8
       when 0xF7
-        raise "FAILED TO MATCH 0xF7"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x0030_u16
+        return 16
       when 0xF8
         self.hl = @sp + r8
         return 12
@@ -1220,7 +1252,10 @@ class CPU
         self.f_c = @a < d8
         return 8
       when 0xFF
-        raise "FAILED TO MATCH 0xFF"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x0038_u16
+        return 16
       else raise "UNMATCHED OPCODE #{opcode}"
       end
     else
@@ -1450,83 +1485,115 @@ class CPU
         raise "FAILED TO MATCH CB-0x2F"
         return 8
       when 0x30
-        raise "FAILED TO MATCH CB-0x30"
+        @b = (@b << 4) + (@b >> 4)
+        self.f_z = @b == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x31
-        raise "FAILED TO MATCH CB-0x31"
+        @c = (@c << 4) + (@c >> 4)
+        self.f_z = @c == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x32
-        raise "FAILED TO MATCH CB-0x32"
+        @d = (@d << 4) + (@d >> 4)
+        self.f_z = @d == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x33
-        raise "FAILED TO MATCH CB-0x33"
+        @e = (@e << 4) + (@e >> 4)
+        self.f_z = @e == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x34
-        raise "FAILED TO MATCH CB-0x34"
+        @h = (@h << 4) + (@h >> 4)
+        self.f_z = @h == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x35
-        raise "FAILED TO MATCH CB-0x35"
+        @l = (@l << 4) + (@l >> 4)
+        self.f_z = @l == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x36
-        raise "FAILED TO MATCH CB-0x36"
+        @memory[self.hl] = (@memory[self.hl] << 4) + (@memory[self.hl] >> 4)
+        self.f_z = @memory[self.hl] == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = false
         return 16
       when 0x37
-        raise "FAILED TO MATCH CB-0x37"
+        @a = (@a << 4) + (@a >> 4)
+        self.f_z = @a == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x38
-        f_z = @b <= 1
-        f_n = false
-        f_h = false
-        f_c = @b & 0x1
+        self.f_z = @b <= 1
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @b & 0x1
         @b = @b >> 1
         return 8
       when 0x39
-        f_z = @c <= 1
-        f_n = false
-        f_h = false
-        f_c = @c & 0x1
+        self.f_z = @c <= 1
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @c & 0x1
         @c = @c >> 1
         return 8
       when 0x3A
-        f_z = @d <= 1
-        f_n = false
-        f_h = false
-        f_c = @d & 0x1
+        self.f_z = @d <= 1
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @d & 0x1
         @d = @d >> 1
         return 8
       when 0x3B
-        f_z = @e <= 1
-        f_n = false
-        f_h = false
-        f_c = @e & 0x1
+        self.f_z = @e <= 1
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @e & 0x1
         @e = @e >> 1
         return 8
       when 0x3C
-        f_z = @h <= 1
-        f_n = false
-        f_h = false
-        f_c = @h & 0x1
+        self.f_z = @h <= 1
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @h & 0x1
         @h = @h >> 1
         return 8
       when 0x3D
-        f_z = @l <= 1
-        f_n = false
-        f_h = false
-        f_c = @l & 0x1
+        self.f_z = @l <= 1
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @l & 0x1
         @l = @l >> 1
         return 8
       when 0x3E
-        f_z = @memory[self.hl] <= 1
-        f_n = false
-        f_h = false
-        f_c = @memory[self.hl] & 0x1
+        self.f_z = @memory[self.hl] <= 1
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @memory[self.hl] & 0x1
         @memory[self.hl] = @memory[self.hl] >> 1
         return 16
       when 0x3F
-        f_z = @a <= 1
-        f_n = false
-        f_h = false
-        f_c = @a & 0x1
+        self.f_z = @a <= 1
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @a & 0x1
         @a = @a >> 1
         return 8
       when 0x40
