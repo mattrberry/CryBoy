@@ -36,7 +36,8 @@ class Display
             msb = (byte_2 >> (7 - tile_col)) & 0x1
             @all_tiles_renderer.draw_color = @colors[(msb << 1) | lsb]
             # puts "x:#{8 * x + tile_col},\ty:#{8 * y + tile_row},\tmsb:#{msb},\tlsb:#{lsb},\tcom:#{(msb << 1) | lsb}, color:#{@colors[(msb << 1) | lsb]}"
-            @all_tiles_renderer.fill_rect((8 * x + tile_col) * @scale, (8 * y + tile_row) * @scale, @scale, @scale)
+            # @all_tiles_renderer.fill_rect((8 * x + tile_col) * @scale, (8 * y + tile_row) * @scale, @scale, @scale)
+            @all_tiles_renderer.fill_rect((8 * (x % 16) + tile_col) * @scale, (8 * (y + (x // 16)) + tile_row) * @scale, @scale, @scale)
           end
         end
       end
