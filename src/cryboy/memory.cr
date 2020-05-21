@@ -70,6 +70,7 @@ class Memory
   end
 
   def []=(index : Int, value : UInt8) : Nil
+    # puts "writing at index #{hex_str index.to_u16!} : #{hex_str value}"
     # todo other dma stuff
     case index
     when ROM_BANK_0   then @cartridge[index] = value
