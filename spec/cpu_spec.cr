@@ -494,6 +494,259 @@ describe CPU do
     end
 
     # todo codes here
+
+    describe "0xC0" do
+      it "returns if nz" do
+        cpu = new_cpu [0xC0]
+        cpu.sp = 0xFF00_u16
+        cpu.memory[0xFF00] = 0x1234_u16
+        cpu.f_z = false
+        cpu.tick
+
+        cpu.pc.should eq 0x1234
+        cpu.sp.should eq 0xFF02
+      end
+
+      it "doesn't return if not nz" do
+        cpu = new_cpu [0xC0]
+        cpu.f_z = true
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+      end
+    end
+
+    describe "0xC1" do
+      it "pops bc" do
+        cpu = new_cpu [0xC1]
+        cpu.sp = 0xFF00_u16
+        cpu.memory[0xFF00_u16] = 0x1234
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFF02
+        cpu.bc.should eq 0x1234
+      end
+    end
+
+    describe "0xC2" do
+      it "jumps to a16 if nz" do
+        a16 = 0xA000
+        cpu = new_cpu [0xC2, a16 & 0xFF, a16 >> 8]
+        cpu.f_z = false
+        cpu.tick
+
+        cpu.pc.should eq a16
+        cpu.sp.should eq 0xFFFE
+      end
+
+      it "doesn't jump to a16 if not nz" do
+        a16 = 0xA000
+        cpu = new_cpu [0xC2, a16 & 0xFF, a16 >> 8]
+        cpu.f_z = true
+        cpu.tick
+
+        cpu.pc.should eq 3
+        cpu.sp.should eq 0xFFFE
+      end
+    end
+
+    describe "0xC3" do
+      it "jumps to a16" do
+        a16 = 0xA000
+        cpu = new_cpu [0xC3, a16 & 0xFF, a16 >> 8]
+        cpu.tick
+
+        cpu.pc.should eq 0xA000
+        cpu.sp.should eq 0xFFFE
+      end
+
+      it "jumps to a16 regardless of nz" do
+        a16 = 0xAC00
+        cpu = new_cpu [0xC3, a16 & 0xFF, a16 >> 8]
+        cpu.f_z = false
+        cpu.tick
+        cpu.pc.should eq a16
+        cpu = new_cpu [0xC3, a16 & 0xFF, a16 >> 8]
+        cpu.f_z = true
+        cpu.tick
+        cpu.pc.should eq a16
+      end
+    end
+
+    describe "0xC4" do
+      it "calls a16 if nz" do
+        a16 = 0xAC00
+        cpu = new_cpu [0xC4, a16 & 0xFF, a16 >> 8]
+        cpu.f_z = false
+        cpu.tick
+
+        cpu.pc.should eq 0xAC00
+        cpu.sp.should eq 0xFFFC
+        cpu.memory[0xFFFD].should eq 0x00
+        cpu.memory[0xFFFC].should eq 0x03
+      end
+
+      it "doesn't call a16 if not nz" do
+        a16 = 0xAC00
+        cpu = new_cpu [0xC4, a16 & 0xFF, a16 >> 8]
+        cpu.f_z = true
+        cpu.tick
+
+        cpu.pc.should eq 3
+        cpu.sp.should eq 0xFFFE
+      end
+    end
+
+    describe "0xC5" do
+      it "pushes bc" do
+        cpu = new_cpu [0xC5]
+        cpu.bc = 0x1234_u16
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFC
+        cpu.memory[0xFFFD].should eq 0x12
+        cpu.memory[0xFFFC].should eq 0x34
+      end
+    end
+
+    describe "0xC6" do
+      it "adds d8 to a" do
+        d8 = 0x01
+        cpu = new_cpu [0xC6, d8]
+        cpu.a = 0xFF
+        cpu.tick
+
+        cpu.pc.should eq 2
+        cpu.sp.should eq 0xFFFE
+        cpu.a.should eq 0x00
+        cpu.f_z.should eq true
+        cpu.f_n.should eq false
+        cpu.f_h.should eq true
+        cpu.f_c.should eq true
+      end
+    end
+
+    # todo codes here
+
+    describe "0xD0" do
+      it "returns if nc" do
+        cpu = new_cpu [0xD0]
+        cpu.sp = 0xFF00_u16
+        cpu.memory[0xFF00] = 0x1234_u16
+        cpu.f_c = false
+        cpu.tick
+
+        cpu.pc.should eq 0x1234
+        cpu.sp.should eq 0xFF02
+      end
+
+      it "doesn't return if not nc" do
+        cpu = new_cpu [0xD0]
+        cpu.f_c = true
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFE
+      end
+    end
+
+    describe "0xD1" do
+      it "pops de" do
+        cpu = new_cpu [0xD1]
+        cpu.sp = 0xFF00_u16
+        cpu.memory[0xFF00_u16] = 0x1234
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFF02
+        cpu.de.should eq 0x1234
+      end
+    end
+
+    describe "0xD2" do
+      it "jumps to a16 if nc" do
+        a16 = 0xA000
+        cpu = new_cpu [0xD2, a16 & 0xFF, a16 >> 8]
+        cpu.f_c = false
+        cpu.tick
+
+        cpu.pc.should eq a16
+        cpu.sp.should eq 0xFFFE
+      end
+
+      it "doesn't jump to a16 if not nc" do
+        a16 = 0xA000
+        cpu = new_cpu [0xD2, a16 & 0xFF, a16 >> 8]
+        cpu.f_c = true
+        cpu.tick
+
+        cpu.pc.should eq 3
+        cpu.sp.should eq 0xFFFE
+      end
+    end
+
+    describe "0xD3" do
+      # unused opcode
+    end
+
+    describe "0xD4" do
+      it "calls a16 if nc" do
+        a16 = 0xAC00
+        cpu = new_cpu [0xD4, a16 & 0xFF, a16 >> 8]
+        cpu.f_c = false
+        cpu.tick
+
+        cpu.pc.should eq 0xAC00
+        cpu.sp.should eq 0xFFFC
+        cpu.memory[0xFFFD].should eq 0x00
+        cpu.memory[0xFFFC].should eq 0x03
+      end
+
+      it "doesn't call a16 if not nc" do
+        a16 = 0xAC00
+        cpu = new_cpu [0xD4, a16 & 0xFF, a16 >> 8]
+        cpu.f_c = true
+        cpu.tick
+
+        cpu.pc.should eq 3
+        cpu.sp.should eq 0xFFFE
+      end
+    end
+
+    describe "0xD5" do
+      it "pushes de" do
+        cpu = new_cpu [0xD5]
+        cpu.de = 0x1234_u16
+        cpu.tick
+
+        cpu.pc.should eq 1
+        cpu.sp.should eq 0xFFFC
+        cpu.memory[0xFFFD].should eq 0x12
+        cpu.memory[0xFFFC].should eq 0x34
+      end
+    end
+
+    describe "0xD6" do
+      it "subs d8 from a" do
+        d8 = 0x01
+        cpu = new_cpu [0xD6, d8]
+        cpu.a = 0x00
+        cpu.tick
+
+        cpu.pc.should eq 2
+        cpu.sp.should eq 0xFFFE
+        cpu.a.should eq 0xFF
+        cpu.f_z.should eq false
+        cpu.f_n.should eq true
+        cpu.f_h.should eq false
+        cpu.f_c.should eq true
+      end
+    end
+
+    # todo codes here
   end
 
   describe "prefixed opcode" do
