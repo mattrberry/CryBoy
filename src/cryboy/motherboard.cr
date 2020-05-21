@@ -7,12 +7,12 @@ require "./ppu"
 require "./util"
 
 class Motherboard
-  def initialize(rom_path : String)
-    @cartridge = Cartridge.new rom_path
+  def initialize(bootrom : String?, rom : String)
+    @cartridge = Cartridge.new bootrom, rom
     # puts "Title: #{@cartridge.title}"
     # puts "Size:  #{@cartridge.rom_size}"
     @memory = Memory.new @cartridge
-    @cpu = CPU.new @memory
+    @cpu = CPU.new @memory, boot: !bootrom.nil?
     @ppu = PPU.new @memory
     @display = Display.new
   end
@@ -52,21 +52,18 @@ class Motherboard
     # repeat hz: 16384, in_fiber: true { timer_divider }
     # repeat hz: @memory[0xFF07] == 0b00 ? 4096 : @memory[0xFF07] == 0b01 ? 262144 : @memory[0xFF07] == 0b10 ? 65536 : 16384, in_fiber: true { timer_counter }
     repeat hz: 60 do
-      event = SDL::Event.poll
-      case event
-      when SDL::Event::Quit
-        puts "quit"
-        (0x9800..0x9BFF).each do |ptr|
-          print "#{hex_str @memory[ptr]} "
-        end
-        puts ""
-        exit 0
-      when SDL::Event::Keyboard
-        if event.mod.lctrl? && event.sym.q?
-          puts "ctrl+q"
+      while event = SDL::Event.poll
+        case event
+        when SDL::Event::Quit
+          puts "quit"
           exit 0
+        when SDL::Event::Keyboard
+          if event.mod.lctrl? && event.sym.q?
+            puts "ctrl+q"
+            exit 0
+          end
+        else nil # Crystal will soon require exhaustive cases
         end
-      else nil # Crystal will soon require exhaustive cases
       end
       if @ppu.lcd_enabled?
         (0...144).each do |y|

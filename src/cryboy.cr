@@ -6,11 +6,12 @@ module CryBoy
   extend self
 
   def run
-    if ARGV.size != 1
-      raise "Only arg should be the path to the rom"
-    end
+    raise "Provide the (optional) bootrom and game rom as arguments." if ARGV.size < 1 || ARGV.size > 2
+    rom = ARGV[0] if ARGV.size == 1
+    bootrom = ARGV[0] if ARGV.size == 2
+    rom = ARGV[1] if ARGV.size == 2
 
-    motherboard = Motherboard.new ARGV[0]
+    motherboard = Motherboard.new bootrom, rom.not_nil!
     motherboard.run
   end
 end

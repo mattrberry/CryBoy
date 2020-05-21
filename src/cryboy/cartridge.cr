@@ -94,12 +94,22 @@ class Cartridge < BinData
 
   @program : Bytes = Bytes.new 0
 
-  def initialize(rom_path : String)
-    File.open rom_path do |file|
+  def initialize(bootrom : String?, rom : String)
+    File.open rom do |file|
       @program = Bytes.new file.size
       file.read @program
     end
     @ram = Bytes.new Memory::EXTERNAL_RAM.size
+    if !bootrom.nil?
+      File.open bootrom do |file|
+        raise "Bootrom too big: #{file.size}" if file.size > 256
+        count = 0x00
+        file.each_byte do |byte|
+          @program[count] = byte
+          count += 1
+        end
+      end
+    end
   end
 
   def initialize(@program : Bytes)
