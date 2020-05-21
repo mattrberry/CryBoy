@@ -14,6 +14,7 @@ class Memory
 
   def initialize(@cartridge : Cartridge)
     @memory = Bytes.new 0xFFFF + 1
+    @memory[0xFF00] = 0xFF_u8 # 0 means the button is PRESSED
   end
 
   macro bit(name, location, mask)
