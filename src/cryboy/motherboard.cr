@@ -8,10 +8,10 @@ require "./util"
 
 class Motherboard
   def initialize(bootrom : String?, rom : String)
-    @cartridge = Cartridge.new bootrom, rom
+    @cartridge = Cartridge.new rom
     # puts "Title: #{@cartridge.title}"
     # puts "Size:  #{@cartridge.rom_size}"
-    @memory = Memory.new @cartridge
+    @memory = Memory.new @cartridge, bootrom
     @cpu = CPU.new @memory, boot: !bootrom.nil?
     @ppu = PPU.new @memory
     @display = Display.new

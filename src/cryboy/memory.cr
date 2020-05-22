@@ -12,9 +12,19 @@ class Memory
   HRAM          = 0xFF80..0xFFFE
   INTERRUPT_REG = 0xFFFF
 
-  def initialize(@cartridge : Cartridge)
+  @bootrom = Bytes.new 0
+
+  def initialize(@cartridge : Cartridge, bootrom : String?)
     @memory = Bytes.new 0xFFFF + 1
     @memory[0xFF00] = 0xFF_u8 # 0 means the button is PRESSED
+
+    if !bootrom.nil?
+      File.open bootrom do |file|
+        raise "Bootrom too big: #{file.size}" if file.size > 256
+        @bootrom = Bytes.new file.size
+        file.read @bootrom
+      end
+    end
   end
 
   macro bit(name, location, mask)
@@ -54,23 +64,25 @@ class Memory
 
   def [](index : Int) : UInt8
     case index
-    when ROM_BANK_0    then return @cartridge[index]
-    when ROM_BANK_N    then return @cartridge[index]
-    when VRAM          then return @memory[index]
-    when EXTERNAL_RAM  then return @cartridge[index]
-    when WORK_RAM_0    then return @memory[index]
-    when WORK_RAM_N    then return @memory[index]
-    when ECHO          then return @memory[index - 0x2000]
-    when SPRITE_TABLE  then return @memory[index]
-    when NOT_USABLE    then return 0_u8
-    when IO_PORTS      then return @memory[index]
-    when HRAM          then return @memory[index]
-    when INTERRUPT_REG then return @memory[index]
-    else                    raise "FAILED TO GET INDEX #{index}"
+    when 0x0000...@bootrom.size then return @bootrom.nil? ? @cartridge[index] : @bootrom[index]
+    when ROM_BANK_0             then return @cartridge[index]
+    when ROM_BANK_N             then return @cartridge[index]
+    when VRAM                   then return @memory[index]
+    when EXTERNAL_RAM           then return @cartridge[index]
+    when WORK_RAM_0             then return @memory[index]
+    when WORK_RAM_N             then return @memory[index]
+    when ECHO                   then return @memory[index - 0x2000]
+    when SPRITE_TABLE           then return @memory[index]
+    when NOT_USABLE             then return 0_u8
+    when IO_PORTS               then return @memory[index]
+    when HRAM                   then return @memory[index]
+    when INTERRUPT_REG          then return @memory[index]
+    else                             raise "FAILED TO GET INDEX #{index}"
     end
   end
 
   def []=(index : Int, value : UInt8) : Nil
+    @bootrom = Bytes.new 0 if index == 0xFF50 && value == 0x01
     # puts "writing at index #{hex_str index.to_u16!} : #{hex_str value}"
     # todo other dma stuff
     case index
@@ -85,14 +97,14 @@ class Memory
     when NOT_USABLE   then nil # todo: should I raise here?
     when IO_PORTS
       case index
-      when 0xFF01 then @memory[index] = value #; print value.chr
+      when 0xFF01 then @memory[index] = value # ; print value.chr
       when 0xFF04 then @memory[index] = 0x00_u8
       when 0xFF46 then dma_transfer(value.to_u16 << 8)
       else             @memory[index] = value
       end
     when HRAM          then @memory[index] = value
     when INTERRUPT_REG then @memory[index] = value
-    else               raise "FAILED TO SET INDEX #{index}"
+    else                    raise "FAILED TO SET INDEX #{index}"
     end
   end
 
