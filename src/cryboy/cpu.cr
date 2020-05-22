@@ -1789,388 +1789,388 @@ class CPU
         bit @a, 7
         return 8
       when 0x80
-        raise "FAILED TO MATCH CB-0x80"
+        @b &= ~(0x1 << 0)
         return 8
       when 0x81
-        raise "FAILED TO MATCH CB-0x81"
+        @c &= ~(0x1 << 0)
         return 8
       when 0x82
-        raise "FAILED TO MATCH CB-0x82"
+        @d &= ~(0x1 << 0)
         return 8
       when 0x83
-        raise "FAILED TO MATCH CB-0x83"
+        @e &= ~(0x1 << 0)
         return 8
       when 0x84
-        raise "FAILED TO MATCH CB-0x84"
+        @h &= ~(0x1 << 0)
         return 8
       when 0x85
-        raise "FAILED TO MATCH CB-0x85"
+        @l &= ~(0x1 << 0)
         return 8
       when 0x86
-        raise "FAILED TO MATCH CB-0x86"
+        @memory[self.hl] &= ~(0x1 << 0)
         return 16
       when 0x87
-        raise "FAILED TO MATCH CB-0x87"
+        @a &= ~(0x1 << 0)
         return 8
       when 0x88
-        raise "FAILED TO MATCH CB-0x88"
+        @b &= ~(0x1 << 1)
         return 8
       when 0x89
-        raise "FAILED TO MATCH CB-0x89"
+        @c &= ~(0x1 << 1)
         return 8
       when 0x8A
-        raise "FAILED TO MATCH CB-0x8A"
+        @d &= ~(0x1 << 1)
         return 8
       when 0x8B
-        raise "FAILED TO MATCH CB-0x8B"
+        @e &= ~(0x1 << 1)
         return 8
       when 0x8C
-        raise "FAILED TO MATCH CB-0x8C"
+        @h &= ~(0x1 << 1)
         return 8
       when 0x8D
-        raise "FAILED TO MATCH CB-0x8D"
+        @l &= ~(0x1 << 1)
         return 8
       when 0x8E
-        raise "FAILED TO MATCH CB-0x8E"
+        @memory[self.hl] &= ~(0x1 << 1)
         return 16
       when 0x8F
-        raise "FAILED TO MATCH CB-0x8F"
+        @a &= ~(0x1 << 1)
         return 8
       when 0x90
-        raise "FAILED TO MATCH CB-0x90"
+        @b &= ~(0x1 << 2)
         return 8
       when 0x91
-        raise "FAILED TO MATCH CB-0x91"
+        @c &= ~(0x1 << 2)
         return 8
       when 0x92
-        raise "FAILED TO MATCH CB-0x92"
+        @d &= ~(0x1 << 2)
         return 8
       when 0x93
-        raise "FAILED TO MATCH CB-0x93"
+        @e &= ~(0x1 << 2)
         return 8
       when 0x94
-        raise "FAILED TO MATCH CB-0x94"
+        @h &= ~(0x1 << 2)
         return 8
       when 0x95
-        raise "FAILED TO MATCH CB-0x95"
+        @l &= ~(0x1 << 2)
         return 8
       when 0x96
-        raise "FAILED TO MATCH CB-0x96"
+        @memory[self.hl] &= ~(0x1 << 2)
         return 16
       when 0x97
-        raise "FAILED TO MATCH CB-0x97"
+        @a &= ~(0x1 << 2)
         return 8
       when 0x98
-        raise "FAILED TO MATCH CB-0x98"
+        @b &= ~(0x1 << 3)
         return 8
       when 0x99
-        raise "FAILED TO MATCH CB-0x99"
+        @c &= ~(0x1 << 3)
         return 8
       when 0x9A
-        raise "FAILED TO MATCH CB-0x9A"
+        @d &= ~(0x1 << 3)
         return 8
       when 0x9B
-        raise "FAILED TO MATCH CB-0x9B"
+        @e &= ~(0x1 << 3)
         return 8
       when 0x9C
-        raise "FAILED TO MATCH CB-0x9C"
+        @h &= ~(0x1 << 3)
         return 8
       when 0x9D
-        raise "FAILED TO MATCH CB-0x9D"
+        @l &= ~(0x1 << 3)
         return 8
       when 0x9E
-        raise "FAILED TO MATCH CB-0x9E"
+        @memory[self.hl] &= ~(0x1 << 3)
         return 16
       when 0x9F
-        raise "FAILED TO MATCH CB-0x9F"
+        @a &= ~(0x1 << 3)
         return 8
       when 0xA0
-        raise "FAILED TO MATCH CB-0xA0"
+        @b &= ~(0x1 << 4)
         return 8
       when 0xA1
-        raise "FAILED TO MATCH CB-0xA1"
+        @c &= ~(0x1 << 4)
         return 8
       when 0xA2
-        raise "FAILED TO MATCH CB-0xA2"
+        @d &= ~(0x1 << 4)
         return 8
       when 0xA3
-        raise "FAILED TO MATCH CB-0xA3"
+        @e &= ~(0x1 << 4)
         return 8
       when 0xA4
-        raise "FAILED TO MATCH CB-0xA4"
+        @h &= ~(0x1 << 4)
         return 8
       when 0xA5
-        raise "FAILED TO MATCH CB-0xA5"
+        @l &= ~(0x1 << 4)
         return 8
       when 0xA6
-        raise "FAILED TO MATCH CB-0xA6"
+        @memory[self.hl] &= ~(0x1 << 4)
         return 16
       when 0xA7
-        raise "FAILED TO MATCH CB-0xA7"
+        @a &= ~(0x1 << 4)
         return 8
       when 0xA8
-        raise "FAILED TO MATCH CB-0xA8"
+        @b &= ~(0x1 << 5)
         return 8
       when 0xA9
-        raise "FAILED TO MATCH CB-0xA9"
+        @c &= ~(0x1 << 5)
         return 8
       when 0xAA
-        raise "FAILED TO MATCH CB-0xAA"
+        @d &= ~(0x1 << 5)
         return 8
       when 0xAB
-        raise "FAILED TO MATCH CB-0xAB"
+        @e &= ~(0x1 << 5)
         return 8
       when 0xAC
-        raise "FAILED TO MATCH CB-0xAC"
+        @h &= ~(0x1 << 5)
         return 8
       when 0xAD
-        raise "FAILED TO MATCH CB-0xAD"
+        @l &= ~(0x1 << 5)
         return 8
       when 0xAE
-        raise "FAILED TO MATCH CB-0xAE"
+        @memory[self.hl] &= ~(0x1 << 5)
         return 16
       when 0xAF
-        raise "FAILED TO MATCH CB-0xAF"
+        @a &= ~(0x1 << 5)
         return 8
       when 0xB0
-        raise "FAILED TO MATCH CB-0xB0"
+        @b &= ~(0x1 << 6)
         return 8
       when 0xB1
-        raise "FAILED TO MATCH CB-0xB1"
+        @c &= ~(0x1 << 6)
         return 8
       when 0xB2
-        raise "FAILED TO MATCH CB-0xB2"
+        @d &= ~(0x1 << 6)
         return 8
       when 0xB3
-        raise "FAILED TO MATCH CB-0xB3"
+        @e &= ~(0x1 << 6)
         return 8
       when 0xB4
-        raise "FAILED TO MATCH CB-0xB4"
+        @h &= ~(0x1 << 6)
         return 8
       when 0xB5
-        raise "FAILED TO MATCH CB-0xB5"
+        @l &= ~(0x1 << 6)
         return 8
       when 0xB6
-        raise "FAILED TO MATCH CB-0xB6"
+        @memory[self.hl] &= ~(0x1 << 6)
         return 16
       when 0xB7
-        raise "FAILED TO MATCH CB-0xB7"
+        @a &= ~(0x1 << 6)
         return 8
       when 0xB8
-        raise "FAILED TO MATCH CB-0xB8"
+        @b &= ~(0x1 << 7)
         return 8
       when 0xB9
-        raise "FAILED TO MATCH CB-0xB9"
+        @c &= ~(0x1 << 7)
         return 8
       when 0xBA
-        raise "FAILED TO MATCH CB-0xBA"
+        @d &= ~(0x1 << 7)
         return 8
       when 0xBB
-        raise "FAILED TO MATCH CB-0xBB"
+        @e &= ~(0x1 << 7)
         return 8
       when 0xBC
-        raise "FAILED TO MATCH CB-0xBC"
+        @h &= ~(0x1 << 7)
         return 8
       when 0xBD
-        raise "FAILED TO MATCH CB-0xBD"
+        @l &= ~(0x1 << 7)
         return 8
       when 0xBE
-        raise "FAILED TO MATCH CB-0xBE"
+        @memory[self.hl] &= ~(0x1 << 7)
         return 16
       when 0xBF
-        raise "FAILED TO MATCH CB-0xBF"
+        @a &= ~(0x1 << 7)
         return 8
       when 0xC0
-        raise "FAILED TO MATCH CB-0xC0"
+        @b |= (0x1 << 0)
         return 8
       when 0xC1
-        raise "FAILED TO MATCH CB-0xC1"
+        @c |= (0x1 << 0)
         return 8
       when 0xC2
-        raise "FAILED TO MATCH CB-0xC2"
+        @d |= (0x1 << 0)
         return 8
       when 0xC3
-        raise "FAILED TO MATCH CB-0xC3"
+        @e |= (0x1 << 0)
         return 8
       when 0xC4
-        raise "FAILED TO MATCH CB-0xC4"
+        @h |= (0x1 << 0)
         return 8
       when 0xC5
-        raise "FAILED TO MATCH CB-0xC5"
+        @l |= (0x1 << 0)
         return 8
       when 0xC6
-        raise "FAILED TO MATCH CB-0xC6"
+        @memory[self.hl] |= (0x1 << 0)
         return 16
       when 0xC7
-        raise "FAILED TO MATCH CB-0xC7"
+        @a |= (0x1 << 0)
         return 8
       when 0xC8
-        raise "FAILED TO MATCH CB-0xC8"
+        @b |= (0x1 << 1)
         return 8
       when 0xC9
-        raise "FAILED TO MATCH CB-0xC9"
+        @c |= (0x1 << 1)
         return 8
       when 0xCA
-        raise "FAILED TO MATCH CB-0xCA"
+        @d |= (0x1 << 1)
         return 8
       when 0xCB
-        raise "FAILED TO MATCH CB-0xCB"
+        @e |= (0x1 << 1)
         return 8
       when 0xCC
-        raise "FAILED TO MATCH CB-0xCC"
+        @h |= (0x1 << 1)
         return 8
       when 0xCD
-        raise "FAILED TO MATCH CB-0xCD"
+        @l |= (0x1 << 1)
         return 8
       when 0xCE
-        raise "FAILED TO MATCH CB-0xCE"
+        @memory[self.hl] |= (0x1 << 1)
         return 16
       when 0xCF
-        raise "FAILED TO MATCH CB-0xCF"
+        @a |= (0x1 << 1)
         return 8
       when 0xD0
-        raise "FAILED TO MATCH CB-0xD0"
+        @b |= (0x1 << 2)
         return 8
       when 0xD1
-        raise "FAILED TO MATCH CB-0xD1"
+        @c |= (0x1 << 2)
         return 8
       when 0xD2
-        raise "FAILED TO MATCH CB-0xD2"
+        @d |= (0x1 << 2)
         return 8
       when 0xD3
-        raise "FAILED TO MATCH CB-0xD3"
+        @e |= (0x1 << 2)
         return 8
       when 0xD4
-        raise "FAILED TO MATCH CB-0xD4"
+        @h |= (0x1 << 2)
         return 8
       when 0xD5
-        raise "FAILED TO MATCH CB-0xD5"
+        @l |= (0x1 << 2)
         return 8
       when 0xD6
-        raise "FAILED TO MATCH CB-0xD6"
+        @memory[self.hl] |= (0x1 << 2)
         return 16
       when 0xD7
-        raise "FAILED TO MATCH CB-0xD7"
+        @a |= (0x1 << 2)
         return 8
       when 0xD8
-        raise "FAILED TO MATCH CB-0xD8"
+        @b |= (0x1 << 3)
         return 8
       when 0xD9
-        raise "FAILED TO MATCH CB-0xD9"
+        @c |= (0x1 << 3)
         return 8
       when 0xDA
-        raise "FAILED TO MATCH CB-0xDA"
+        @d |= (0x1 << 3)
         return 8
       when 0xDB
-        raise "FAILED TO MATCH CB-0xDB"
+        @e |= (0x1 << 3)
         return 8
       when 0xDC
-        raise "FAILED TO MATCH CB-0xDC"
+        @h |= (0x1 << 3)
         return 8
       when 0xDD
-        raise "FAILED TO MATCH CB-0xDD"
+        @l |= (0x1 << 3)
         return 8
       when 0xDE
-        raise "FAILED TO MATCH CB-0xDE"
+        @memory[self.hl] |= (0x1 << 3)
         return 16
       when 0xDF
-        raise "FAILED TO MATCH CB-0xDF"
+        @a |= (0x1 << 3)
         return 8
       when 0xE0
-        raise "FAILED TO MATCH CB-0xE0"
+        @b |= (0x1 << 4)
         return 8
       when 0xE1
-        raise "FAILED TO MATCH CB-0xE1"
+        @c |= (0x1 << 4)
         return 8
       when 0xE2
-        raise "FAILED TO MATCH CB-0xE2"
+        @d |= (0x1 << 4)
         return 8
       when 0xE3
-        raise "FAILED TO MATCH CB-0xE3"
+        @e |= (0x1 << 4)
         return 8
       when 0xE4
-        raise "FAILED TO MATCH CB-0xE4"
+        @h |= (0x1 << 4)
         return 8
       when 0xE5
-        raise "FAILED TO MATCH CB-0xE5"
+        @l |= (0x1 << 4)
         return 8
       when 0xE6
-        raise "FAILED TO MATCH CB-0xE6"
+        @memory[self.hl] |= (0x1 << 4)
         return 16
       when 0xE7
-        raise "FAILED TO MATCH CB-0xE7"
+        @a |= (0x1 << 4)
         return 8
       when 0xE8
-        raise "FAILED TO MATCH CB-0xE8"
+        @b |= (0x1 << 5)
         return 8
       when 0xE9
-        raise "FAILED TO MATCH CB-0xE9"
+        @c |= (0x1 << 5)
         return 8
       when 0xEA
-        raise "FAILED TO MATCH CB-0xEA"
+        @d |= (0x1 << 5)
         return 8
       when 0xEB
-        raise "FAILED TO MATCH CB-0xEB"
+        @e |= (0x1 << 5)
         return 8
       when 0xEC
-        raise "FAILED TO MATCH CB-0xEC"
+        @h |= (0x1 << 5)
         return 8
       when 0xED
-        raise "FAILED TO MATCH CB-0xED"
+        @l |= (0x1 << 5)
         return 8
       when 0xEE
-        raise "FAILED TO MATCH CB-0xEE"
+        @memory[self.hl] |= (0x1 << 5)
         return 16
       when 0xEF
-        raise "FAILED TO MATCH CB-0xEF"
+        @a |= (0x1 << 5)
         return 8
       when 0xF0
-        raise "FAILED TO MATCH CB-0xF0"
+        @b |= (0x1 << 6)
         return 8
       when 0xF1
-        raise "FAILED TO MATCH CB-0xF1"
+        @c |= (0x1 << 6)
         return 8
       when 0xF2
-        raise "FAILED TO MATCH CB-0xF2"
+        @d |= (0x1 << 6)
         return 8
       when 0xF3
-        raise "FAILED TO MATCH CB-0xF3"
+        @e |= (0x1 << 6)
         return 8
       when 0xF4
-        raise "FAILED TO MATCH CB-0xF4"
+        @h |= (0x1 << 6)
         return 8
       when 0xF5
-        raise "FAILED TO MATCH CB-0xF5"
+        @l |= (0x1 << 6)
         return 8
       when 0xF6
-        raise "FAILED TO MATCH CB-0xF6"
+        @memory[self.hl] |= (0x1 << 6)
         return 16
       when 0xF7
-        raise "FAILED TO MATCH CB-0xF7"
+        @a |= (0x1 << 6)
         return 8
       when 0xF8
-        raise "FAILED TO MATCH CB-0xF8"
+        @b |= (0x1 << 7)
         return 8
       when 0xF9
-        raise "FAILED TO MATCH CB-0xF9"
+        @c |= (0x1 << 7)
         return 8
       when 0xFA
-        raise "FAILED TO MATCH CB-0xFA"
+        @d |= (0x1 << 7)
         return 8
       when 0xFB
-        raise "FAILED TO MATCH CB-0xFB"
+        @e |= (0x1 << 7)
         return 8
       when 0xFC
-        raise "FAILED TO MATCH CB-0xFC"
+        @h |= (0x1 << 7)
         return 8
       when 0xFD
-        raise "FAILED TO MATCH CB-0xFD"
+        @l |= (0x1 << 7)
         return 8
       when 0xFE
-        raise "FAILED TO MATCH CB-0xFE"
+        @memory[self.hl] |= (0x1 << 7)
         return 16
       when 0xFF
-        raise "FAILED TO MATCH CB-0xFF"
+        @a |= (0x1 << 7)
         return 8
       else raise "UNMATCHED CB-OPCODE #{hex_str opcode}"
       end
