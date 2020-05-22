@@ -1256,7 +1256,7 @@ class CPU
         @memory[@sp] = @pc
         @pc = 0x0038_u16
         return 16
-      else raise "UNMATCHED OPCODE #{opcode}"
+      else raise "UNMATCHED OPCODE #{hex_str opcode}"
       end
     else
       case opcode
@@ -2172,7 +2172,7 @@ class CPU
       when 0xFF
         raise "FAILED TO MATCH CB-0xFF"
         return 8
-      else raise "UNMATCHED CB-OPCODE #{opcode}"
+      else raise "UNMATCHED CB-OPCODE #{hex_str opcode}"
       end
     end
     raise "MEMES?"
