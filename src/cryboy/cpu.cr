@@ -1191,7 +1191,7 @@ class CPU
         @sp = add @sp, r8, z = FlagOp::ZERO, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 16
       when 0xE9
-        @pc = @memory[self.hl].to_u16
+        @pc = self.hl.to_u16
         return 4
       when 0xEA
         @memory[d16] = @a
