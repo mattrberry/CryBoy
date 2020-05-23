@@ -74,6 +74,7 @@ class CPU
   property pc = 0x0000_u16
   property sp = 0x0000_u16
   property ime = true # todo test how this changes
+  property halted = false
   property memory
 
   def initialize(@memory : Memory, boot = false)
@@ -283,6 +284,7 @@ class CPU
       @sp -= 2
       @memory[@sp] = @pc
       @pc = 0x0040_u16
+      @halted = false
     end
     # bit 1: lcd stat
     if @memory.lcd_stat && @memory.lcd_stat_enabled
@@ -290,6 +292,7 @@ class CPU
       @sp -= 2
       @memory[@sp] = @pc
       @pc = 0x0048_u16
+      @halted = false
     end
     # bit 2: timer
     if @memory.timer && @memory.timer_enabled
@@ -297,6 +300,7 @@ class CPU
       @sp -= 2
       @memory[@sp] = @pc
       @pc = 0x0050_u16
+      @halted = false
     end
     # bit 3: serial
     if @memory.serial && @memory.serial_enabled
@@ -304,6 +308,7 @@ class CPU
       @sp -= 2
       @memory[@sp] = @pc
       @pc = 0x0058_u16
+      @halted = false
     end
     # bit 4: joypad
     if @memory.joypad && @memory.joypad_enabled
@@ -311,6 +316,7 @@ class CPU
       @sp -= 2
       @memory[@sp] = @pc
       @pc = 0x0060_u16
+      @halted = false
     end
     # clear Interrupt Master Enable
     @ime = false
@@ -319,15 +325,13 @@ class CPU
   # Runs for the specified number of machine cycles. If no argument provided,
   # runs only one instruction. Handles interrupts _after_ the instruction is
   # executed.
-  def tick(cycles = 1)
+  def tick(cycles = 1) : Nil
     while cycles > 0
       opcode = read_opcode
       cycles -= process_opcode opcode
       # interrupts
-      if opcode == 0x76
-        puts "HALT, who goes there (todo)"
-      end
       handle_interrupts if @ime
+      return if @halted
     end
   end
 
@@ -760,7 +764,8 @@ class CPU
         @memory[self.hl] = self.l
         return 8
       when 0x76
-        raise "FAILED TO MATCH 0x76"
+        @halted = true if @ime
+        return 4
       when 0x77
         @memory[self.hl] = self.a
         return 8
