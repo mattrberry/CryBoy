@@ -8,36 +8,52 @@ enum FlagOp
 end
 
 class CPU
-  macro register(upper, lower)
-    property {{upper.id}} : UInt8 = 0_u8
-    property {{lower.id}} : UInt8 = 0_u8
+  macro register(upper, lower, mask = nil)
+    @{{upper.id}} : UInt8 = 0_u8
+    @{{lower.id}} : UInt8 = 0_u8
+
+    def {{upper.id}} : UInt8
+      @{{upper.id}} {% if mask %} & ({{mask.id}} >> 8) {% end %}
+    end
+
+    def {{upper.id}}=(value : UInt8)
+      @{{upper.id}} = value {% if mask %} & ({{mask.id}} >> 8) {% end %}
+    end
+
+    def {{lower.id}} : UInt8
+      @{{lower.id}} {% if mask %} & {{mask.id}} {% end %}
+    end
+
+    def {{lower.id}}=(value : UInt8)
+      @{{lower.id}} = value {% if mask %} & {{mask.id}} {% end %}
+    end
 
     def {{upper.id}}{{lower.id}} : UInt16
-      (@{{upper}}.to_u16 << 8 | @{{lower}}.to_u16).not_nil!
+      (self.{{upper}}.to_u16 << 8 | self.{{lower}}.to_u16).not_nil!
     end
 
     def {{upper.id}}{{lower.id}}=(value : UInt16)
-      @{{upper.id}} = (value >> 8).to_u8
-      @{{lower.id}} = (value & 0xFF).to_u8
+      self.{{upper.id}} = (value >> 8).to_u8
+      self.{{lower.id}} = (value & 0xFF).to_u8
     end
 
     def {{upper.id}}{{lower.id}}=(value : UInt8)
-      @{{upper.id}} = 0_u8
-      @{{lower.id}} = value
+      self.{{upper.id}} = 0_u8
+      self.{{lower.id}} = value
     end
   end
 
   macro flag(name, mask)
     def f_{{name.id}}=(on : Int | Bool)
       if on == false || on == 0
-        @f &= ~{{mask}}
+        self.f &= ~{{mask}}
       else
-        @f |= {{mask.id}}
+        self.f |= {{mask.id}}
       end
     end
 
     def f_{{name.id}} : Bool
-      @f & {{mask.id}} == {{mask.id}}
+      self.f & {{mask.id}} == {{mask.id}}
     end
 
     def f_n{{name.id}} : Bool
@@ -45,7 +61,7 @@ class CPU
     end
   end
 
-  register a, f
+  register a, f, mask: 0xFFF0
   register b, c
   register d, e
   register h, l
@@ -188,9 +204,9 @@ class CPU
   def add(op1 : UInt16, op2 : Int8, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt16
     # todo this case is very specific, should be moved elsewhere
     res = op1 &+ op2
-    @f = 0b00000000
-    @f += (((@sp & 0xF) + (op2.to_u8! & 0xF)) > 0xF) ? 1 : 0 << 5
-    @f += (((@sp & 0xFF) + (op2.to_u8! & 0xF)) > 0xF) ? 1 : 0 << 4
+    self.f = 0b00000000
+    self.f += (((@sp & 0xF) + (op2.to_u8! & 0xF)) > 0xF) ? 1 : 0 << 5
+    self.f += (((@sp & 0xFF) + (op2.to_u8! & 0xF)) > 0xF) ? 1 : 0 << 4
     res
   end
 
@@ -228,27 +244,27 @@ class CPU
     res = operand_1 &- operand_2
 
     if z == FlagOp::ZERO
-      @f &= 0b0111_0000
+      self.f &= 0b0111_0000
     elsif z == FlagOp::ONE || (z == FlagOp::DEFAULT && res == 0)
-      @f |= 0b1000_0000
+      self.f |= 0b1000_0000
     end
 
     if n == FlagOp::ZERO
-      @f &= 0b1011_0000
+      self.f &= 0b1011_0000
     elsif n == FlagOp::ONE # || todo
-      @f |= 0b0100_0000
+      self.f |= 0b0100_0000
     end
 
     if h == FlagOp::ZERO
-      @f &= 0b1101_0000
+      self.f &= 0b1101_0000
     elsif h == FlagOp::ONE # || todo
-      @f |= 0b0010_0000
+      self.f |= 0b0010_0000
     end
 
     if c == FlagOp::ZERO
-      @f &= 0b1110_0000
+      self.f &= 0b1110_0000
     elsif c == FlagOp::ONE || (c == FlagOp::DEFAULT && res > operand_1)
-      @f |= 0b0001_0000
+      self.f |= 0b0001_0000
     end
 
     res
@@ -322,7 +338,7 @@ class CPU
   # process the given opcode
   # returns the number of machine cycles taken (where gb runs at 4.19MHz)
   def process_opcode(opcode : UInt8, cb = false) : Int32
-    # puts "op:#{hex_str opcode}, pc:#{hex_str @pc}, sp:#{hex_str @sp}, a:#{hex_str @a}, b:#{hex_str @b}, c:#{hex_str @c}, d:#{hex_str @d}, e:#{hex_str @e}, h:#{hex_str @h}, l:#{hex_str @l}, f:#{@f.to_s(2).rjust(8, '0')}"
+    # puts "op:#{hex_str opcode}, pc:#{hex_str @pc}, sp:#{hex_str @sp}, a:#{hex_str self.a}, b:#{hex_str self.b}, c:#{hex_str self.c}, d:#{hex_str self.d}, e:#{hex_str self.e}, h:#{hex_str self.h}, l:#{hex_str self.l}, f:#{self.f.to_s(2).rjust(8, '0')}"
     # all cb-prefixed opcodes have a length of 1 + the prefix
     length = cb ? 1 : OPCODE_LENGTHS[opcode]
     d8 : UInt8 = 0_u8
@@ -333,7 +349,7 @@ class CPU
       d16 = @memory.read_word @pc + 1
     end
     r8 : Int8 = d8.to_i8!
-    # puts "op:#{hex_str opcode}, pc:#{hex_str @pc}, sp:#{hex_str @sp}, a:#{hex_str @a}, b:#{hex_str @b}, c:#{hex_str @c}, d:#{hex_str @d}, e:#{hex_str @e}, h:#{hex_str @h}, l:#{hex_str @l}, f:#{@f.to_s(2).rjust(8, '0')}, d8:#{hex_str d8}, d16:#{hex_str d16}"
+    # puts "op:#{hex_str opcode}, pc:#{hex_str @pc}, sp:#{hex_str @sp}, af:#{hex_str self.af}, bc:#{hex_str self.bc}, de:#{hex_str self.de}, hl:#{hex_str self.hl}, flags:#{self.f.to_s(2).rjust(8, '0')}, d8:#{hex_str d8}, d16:#{hex_str d16}"
     @pc += length
 
     # Everything below is automatically generated. Once the codegen code is
@@ -346,26 +362,26 @@ class CPU
         self.bc = d16
         return 12
       when 0x02
-        @memory[self.bc] = @a
+        @memory[self.bc] = self.a
         return 8
       when 0x03
         self.bc = add self.bc, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x04
-        @b = add @b, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.b = add self.b, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x05
-        @b = sub @b, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.b = sub self.b, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x06
-        @b = d8
+        self.b = d8
         return 8
       when 0x07
         self.f_z = false
         self.f_n = false
         self.f_h = false
-        self.f_c = @a & 0x80
-        @a = (@a << 1) + (@a >> 7)
+        self.f_c = self.a & 0x80
+        self.a = (self.a << 1) + (self.a >> 7)
         return 4
       when 0x08
         @memory[d16] = @sp
@@ -374,26 +390,26 @@ class CPU
         self.hl = add self.hl, self.bc, z = FlagOp::UNCHANGED, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0x0A
-        @a = @memory[self.bc]
+        self.a = @memory[self.bc]
         return 8
       when 0x0B
         self.bc = sub self.bc, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x0C
-        @c = add @c, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.c = add self.c, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x0D
-        @c = sub @c, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.c = sub self.c, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x0E
-        @c = d8
+        self.c = d8
         return 8
       when 0x0F
         self.f_z = false
         self.f_n = false
         self.f_h = false
-        self.f_c = @a & 0x1
-        @a = (@a >> 1) + (@a << 7)
+        self.f_c = self.a & 0x1
+        self.a = (self.a >> 1) + (self.a << 7)
         return 4
       when 0x10
         raise "FAILED TO MATCH 0x10"
@@ -401,23 +417,23 @@ class CPU
         self.de = d16
         return 12
       when 0x12
-        @memory[self.de] = @a
+        @memory[self.de] = self.a
         return 8
       when 0x13
         self.de = add self.de, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x14
-        @d = add @d, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.d = add self.d, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x15
-        @d = sub @d, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.d = sub self.d, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x16
-        @d = d8
+        self.d = d8
         return 8
       when 0x17
-        carry = @a & 0x80
-        @a = (@a << 1) + (self.f_c ? 1 : 0)
+        carry = self.a & 0x80
+        self.a = (self.a << 1) + (self.f_c ? 1 : 0)
         self.f_z = false
         self.f_n = false
         self.f_h = false
@@ -430,24 +446,24 @@ class CPU
         self.hl = add self.hl, self.de, z = FlagOp::UNCHANGED, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0x1A
-        @a = @memory[self.de]
+        self.a = @memory[self.de]
         return 8
       when 0x1B
         self.de = sub self.de, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x1C
-        @e = add @e, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.e = add self.e, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x1D
-        @e = sub @e, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.e = sub self.e, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x1E
-        @e = d8
+        self.e = d8
         return 8
       when 0x1F
-        carry = @a & 0x01
-        @a = (@a >> 1) + (self.f_c ? 0x80 : 0x00)
-        self.f_z = @a == 0
+        carry = self.a & 0x01
+        self.a = (self.a >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.a == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
@@ -462,20 +478,20 @@ class CPU
         self.hl = d16
         return 12
       when 0x22
-        @memory[self.hl] = @a
+        @memory[self.hl] = self.a
         self.hl &+= 1
         return 8
       when 0x23
         self.hl = add self.hl, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x24
-        @h = add @h, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.h = add self.h, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x25
-        @h = sub @h, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.h = sub self.h, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x26
-        @h = d8
+        self.h = d8
         return 8
       when 0x27
         raise "FAILED TO MATCH 0x27"
@@ -489,23 +505,23 @@ class CPU
         self.hl = add self.hl, self.hl, z = FlagOp::UNCHANGED, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0x2A
-        @a = @memory[self.hl]
+        self.a = @memory[self.hl]
         self.hl &+= 1
         return 8
       when 0x2B
         self.hl = sub self.hl, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x2C
-        @l = add @l, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.l = add self.l, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x2D
-        @l = sub @l, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.l = sub self.l, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x2E
-        @l = d8
+        self.l = d8
         return 8
       when 0x2F
-        @a = ~a
+        self.a = ~self.a
         self.f_n = true
         self.f_h = true
         return 4
@@ -519,7 +535,7 @@ class CPU
         @sp = d16
         return 12
       when 0x32
-        @memory[self.hl] = @a
+        @memory[self.hl] = self.a
         self.hl &-= 1
         return 8
       when 0x33
@@ -549,20 +565,20 @@ class CPU
         self.hl = add self.hl, @sp, z = FlagOp::UNCHANGED, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0x3A
-        @a = @memory[self.hl]
+        self.a = @memory[self.hl]
         self.hl &-= 1
         return 8
       when 0x3B
         @sp = sub @sp, 1_u16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED
         return 8
       when 0x3C
-        @a = add @a, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.a = add self.a, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x3D
-        @a = sub @a, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
+        self.a = sub self.a, 1_u16, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::UNCHANGED
         return 4
       when 0x3E
-        @a = d8
+        self.a = d8
         return 8
       when 0x3F
         self.f_n = false
@@ -570,443 +586,443 @@ class CPU
         self.f_c = !self.f_c
         return 4
       when 0x40
-        # @b = @b
+        # self.b = self.b
         return 4
       when 0x41
-        @b = @c
+        self.b = self.c
         return 4
       when 0x42
-        @b = @d
+        self.b = self.d
         return 4
       when 0x43
-        @b = @e
+        self.b = self.e
         return 4
       when 0x44
-        @b = @h
+        self.b = self.h
         return 4
       when 0x45
-        @b = @l
+        self.b = self.l
         return 4
       when 0x46
-        @b = @memory[self.hl]
+        self.b = @memory[self.hl]
         return 8
       when 0x47
-        @b = @a
+        self.b = self.a
         return 4
       when 0x48
-        @c = @b
+        self.c = self.b
         return 4
       when 0x49
-        # @c = @c
+        # self.c = self.c
         return 4
       when 0x4A
-        @c = @d
+        self.c = self.d
         return 4
       when 0x4B
-        @c = @e
+        self.c = self.e
         return 4
       when 0x4C
-        @c = @h
+        self.c = self.h
         return 4
       when 0x4D
-        @c = @l
+        self.c = self.l
         return 4
       when 0x4E
-        @c = @memory[self.hl]
+        self.c = @memory[self.hl]
         return 8
       when 0x4F
-        @c = @a
+        self.c = self.a
         return 4
       when 0x50
-        @d = @b
+        self.d = self.b
         return 4
       when 0x51
-        @d = @c
+        self.d = self.c
         return 4
       when 0x52
-        # @d = @d
+        # self.d = self.d
         return 4
       when 0x53
-        @d = @e
+        self.d = self.e
         return 4
       when 0x54
-        @d = @h
+        self.d = self.h
         return 4
       when 0x55
-        @d = @l
+        self.d = self.l
         return 4
       when 0x56
-        @d = @memory[self.hl]
+        self.d = @memory[self.hl]
         return 8
       when 0x57
-        @d = @a
+        self.d = self.a
         return 4
       when 0x58
-        @e = @b
+        self.e = self.b
         return 4
       when 0x59
-        @e = @c
+        self.e = self.c
         return 4
       when 0x5A
-        @e = @d
+        self.e = self.d
         return 4
       when 0x5B
-        # @e = @e
+        # self.e = self.e
         return 4
       when 0x5C
-        @e = @h
+        self.e = self.h
         return 4
       when 0x5D
-        @e = @l
+        self.e = self.l
         return 4
       when 0x5E
-        @e = @memory[self.hl]
+        self.e = @memory[self.hl]
         return 8
       when 0x5F
-        @e = @a
+        self.e = self.a
         return 4
       when 0x60
-        @h = @b
+        self.h = self.b
         return 4
       when 0x61
-        @h = @c
+        self.h = self.c
         return 4
       when 0x62
-        @h = @d
+        self.h = self.d
         return 4
       when 0x63
-        @h = @e
+        self.h = self.e
         return 4
       when 0x64
-        # @h = @h
+        # self.h = self.h
         return 4
       when 0x65
-        @h = @l
+        self.h = self.l
         return 4
       when 0x66
-        @h = @memory[self.hl]
+        self.h = @memory[self.hl]
         return 8
       when 0x67
-        @h = @a
+        self.h = self.a
         return 4
       when 0x68
-        @l = @b
+        self.l = self.b
         return 4
       when 0x69
-        @l = @c
+        self.l = self.c
         return 4
       when 0x6A
-        @l = @d
+        self.l = self.d
         return 4
       when 0x6B
-        @l = @e
+        self.l = self.e
         return 4
       when 0x6C
-        @l = @h
+        self.l = self.h
         return 4
       when 0x6D
-        # @l = @l
+        # self.l = self.l
         return 4
       when 0x6E
-        @l = @memory[self.hl]
+        self.l = @memory[self.hl]
         return 8
       when 0x6F
-        @l = @a
+        self.l = self.a
         return 4
       when 0x70
-        @memory[self.hl] = @b
+        @memory[self.hl] = self.b
         return 8
       when 0x71
-        @memory[self.hl] = @c
+        @memory[self.hl] = self.c
         return 8
       when 0x72
-        @memory[self.hl] = @d
+        @memory[self.hl] = self.d
         return 8
       when 0x73
-        @memory[self.hl] = @e
+        @memory[self.hl] = self.e
         return 8
       when 0x74
-        @memory[self.hl] = @h
+        @memory[self.hl] = self.h
         return 8
       when 0x75
-        @memory[self.hl] = @l
+        @memory[self.hl] = self.l
         return 8
       when 0x76
         raise "FAILED TO MATCH 0x76"
       when 0x77
-        @memory[self.hl] = @a
+        @memory[self.hl] = self.a
         return 8
       when 0x78
-        @a = @b
+        self.a = self.b
         return 4
       when 0x79
-        @a = @c
+        self.a = self.c
         return 4
       when 0x7A
-        @a = @d
+        self.a = self.d
         return 4
       when 0x7B
-        @a = @e
+        self.a = self.e
         return 4
       when 0x7C
-        @a = @h
+        self.a = self.h
         return 4
       when 0x7D
-        @a = @l
+        self.a = self.l
         return 4
       when 0x7E
-        @a = @memory[self.hl]
+        self.a = @memory[self.hl]
         return 8
       when 0x7F
-        # @a = @a
+        # self.a = self.a
         return 4
       when 0x80
-        @a = add @a, @b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = add self.a, self.b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x81
-        @a = add @a, @c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = add self.a, self.c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x82
-        @a = add @a, @d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = add self.a, self.d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x83
-        @a = add @a, @e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = add self.a, self.e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x84
-        @a = add @a, @h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = add self.a, self.h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x85
-        @a = add @a, @l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = add self.a, self.l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x86
-        @a = add @a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = add self.a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0x87
-        @a = add @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = add self.a, self.a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x88
-        @a = adc @a, @b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = adc self.a, self.b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x89
-        @a = adc @a, @c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = adc self.a, self.c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x8A
-        @a = adc @a, @d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = adc self.a, self.d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x8B
-        @a = adc @a, @e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = adc self.a, self.e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x8C
-        @a = adc @a, @h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = adc self.a, self.h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x8D
-        @a = adc @a, @l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = adc self.a, self.l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x8E
-        @a = adc @a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = adc self.a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0x8F
-        @a = adc @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = adc self.a, self.a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x90
-        self.f_z = @a == @b
+        self.f_z = self.a == self.b
         self.f_n = true
-        self.f_h = @a & 0xF < @b & 0xF
-        self.f_c = @a < @b
-        @a &-= @b
+        self.f_h = self.a & 0xF < self.b & 0xF
+        self.f_c = self.a < self.b
+        self.a &-= self.b
         return 4
       when 0x91
-        self.f_z = @a == @c
+        self.f_z = self.a == self.c
         self.f_n = true
-        self.f_h = @a & 0xF < @c & 0xF
-        self.f_c = @a < @c
-        @a &-= @c
+        self.f_h = self.a & 0xF < self.c & 0xF
+        self.f_c = self.a < self.c
+        self.a &-= self.c
         return 4
       when 0x92
-        self.f_z = @a == @d
+        self.f_z = self.a == self.d
         self.f_n = true
-        self.f_h = @a & 0xF < @d & 0xF
-        self.f_c = @a < @d
-        @a &-= @d
+        self.f_h = self.a & 0xF < self.d & 0xF
+        self.f_c = self.a < self.d
+        self.a &-= self.d
         return 4
       when 0x93
-        self.f_z = @a == @e
+        self.f_z = self.a == self.e
         self.f_n = true
-        self.f_h = @a & 0xF < @e & 0xF
-        self.f_c = @a < @e
-        @a &-= @e
+        self.f_h = self.a & 0xF < self.e & 0xF
+        self.f_c = self.a < self.e
+        self.a &-= self.e
         return 4
       when 0x94
-        self.f_z = @a == @h
+        self.f_z = self.a == self.h
         self.f_n = true
-        self.f_h = @a & 0xF < @h & 0xF
-        self.f_c = @a < @h
-        @a &-= @h
+        self.f_h = self.a & 0xF < self.h & 0xF
+        self.f_c = self.a < self.h
+        self.a &-= self.h
         return 4
       when 0x95
-        self.f_z = @a == @l
+        self.f_z = self.a == self.l
         self.f_n = true
-        self.f_h = @a & 0xF < @l & 0xF
-        self.f_c = @a < @l
-        @a &-= @l
+        self.f_h = self.a & 0xF < self.l & 0xF
+        self.f_c = self.a < self.l
+        self.a &-= self.l
         return 4
       when 0x96
-        self.f_z = @a == @memory[self.hl]
+        self.f_z = self.a == @memory[self.hl]
         self.f_n = true
-        self.f_h = @a & 0xF < @memory[self.hl] & 0xF
-        self.f_c = @a < @memory[self.hl]
-        @a &-= @memory[self.hl]
+        self.f_h = self.a & 0xF < @memory[self.hl] & 0xF
+        self.f_c = self.a < @memory[self.hl]
+        self.a &-= @memory[self.hl]
         return 8
       when 0x97
-        self.f_z = @a == @a
+        self.f_z = self.a == self.a
         self.f_n = true
-        self.f_h = @a & 0xF < @a & 0xF
-        self.f_c = @a < @a
-        @a &-= @a
+        self.f_h = self.a & 0xF < self.a & 0xF
+        self.f_c = self.a < self.a
+        self.a &-= self.a
         return 4
       when 0x98
-        @a = sbc @a, @b, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = sbc self.a, self.b, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x99
-        @a = sbc @a, @c, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = sbc self.a, self.c, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x9A
-        @a = sbc @a, @d, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = sbc self.a, self.d, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x9B
-        @a = sbc @a, @e, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = sbc self.a, self.e, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x9C
-        @a = sbc @a, @h, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = sbc self.a, self.h, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x9D
-        @a = sbc @a, @l, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = sbc self.a, self.l, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0x9E
-        @a = sbc @a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = sbc self.a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0x9F
-        @a = sbc @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = sbc self.a, self.a, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 4
       when 0xA0
-        @a = and @a, @b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        self.a = and self.a, self.b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA1
-        @a = and @a, @c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        self.a = and self.a, self.c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA2
-        @a = and @a, @d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        self.a = and self.a, self.d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA3
-        @a = and @a, @e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        self.a = and self.a, self.e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA4
-        @a = and @a, @h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        self.a = and self.a, self.h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA5
-        @a = and @a, @l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        self.a = and self.a, self.l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA6
-        @a = and @a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        self.a = and self.a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 8
       when 0xA7
-        @a = and @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        self.a = and self.a, self.a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 4
       when 0xA8
-        @a = xor @a, @b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = xor self.a, self.b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xA9
-        @a = xor @a, @c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = xor self.a, self.c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xAA
-        @a = xor @a, @d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = xor self.a, self.d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xAB
-        @a = xor @a, @e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = xor self.a, self.e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xAC
-        @a = xor @a, @h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = xor self.a, self.h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xAD
-        @a = xor @a, @l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = xor self.a, self.l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xAE
-        @a = xor @a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = xor self.a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 8
       when 0xAF
-        @a = xor @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = xor self.a, self.a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB0
-        @a = or @a, @b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = or self.a, self.b, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB1
-        @a = or @a, @c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = or self.a, self.c, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB2
-        @a = or @a, @d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = or self.a, self.d, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB3
-        @a = or @a, @e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = or self.a, self.e, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB4
-        @a = or @a, @h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = or self.a, self.h, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB5
-        @a = or @a, @l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = or self.a, self.l, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB6
-        @a = or @a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = or self.a, @memory[self.hl], z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 8
       when 0xB7
-        @a = or @a, @a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = or self.a, self.a, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 4
       when 0xB8
-        self.f_z = @a == @b
+        self.f_z = self.a == self.b
         self.f_n = true
-        self.f_h = @a & 0xF < @b & 0xF
-        self.f_c = @a < @b
+        self.f_h = self.a & 0xF < self.b & 0xF
+        self.f_c = self.a < self.b
         return 4
       when 0xB9
-        self.f_z = @a == @c
+        self.f_z = self.a == self.c
         self.f_n = true
-        self.f_h = @a & 0xF < @c & 0xF
-        self.f_c = @a < @c
+        self.f_h = self.a & 0xF < self.c & 0xF
+        self.f_c = self.a < self.c
         return 4
       when 0xBA
-        self.f_z = @a == @d
+        self.f_z = self.a == self.d
         self.f_n = true
-        self.f_h = @a & 0xF < @d & 0xF
-        self.f_c = @a < @d
+        self.f_h = self.a & 0xF < self.d & 0xF
+        self.f_c = self.a < self.d
         return 4
       when 0xBB
-        self.f_z = @a == @e
+        self.f_z = self.a == self.e
         self.f_n = true
-        self.f_h = @a & 0xF < @e & 0xF
-        self.f_c = @a < @e
+        self.f_h = self.a & 0xF < self.e & 0xF
+        self.f_c = self.a < self.e
         return 4
       when 0xBC
-        self.f_z = @a == @h
+        self.f_z = self.a == self.h
         self.f_n = true
-        self.f_h = @a & 0xF < @h & 0xF
-        self.f_c = @a < @h
+        self.f_h = self.a & 0xF < self.h & 0xF
+        self.f_c = self.a < self.h
         return 4
       when 0xBD
-        self.f_z = @a == @l
+        self.f_z = self.a == self.l
         self.f_n = true
-        self.f_h = @a & 0xF < @l & 0xF
-        self.f_c = @a < @l
+        self.f_h = self.a & 0xF < self.l & 0xF
+        self.f_c = self.a < self.l
         return 4
       when 0xBE
-        self.f_z = @a == @memory[self.hl]
+        self.f_z = self.a == @memory[self.hl]
         self.f_n = true
-        self.f_h = @a & 0xF < @memory[self.hl] & 0xF
-        self.f_c = @a < @memory[self.hl]
+        self.f_h = self.a & 0xF < @memory[self.hl] & 0xF
+        self.f_c = self.a < @memory[self.hl]
         return 8
       when 0xBF
-        self.f_z = @a == @a
+        self.f_z = self.a == self.a
         self.f_n = true
-        self.f_h = @a & 0xF < @a & 0xF
-        self.f_c = @a < @a
+        self.f_h = self.a & 0xF < self.a & 0xF
+        self.f_c = self.a < self.a
         return 4
       when 0xC0
         if self.f_nz
@@ -1038,7 +1054,7 @@ class CPU
         push self.bc
         return 16
       when 0xC6
-        @a = add @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = add self.a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0xC7
         @sp -= 2
@@ -1084,7 +1100,7 @@ class CPU
         return 24
         return 24
       when 0xCE
-        @a = adc @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = adc self.a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0xCF
         @sp -= 2
@@ -1119,11 +1135,11 @@ class CPU
         push self.de
         return 16
       when 0xD6
-        self.f_z = @a == d8
+        self.f_z = self.a == d8
         self.f_n = true
-        self.f_h = @a & 0xF < d8 & 0xF
-        self.f_c = @a < d8
-        @a &-= d8
+        self.f_h = self.a & 0xF < d8 & 0xF
+        self.f_c = self.a < d8
+        self.a &-= d8
         return 8
       when 0xD7
         @sp -= 2
@@ -1158,7 +1174,7 @@ class CPU
         return 12
         # 0xDD has no functionality
       when 0xDE
-        @a = sbc @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
+        self.a = sbc self.a, d8, z = FlagOp::DEFAULT, n = FlagOp::ONE, h = FlagOp::DEFAULT, c = FlagOp::DEFAULT
         return 8
       when 0xDF
         @sp -= 2
@@ -1166,13 +1182,13 @@ class CPU
         @pc = 0x0018_u16
         return 16
       when 0xE0
-        @memory[0xFF00 + d8] = @a
+        @memory[0xFF00 + d8] = self.a
         return 12
       when 0xE1
         self.hl = pop
         return 12
       when 0xE2
-        @memory[0xFF00 + @c] = @a
+        @memory[0xFF00 + self.c] = self.a
         return 8
         # 0xE3 has no functionality
         # 0xE4 has no functionality
@@ -1180,7 +1196,7 @@ class CPU
         push self.hl
         return 16
       when 0xE6
-        @a = and @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
+        self.a = and self.a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ONE, c = FlagOp::ZERO
         return 8
       when 0xE7
         @sp -= 2
@@ -1194,13 +1210,13 @@ class CPU
         @pc = self.hl.to_u16
         return 4
       when 0xEA
-        @memory[d16] = @a
+        @memory[d16] = self.a
         return 16
         # 0xEB has no functionality
         # 0xEC has no functionality
         # 0xED has no functionality
       when 0xEE
-        @a = xor @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = xor self.a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 8
       when 0xEF
         @sp -= 2
@@ -1208,13 +1224,13 @@ class CPU
         @pc = 0x0028_u16
         return 16
       when 0xF0
-        @a = @memory[0xFF00 + d8]
+        self.a = @memory[0xFF00 + d8]
         return 12
       when 0xF1
         self.af = pop
         return 12
       when 0xF2
-        @a = @memory[0xFF00 + @c]
+        self.a = @memory[0xFF00 + self.c]
         return 8
       when 0xF3
         @ime = false
@@ -1224,7 +1240,7 @@ class CPU
         push self.af
         return 16
       when 0xF6
-        @a = or @a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
+        self.a = or self.a, d8, z = FlagOp::DEFAULT, n = FlagOp::ZERO, h = FlagOp::ZERO, c = FlagOp::ZERO
         return 8
       when 0xF7
         @sp -= 2
@@ -1242,7 +1258,7 @@ class CPU
         @sp = self.hl
         return 8
       when 0xFA
-        @a = @memory[d16]
+        self.a = @memory[d16]
         return 16
       when 0xFB
         @ime = true
@@ -1250,10 +1266,10 @@ class CPU
         # 0xFC has no functionality
         # 0xFD has no functionality
       when 0xFE
-        self.f_z = @a == d8
+        self.f_z = self.a == d8
         self.f_n = true
-        self.f_h = @a & 0xF < d8 & 0xF
-        self.f_c = @a < d8
+        self.f_h = self.a & 0xF < d8 & 0xF
+        self.f_c = self.a < d8
         return 8
       when 0xFF
         @sp -= 2
@@ -1313,49 +1329,49 @@ class CPU
         raise "FAILED TO MATCH CB-0x0F"
         return 8
       when 0x10
-        carry = @b & 0x80
-        @b = (@b << 1) + (self.f_c ? 1 : 0)
-        self.f_z = @b == 0
+        carry = self.b & 0x80
+        self.b = (self.b << 1) + (self.f_c ? 1 : 0)
+        self.f_z = self.b == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
         return 8
       when 0x11
-        carry = @c & 0x80
-        @c = (@c << 1) + (self.f_c ? 1 : 0)
-        self.f_z = @c == 0
+        carry = self.c & 0x80
+        self.c = (self.c << 1) + (self.f_c ? 1 : 0)
+        self.f_z = self.c == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
         return 8
       when 0x12
-        carry = @d & 0x80
-        @d = (@d << 1) + (self.f_c ? 1 : 0)
-        self.f_z = @d == 0
+        carry = self.d & 0x80
+        self.d = (self.d << 1) + (self.f_c ? 1 : 0)
+        self.f_z = self.d == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
         return 8
       when 0x13
-        carry = @e & 0x80
-        @e = (@e << 1) + (self.f_c ? 1 : 0)
-        self.f_z = @e == 0
+        carry = self.e & 0x80
+        self.e = (self.e << 1) + (self.f_c ? 1 : 0)
+        self.f_z = self.e == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
         return 8
       when 0x14
-        carry = @h & 0x80
-        @h = (@h << 1) + (self.f_c ? 1 : 0)
-        self.f_z = @h == 0
+        carry = self.h & 0x80
+        self.h = (self.h << 1) + (self.f_c ? 1 : 0)
+        self.f_z = self.h == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
         return 8
       when 0x15
-        carry = @l & 0x80
-        @l = (@l << 1) + (self.f_c ? 1 : 0)
-        self.f_z = @l == 0
+        carry = self.l & 0x80
+        self.l = (self.l << 1) + (self.f_c ? 1 : 0)
+        self.f_z = self.l == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
@@ -1369,57 +1385,57 @@ class CPU
         self.f_c = carry
         return 16
       when 0x17
-        carry = @a & 0x80
-        @a = (@a << 1) + (self.f_c ? 1 : 0)
-        self.f_z = @a == 0
+        carry = self.a & 0x80
+        self.a = (self.a << 1) + (self.f_c ? 1 : 0)
+        self.f_z = self.a == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
         return 8
       when 0x18
-        carry = @b & 0x01
-        @b = (@b >> 1) + (self.f_c ? 0x80 : 0x00)
-        self.f_z = @b == 0
+        carry = self.b & 0x01
+        self.b = (self.b >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.b == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
         return 8
       when 0x19
-        carry = @c & 0x01
-        @c = (@c >> 1) + (self.f_c ? 0x80 : 0x00)
-        self.f_z = @c == 0
+        carry = self.c & 0x01
+        self.c = (self.c >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.c == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
         return 8
       when 0x1A
-        carry = @d & 0x01
-        @d = (@d >> 1) + (self.f_c ? 0x80 : 0x00)
-        self.f_z = @d == 0
+        carry = self.d & 0x01
+        self.d = (self.d >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.d == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
         return 8
       when 0x1B
-        carry = @e & 0x01
-        @e = (@e >> 1) + (self.f_c ? 0x80 : 0x00)
-        self.f_z = @e == 0
+        carry = self.e & 0x01
+        self.e = (self.e >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.e == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
         return 8
       when 0x1C
-        carry = @h & 0x01
-        @h = (@h >> 1) + (self.f_c ? 0x80 : 0x00)
-        self.f_z = @h == 0
+        carry = self.h & 0x01
+        self.h = (self.h >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.h == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
         return 8
       when 0x1D
-        carry = @l & 0x01
-        @l = (@l >> 1) + (self.f_c ? 0x80 : 0x00)
-        self.f_z = @l == 0
+        carry = self.l & 0x01
+        self.l = (self.l >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.l == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
@@ -1433,9 +1449,9 @@ class CPU
         self.f_c = carry
         return 16
       when 0x1F
-        carry = @a & 0x01
-        @a = (@a >> 1) + (self.f_c ? 0x80 : 0x00)
-        self.f_z = @a == 0
+        carry = self.a & 0x01
+        self.a = (self.a >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.a == 0
         self.f_n = false
         self.f_h = false
         self.f_c = carry
@@ -1489,43 +1505,43 @@ class CPU
         raise "FAILED TO MATCH CB-0x2F"
         return 8
       when 0x30
-        @b = (@b << 4) + (@b >> 4)
-        self.f_z = @b == 0
+        self.b = (self.b << 4) + (self.b >> 4)
+        self.f_z = self.b == 0
         self.f_n = false
         self.f_h = false
         self.f_c = false
         return 8
       when 0x31
-        @c = (@c << 4) + (@c >> 4)
-        self.f_z = @c == 0
+        self.c = (self.c << 4) + (self.c >> 4)
+        self.f_z = self.c == 0
         self.f_n = false
         self.f_h = false
         self.f_c = false
         return 8
       when 0x32
-        @d = (@d << 4) + (@d >> 4)
-        self.f_z = @d == 0
+        self.d = (self.d << 4) + (self.d >> 4)
+        self.f_z = self.d == 0
         self.f_n = false
         self.f_h = false
         self.f_c = false
         return 8
       when 0x33
-        @e = (@e << 4) + (@e >> 4)
-        self.f_z = @e == 0
+        self.e = (self.e << 4) + (self.e >> 4)
+        self.f_z = self.e == 0
         self.f_n = false
         self.f_h = false
         self.f_c = false
         return 8
       when 0x34
-        @h = (@h << 4) + (@h >> 4)
-        self.f_z = @h == 0
+        self.h = (self.h << 4) + (self.h >> 4)
+        self.f_z = self.h == 0
         self.f_n = false
         self.f_h = false
         self.f_c = false
         return 8
       when 0x35
-        @l = (@l << 4) + (@l >> 4)
-        self.f_z = @l == 0
+        self.l = (self.l << 4) + (self.l >> 4)
+        self.f_z = self.l == 0
         self.f_n = false
         self.f_h = false
         self.f_c = false
@@ -1538,53 +1554,53 @@ class CPU
         self.f_c = false
         return 16
       when 0x37
-        @a = (@a << 4) + (@a >> 4)
-        self.f_z = @a == 0
+        self.a = (self.a << 4) + (self.a >> 4)
+        self.f_z = self.a == 0
         self.f_n = false
         self.f_h = false
         self.f_c = false
         return 8
       when 0x38
-        self.f_z = @b <= 1
+        self.f_z = self.b <= 1
         self.f_n = false
         self.f_h = false
-        self.f_c = @b & 0x1
-        @b = @b >> 1
+        self.f_c = self.b & 0x1
+        self.b = self.b >> 1
         return 8
       when 0x39
-        self.f_z = @c <= 1
+        self.f_z = self.c <= 1
         self.f_n = false
         self.f_h = false
-        self.f_c = @c & 0x1
-        @c = @c >> 1
+        self.f_c = self.c & 0x1
+        self.c = self.c >> 1
         return 8
       when 0x3A
-        self.f_z = @d <= 1
+        self.f_z = self.d <= 1
         self.f_n = false
         self.f_h = false
-        self.f_c = @d & 0x1
-        @d = @d >> 1
+        self.f_c = self.d & 0x1
+        self.d = self.d >> 1
         return 8
       when 0x3B
-        self.f_z = @e <= 1
+        self.f_z = self.e <= 1
         self.f_n = false
         self.f_h = false
-        self.f_c = @e & 0x1
-        @e = @e >> 1
+        self.f_c = self.e & 0x1
+        self.e = self.e >> 1
         return 8
       when 0x3C
-        self.f_z = @h <= 1
+        self.f_z = self.h <= 1
         self.f_n = false
         self.f_h = false
-        self.f_c = @h & 0x1
-        @h = @h >> 1
+        self.f_c = self.h & 0x1
+        self.h = self.h >> 1
         return 8
       when 0x3D
-        self.f_z = @l <= 1
+        self.f_z = self.l <= 1
         self.f_n = false
         self.f_h = false
-        self.f_c = @l & 0x1
-        @l = @l >> 1
+        self.f_c = self.l & 0x1
+        self.l = self.l >> 1
         return 8
       when 0x3E
         self.f_z = @memory[self.hl] <= 1
@@ -1594,587 +1610,587 @@ class CPU
         @memory[self.hl] = @memory[self.hl] >> 1
         return 16
       when 0x3F
-        self.f_z = @a <= 1
+        self.f_z = self.a <= 1
         self.f_n = false
         self.f_h = false
-        self.f_c = @a & 0x1
-        @a = @a >> 1
+        self.f_c = self.a & 0x1
+        self.a = self.a >> 1
         return 8
       when 0x40
-        bit @b, 0
+        bit self.b, 0
         return 8
       when 0x41
-        bit @c, 0
+        bit self.c, 0
         return 8
       when 0x42
-        bit @d, 0
+        bit self.d, 0
         return 8
       when 0x43
-        bit @e, 0
+        bit self.e, 0
         return 8
       when 0x44
-        bit @h, 0
+        bit self.h, 0
         return 8
       when 0x45
-        bit @l, 0
+        bit self.l, 0
         return 8
       when 0x46
         bit @memory[self.hl], 0
         return 16
       when 0x47
-        bit @a, 0
+        bit self.a, 0
         return 8
       when 0x48
-        bit @b, 1
+        bit self.b, 1
         return 8
       when 0x49
-        bit @c, 1
+        bit self.c, 1
         return 8
       when 0x4A
-        bit @d, 1
+        bit self.d, 1
         return 8
       when 0x4B
-        bit @e, 1
+        bit self.e, 1
         return 8
       when 0x4C
-        bit @h, 1
+        bit self.h, 1
         return 8
       when 0x4D
-        bit @l, 1
+        bit self.l, 1
         return 8
       when 0x4E
         bit @memory[self.hl], 1
         return 16
       when 0x4F
-        bit @a, 1
+        bit self.a, 1
         return 8
       when 0x50
-        bit @b, 2
+        bit self.b, 2
         return 8
       when 0x51
-        bit @c, 2
+        bit self.c, 2
         return 8
       when 0x52
-        bit @d, 2
+        bit self.d, 2
         return 8
       when 0x53
-        bit @e, 2
+        bit self.e, 2
         return 8
       when 0x54
-        bit @h, 2
+        bit self.h, 2
         return 8
       when 0x55
-        bit @l, 2
+        bit self.l, 2
         return 8
       when 0x56
         bit @memory[self.hl], 2
         return 16
       when 0x57
-        bit @a, 2
+        bit self.a, 2
         return 8
       when 0x58
-        bit @b, 3
+        bit self.b, 3
         return 8
       when 0x59
-        bit @c, 3
+        bit self.c, 3
         return 8
       when 0x5A
-        bit @d, 3
+        bit self.d, 3
         return 8
       when 0x5B
-        bit @e, 3
+        bit self.e, 3
         return 8
       when 0x5C
-        bit @h, 3
+        bit self.h, 3
         return 8
       when 0x5D
-        bit @l, 3
+        bit self.l, 3
         return 8
       when 0x5E
         bit @memory[self.hl], 3
         return 16
       when 0x5F
-        bit @a, 3
+        bit self.a, 3
         return 8
       when 0x60
-        bit @b, 4
+        bit self.b, 4
         return 8
       when 0x61
-        bit @c, 4
+        bit self.c, 4
         return 8
       when 0x62
-        bit @d, 4
+        bit self.d, 4
         return 8
       when 0x63
-        bit @e, 4
+        bit self.e, 4
         return 8
       when 0x64
-        bit @h, 4
+        bit self.h, 4
         return 8
       when 0x65
-        bit @l, 4
+        bit self.l, 4
         return 8
       when 0x66
         bit @memory[self.hl], 4
         return 16
       when 0x67
-        bit @a, 4
+        bit self.a, 4
         return 8
       when 0x68
-        bit @b, 5
+        bit self.b, 5
         return 8
       when 0x69
-        bit @c, 5
+        bit self.c, 5
         return 8
       when 0x6A
-        bit @d, 5
+        bit self.d, 5
         return 8
       when 0x6B
-        bit @e, 5
+        bit self.e, 5
         return 8
       when 0x6C
-        bit @h, 5
+        bit self.h, 5
         return 8
       when 0x6D
-        bit @l, 5
+        bit self.l, 5
         return 8
       when 0x6E
         bit @memory[self.hl], 5
         return 16
       when 0x6F
-        bit @a, 5
+        bit self.a, 5
         return 8
       when 0x70
-        bit @b, 6
+        bit self.b, 6
         return 8
       when 0x71
-        bit @c, 6
+        bit self.c, 6
         return 8
       when 0x72
-        bit @d, 6
+        bit self.d, 6
         return 8
       when 0x73
-        bit @e, 6
+        bit self.e, 6
         return 8
       when 0x74
-        bit @h, 6
+        bit self.h, 6
         return 8
       when 0x75
-        bit @l, 6
+        bit self.l, 6
         return 8
       when 0x76
         bit @memory[self.hl], 6
         return 16
       when 0x77
-        bit @a, 6
+        bit self.a, 6
         return 8
       when 0x78
-        bit @b, 7
+        bit self.b, 7
         return 8
       when 0x79
-        bit @c, 7
+        bit self.c, 7
         return 8
       when 0x7A
-        bit @d, 7
+        bit self.d, 7
         return 8
       when 0x7B
-        bit @e, 7
+        bit self.e, 7
         return 8
       when 0x7C
-        bit @h, 7
+        bit self.h, 7
         return 8
       when 0x7D
-        bit @l, 7
+        bit self.l, 7
         return 8
       when 0x7E
         bit @memory[self.hl], 7
         return 16
       when 0x7F
-        bit @a, 7
+        bit self.a, 7
         return 8
       when 0x80
-        @b &= ~(0x1 << 0)
+        self.b &= ~(0x1 << 0)
         return 8
       when 0x81
-        @c &= ~(0x1 << 0)
+        self.c &= ~(0x1 << 0)
         return 8
       when 0x82
-        @d &= ~(0x1 << 0)
+        self.d &= ~(0x1 << 0)
         return 8
       when 0x83
-        @e &= ~(0x1 << 0)
+        self.e &= ~(0x1 << 0)
         return 8
       when 0x84
-        @h &= ~(0x1 << 0)
+        self.h &= ~(0x1 << 0)
         return 8
       when 0x85
-        @l &= ~(0x1 << 0)
+        self.l &= ~(0x1 << 0)
         return 8
       when 0x86
         @memory[self.hl] &= ~(0x1 << 0)
         return 16
       when 0x87
-        @a &= ~(0x1 << 0)
+        self.a &= ~(0x1 << 0)
         return 8
       when 0x88
-        @b &= ~(0x1 << 1)
+        self.b &= ~(0x1 << 1)
         return 8
       when 0x89
-        @c &= ~(0x1 << 1)
+        self.c &= ~(0x1 << 1)
         return 8
       when 0x8A
-        @d &= ~(0x1 << 1)
+        self.d &= ~(0x1 << 1)
         return 8
       when 0x8B
-        @e &= ~(0x1 << 1)
+        self.e &= ~(0x1 << 1)
         return 8
       when 0x8C
-        @h &= ~(0x1 << 1)
+        self.h &= ~(0x1 << 1)
         return 8
       when 0x8D
-        @l &= ~(0x1 << 1)
+        self.l &= ~(0x1 << 1)
         return 8
       when 0x8E
         @memory[self.hl] &= ~(0x1 << 1)
         return 16
       when 0x8F
-        @a &= ~(0x1 << 1)
+        self.a &= ~(0x1 << 1)
         return 8
       when 0x90
-        @b &= ~(0x1 << 2)
+        self.b &= ~(0x1 << 2)
         return 8
       when 0x91
-        @c &= ~(0x1 << 2)
+        self.c &= ~(0x1 << 2)
         return 8
       when 0x92
-        @d &= ~(0x1 << 2)
+        self.d &= ~(0x1 << 2)
         return 8
       when 0x93
-        @e &= ~(0x1 << 2)
+        self.e &= ~(0x1 << 2)
         return 8
       when 0x94
-        @h &= ~(0x1 << 2)
+        self.h &= ~(0x1 << 2)
         return 8
       when 0x95
-        @l &= ~(0x1 << 2)
+        self.l &= ~(0x1 << 2)
         return 8
       when 0x96
         @memory[self.hl] &= ~(0x1 << 2)
         return 16
       when 0x97
-        @a &= ~(0x1 << 2)
+        self.a &= ~(0x1 << 2)
         return 8
       when 0x98
-        @b &= ~(0x1 << 3)
+        self.b &= ~(0x1 << 3)
         return 8
       when 0x99
-        @c &= ~(0x1 << 3)
+        self.c &= ~(0x1 << 3)
         return 8
       when 0x9A
-        @d &= ~(0x1 << 3)
+        self.d &= ~(0x1 << 3)
         return 8
       when 0x9B
-        @e &= ~(0x1 << 3)
+        self.e &= ~(0x1 << 3)
         return 8
       when 0x9C
-        @h &= ~(0x1 << 3)
+        self.h &= ~(0x1 << 3)
         return 8
       when 0x9D
-        @l &= ~(0x1 << 3)
+        self.l &= ~(0x1 << 3)
         return 8
       when 0x9E
         @memory[self.hl] &= ~(0x1 << 3)
         return 16
       when 0x9F
-        @a &= ~(0x1 << 3)
+        self.a &= ~(0x1 << 3)
         return 8
       when 0xA0
-        @b &= ~(0x1 << 4)
+        self.b &= ~(0x1 << 4)
         return 8
       when 0xA1
-        @c &= ~(0x1 << 4)
+        self.c &= ~(0x1 << 4)
         return 8
       when 0xA2
-        @d &= ~(0x1 << 4)
+        self.d &= ~(0x1 << 4)
         return 8
       when 0xA3
-        @e &= ~(0x1 << 4)
+        self.e &= ~(0x1 << 4)
         return 8
       when 0xA4
-        @h &= ~(0x1 << 4)
+        self.h &= ~(0x1 << 4)
         return 8
       when 0xA5
-        @l &= ~(0x1 << 4)
+        self.l &= ~(0x1 << 4)
         return 8
       when 0xA6
         @memory[self.hl] &= ~(0x1 << 4)
         return 16
       when 0xA7
-        @a &= ~(0x1 << 4)
+        self.a &= ~(0x1 << 4)
         return 8
       when 0xA8
-        @b &= ~(0x1 << 5)
+        self.b &= ~(0x1 << 5)
         return 8
       when 0xA9
-        @c &= ~(0x1 << 5)
+        self.c &= ~(0x1 << 5)
         return 8
       when 0xAA
-        @d &= ~(0x1 << 5)
+        self.d &= ~(0x1 << 5)
         return 8
       when 0xAB
-        @e &= ~(0x1 << 5)
+        self.e &= ~(0x1 << 5)
         return 8
       when 0xAC
-        @h &= ~(0x1 << 5)
+        self.h &= ~(0x1 << 5)
         return 8
       when 0xAD
-        @l &= ~(0x1 << 5)
+        self.l &= ~(0x1 << 5)
         return 8
       when 0xAE
         @memory[self.hl] &= ~(0x1 << 5)
         return 16
       when 0xAF
-        @a &= ~(0x1 << 5)
+        self.a &= ~(0x1 << 5)
         return 8
       when 0xB0
-        @b &= ~(0x1 << 6)
+        self.b &= ~(0x1 << 6)
         return 8
       when 0xB1
-        @c &= ~(0x1 << 6)
+        self.c &= ~(0x1 << 6)
         return 8
       when 0xB2
-        @d &= ~(0x1 << 6)
+        self.d &= ~(0x1 << 6)
         return 8
       when 0xB3
-        @e &= ~(0x1 << 6)
+        self.e &= ~(0x1 << 6)
         return 8
       when 0xB4
-        @h &= ~(0x1 << 6)
+        self.h &= ~(0x1 << 6)
         return 8
       when 0xB5
-        @l &= ~(0x1 << 6)
+        self.l &= ~(0x1 << 6)
         return 8
       when 0xB6
         @memory[self.hl] &= ~(0x1 << 6)
         return 16
       when 0xB7
-        @a &= ~(0x1 << 6)
+        self.a &= ~(0x1 << 6)
         return 8
       when 0xB8
-        @b &= ~(0x1 << 7)
+        self.b &= ~(0x1 << 7)
         return 8
       when 0xB9
-        @c &= ~(0x1 << 7)
+        self.c &= ~(0x1 << 7)
         return 8
       when 0xBA
-        @d &= ~(0x1 << 7)
+        self.d &= ~(0x1 << 7)
         return 8
       when 0xBB
-        @e &= ~(0x1 << 7)
+        self.e &= ~(0x1 << 7)
         return 8
       when 0xBC
-        @h &= ~(0x1 << 7)
+        self.h &= ~(0x1 << 7)
         return 8
       when 0xBD
-        @l &= ~(0x1 << 7)
+        self.l &= ~(0x1 << 7)
         return 8
       when 0xBE
         @memory[self.hl] &= ~(0x1 << 7)
         return 16
       when 0xBF
-        @a &= ~(0x1 << 7)
+        self.a &= ~(0x1 << 7)
         return 8
       when 0xC0
-        @b |= (0x1 << 0)
+        self.b |= (0x1 << 0)
         return 8
       when 0xC1
-        @c |= (0x1 << 0)
+        self.c |= (0x1 << 0)
         return 8
       when 0xC2
-        @d |= (0x1 << 0)
+        self.d |= (0x1 << 0)
         return 8
       when 0xC3
-        @e |= (0x1 << 0)
+        self.e |= (0x1 << 0)
         return 8
       when 0xC4
-        @h |= (0x1 << 0)
+        self.h |= (0x1 << 0)
         return 8
       when 0xC5
-        @l |= (0x1 << 0)
+        self.l |= (0x1 << 0)
         return 8
       when 0xC6
         @memory[self.hl] |= (0x1 << 0)
         return 16
       when 0xC7
-        @a |= (0x1 << 0)
+        self.a |= (0x1 << 0)
         return 8
       when 0xC8
-        @b |= (0x1 << 1)
+        self.b |= (0x1 << 1)
         return 8
       when 0xC9
-        @c |= (0x1 << 1)
+        self.c |= (0x1 << 1)
         return 8
       when 0xCA
-        @d |= (0x1 << 1)
+        self.d |= (0x1 << 1)
         return 8
       when 0xCB
-        @e |= (0x1 << 1)
+        self.e |= (0x1 << 1)
         return 8
       when 0xCC
-        @h |= (0x1 << 1)
+        self.h |= (0x1 << 1)
         return 8
       when 0xCD
-        @l |= (0x1 << 1)
+        self.l |= (0x1 << 1)
         return 8
       when 0xCE
         @memory[self.hl] |= (0x1 << 1)
         return 16
       when 0xCF
-        @a |= (0x1 << 1)
+        self.a |= (0x1 << 1)
         return 8
       when 0xD0
-        @b |= (0x1 << 2)
+        self.b |= (0x1 << 2)
         return 8
       when 0xD1
-        @c |= (0x1 << 2)
+        self.c |= (0x1 << 2)
         return 8
       when 0xD2
-        @d |= (0x1 << 2)
+        self.d |= (0x1 << 2)
         return 8
       when 0xD3
-        @e |= (0x1 << 2)
+        self.e |= (0x1 << 2)
         return 8
       when 0xD4
-        @h |= (0x1 << 2)
+        self.h |= (0x1 << 2)
         return 8
       when 0xD5
-        @l |= (0x1 << 2)
+        self.l |= (0x1 << 2)
         return 8
       when 0xD6
         @memory[self.hl] |= (0x1 << 2)
         return 16
       when 0xD7
-        @a |= (0x1 << 2)
+        self.a |= (0x1 << 2)
         return 8
       when 0xD8
-        @b |= (0x1 << 3)
+        self.b |= (0x1 << 3)
         return 8
       when 0xD9
-        @c |= (0x1 << 3)
+        self.c |= (0x1 << 3)
         return 8
       when 0xDA
-        @d |= (0x1 << 3)
+        self.d |= (0x1 << 3)
         return 8
       when 0xDB
-        @e |= (0x1 << 3)
+        self.e |= (0x1 << 3)
         return 8
       when 0xDC
-        @h |= (0x1 << 3)
+        self.h |= (0x1 << 3)
         return 8
       when 0xDD
-        @l |= (0x1 << 3)
+        self.l |= (0x1 << 3)
         return 8
       when 0xDE
         @memory[self.hl] |= (0x1 << 3)
         return 16
       when 0xDF
-        @a |= (0x1 << 3)
+        self.a |= (0x1 << 3)
         return 8
       when 0xE0
-        @b |= (0x1 << 4)
+        self.b |= (0x1 << 4)
         return 8
       when 0xE1
-        @c |= (0x1 << 4)
+        self.c |= (0x1 << 4)
         return 8
       when 0xE2
-        @d |= (0x1 << 4)
+        self.d |= (0x1 << 4)
         return 8
       when 0xE3
-        @e |= (0x1 << 4)
+        self.e |= (0x1 << 4)
         return 8
       when 0xE4
-        @h |= (0x1 << 4)
+        self.h |= (0x1 << 4)
         return 8
       when 0xE5
-        @l |= (0x1 << 4)
+        self.l |= (0x1 << 4)
         return 8
       when 0xE6
         @memory[self.hl] |= (0x1 << 4)
         return 16
       when 0xE7
-        @a |= (0x1 << 4)
+        self.a |= (0x1 << 4)
         return 8
       when 0xE8
-        @b |= (0x1 << 5)
+        self.b |= (0x1 << 5)
         return 8
       when 0xE9
-        @c |= (0x1 << 5)
+        self.c |= (0x1 << 5)
         return 8
       when 0xEA
-        @d |= (0x1 << 5)
+        self.d |= (0x1 << 5)
         return 8
       when 0xEB
-        @e |= (0x1 << 5)
+        self.e |= (0x1 << 5)
         return 8
       when 0xEC
-        @h |= (0x1 << 5)
+        self.h |= (0x1 << 5)
         return 8
       when 0xED
-        @l |= (0x1 << 5)
+        self.l |= (0x1 << 5)
         return 8
       when 0xEE
         @memory[self.hl] |= (0x1 << 5)
         return 16
       when 0xEF
-        @a |= (0x1 << 5)
+        self.a |= (0x1 << 5)
         return 8
       when 0xF0
-        @b |= (0x1 << 6)
+        self.b |= (0x1 << 6)
         return 8
       when 0xF1
-        @c |= (0x1 << 6)
+        self.c |= (0x1 << 6)
         return 8
       when 0xF2
-        @d |= (0x1 << 6)
+        self.d |= (0x1 << 6)
         return 8
       when 0xF3
-        @e |= (0x1 << 6)
+        self.e |= (0x1 << 6)
         return 8
       when 0xF4
-        @h |= (0x1 << 6)
+        self.h |= (0x1 << 6)
         return 8
       when 0xF5
-        @l |= (0x1 << 6)
+        self.l |= (0x1 << 6)
         return 8
       when 0xF6
         @memory[self.hl] |= (0x1 << 6)
         return 16
       when 0xF7
-        @a |= (0x1 << 6)
+        self.a |= (0x1 << 6)
         return 8
       when 0xF8
-        @b |= (0x1 << 7)
+        self.b |= (0x1 << 7)
         return 8
       when 0xF9
-        @c |= (0x1 << 7)
+        self.c |= (0x1 << 7)
         return 8
       when 0xFA
-        @d |= (0x1 << 7)
+        self.d |= (0x1 << 7)
         return 8
       when 0xFB
-        @e |= (0x1 << 7)
+        self.e |= (0x1 << 7)
         return 8
       when 0xFC
-        @h |= (0x1 << 7)
+        self.h |= (0x1 << 7)
         return 8
       when 0xFD
-        @l |= (0x1 << 7)
+        self.l |= (0x1 << 7)
         return 8
       when 0xFE
         @memory[self.hl] |= (0x1 << 7)
         return 16
       when 0xFF
-        @a |= (0x1 << 7)
+        self.a |= (0x1 << 7)
         return 8
       else raise "UNMATCHED CB-OPCODE #{hex_str opcode}"
       end
