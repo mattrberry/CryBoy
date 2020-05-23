@@ -1298,52 +1298,116 @@ class CPU
     else
       case opcode
       when 0x00
-        raise "FAILED TO MATCH CB-0x00"
+        self.b = (self.b << 1) + (self.b >> 7)
+        self.f_z = self.b == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.b & 0x1
         return 8
       when 0x01
-        raise "FAILED TO MATCH CB-0x01"
+        self.c = (self.c << 1) + (self.c >> 7)
+        self.f_z = self.c == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.c & 0x1
         return 8
       when 0x02
-        raise "FAILED TO MATCH CB-0x02"
+        self.d = (self.d << 1) + (self.d >> 7)
+        self.f_z = self.d == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.d & 0x1
         return 8
       when 0x03
-        raise "FAILED TO MATCH CB-0x03"
+        self.e = (self.e << 1) + (self.e >> 7)
+        self.f_z = self.e == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.e & 0x1
         return 8
       when 0x04
-        raise "FAILED TO MATCH CB-0x04"
+        self.h = (self.h << 1) + (self.h >> 7)
+        self.f_z = self.h == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.h & 0x1
         return 8
       when 0x05
-        raise "FAILED TO MATCH CB-0x05"
+        self.l = (self.l << 1) + (self.l >> 7)
+        self.f_z = self.l == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.l & 0x1
         return 8
       when 0x06
-        raise "FAILED TO MATCH CB-0x06"
+        @memory[self.hl] = (@memory[self.hl] << 1) + (@memory[self.hl] >> 7)
+        self.f_z = @memory[self.hl] == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @memory[self.hl] & 0x1
         return 16
       when 0x07
-        raise "FAILED TO MATCH CB-0x07"
+        self.a = (self.a << 1) + (self.a >> 7)
+        self.f_z = self.a == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.a & 0x1
         return 8
       when 0x08
-        raise "FAILED TO MATCH CB-0x08"
+        self.b = (self.b >> 1) + (self.b << 7)
+        self.f_z = self.b == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.b & 0x80
         return 8
       when 0x09
-        raise "FAILED TO MATCH CB-0x09"
+        self.c = (self.c >> 1) + (self.c << 7)
+        self.f_z = self.c == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.c & 0x80
         return 8
       when 0x0A
-        raise "FAILED TO MATCH CB-0x0A"
+        self.d = (self.d >> 1) + (self.d << 7)
+        self.f_z = self.d == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.d & 0x80
         return 8
       when 0x0B
-        raise "FAILED TO MATCH CB-0x0B"
+        self.e = (self.e >> 1) + (self.e << 7)
+        self.f_z = self.e == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.e & 0x80
         return 8
       when 0x0C
-        raise "FAILED TO MATCH CB-0x0C"
+        self.h = (self.h >> 1) + (self.h << 7)
+        self.f_z = self.h == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.h & 0x80
         return 8
       when 0x0D
-        raise "FAILED TO MATCH CB-0x0D"
+        self.l = (self.l >> 1) + (self.l << 7)
+        self.f_z = self.l == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.l & 0x80
         return 8
       when 0x0E
-        raise "FAILED TO MATCH CB-0x0E"
+        @memory[self.hl] = (@memory[self.hl] >> 1) + (@memory[self.hl] << 7)
+        self.f_z = @memory[self.hl] == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = @memory[self.hl] & 0x80
         return 16
       when 0x0F
-        raise "FAILED TO MATCH CB-0x0F"
+        self.a = (self.a >> 1) + (self.a << 7)
+        self.f_z = self.a == 0
+        self.f_n = false
+        self.f_h = false
+        self.f_c = self.a & 0x80
         return 8
       when 0x10
         carry = self.b & 0x80
@@ -1474,52 +1538,116 @@ class CPU
         self.f_c = carry
         return 8
       when 0x20
-        raise "FAILED TO MATCH CB-0x20"
+        self.f_c = self.b & 0x80
+        self.b = self.b << 1
+        self.f_z = self.b == 0
+        self.f_n = false
+        self.f_h = false
         return 8
       when 0x21
-        raise "FAILED TO MATCH CB-0x21"
+        self.f_c = self.c & 0x80
+        self.c = self.c << 1
+        self.f_z = self.c == 0
+        self.f_n = false
+        self.f_h = false
         return 8
       when 0x22
-        raise "FAILED TO MATCH CB-0x22"
+        self.f_c = self.d & 0x80
+        self.d = self.d << 1
+        self.f_z = self.d == 0
+        self.f_n = false
+        self.f_h = false
         return 8
       when 0x23
-        raise "FAILED TO MATCH CB-0x23"
+        self.f_c = self.e & 0x80
+        self.e = self.e << 1
+        self.f_z = self.e == 0
+        self.f_n = false
+        self.f_h = false
         return 8
       when 0x24
-        raise "FAILED TO MATCH CB-0x24"
+        self.f_c = self.h & 0x80
+        self.h = self.h << 1
+        self.f_z = self.h == 0
+        self.f_n = false
+        self.f_h = false
         return 8
       when 0x25
-        raise "FAILED TO MATCH CB-0x25"
+        self.f_c = self.l & 0x80
+        self.l = self.l << 1
+        self.f_z = self.l == 0
+        self.f_n = false
+        self.f_h = false
         return 8
       when 0x26
-        raise "FAILED TO MATCH CB-0x26"
+        self.f_c = @memory[self.hl] & 0x80
+        @memory[self.hl] = @memory[self.hl] << 1
+        self.f_z = @memory[self.hl] == 0
+        self.f_n = false
+        self.f_h = false
         return 16
       when 0x27
-        raise "FAILED TO MATCH CB-0x27"
+        self.f_c = self.a & 0x80
+        self.a = self.a << 1
+        self.f_z = self.a == 0
+        self.f_n = false
+        self.f_h = false
         return 8
       when 0x28
-        raise "FAILED TO MATCH CB-0x28"
+        self.f_c = self.b & 0x1
+        self.b = (self.b >> 1) + (self.b & 0x80)
+        self.f_z = self.b == 0
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x29
-        raise "FAILED TO MATCH CB-0x29"
+        self.f_c = self.c & 0x1
+        self.c = (self.c >> 1) + (self.c & 0x80)
+        self.f_z = self.c == 0
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x2A
-        raise "FAILED TO MATCH CB-0x2A"
+        self.f_c = self.d & 0x1
+        self.d = (self.d >> 1) + (self.d & 0x80)
+        self.f_z = self.d == 0
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x2B
-        raise "FAILED TO MATCH CB-0x2B"
+        self.f_c = self.e & 0x1
+        self.e = (self.e >> 1) + (self.e & 0x80)
+        self.f_z = self.e == 0
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x2C
-        raise "FAILED TO MATCH CB-0x2C"
+        self.f_c = self.h & 0x1
+        self.h = (self.h >> 1) + (self.h & 0x80)
+        self.f_z = self.h == 0
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x2D
-        raise "FAILED TO MATCH CB-0x2D"
+        self.f_c = self.l & 0x1
+        self.l = (self.l >> 1) + (self.l & 0x80)
+        self.f_z = self.l == 0
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x2E
-        raise "FAILED TO MATCH CB-0x2E"
+        self.f_c = @memory[self.hl] & 0x1
+        @memory[self.hl] = (@memory[self.hl] >> 1) + (@memory[self.hl] & 0x80)
+        self.f_z = @memory[self.hl] == 0
+        self.f_h = false
+        self.f_c = false
         return 16
       when 0x2F
-        raise "FAILED TO MATCH CB-0x2F"
+        self.f_c = self.a & 0x1
+        self.a = (self.a >> 1) + (self.a & 0x80)
+        self.f_z = self.a == 0
+        self.f_h = false
+        self.f_c = false
         return 8
       when 0x30
         self.b = (self.b << 4) + (self.b >> 4)
