@@ -1232,7 +1232,11 @@ class CPU
         @pc = 0x0030_u16
         return 16
       when 0xF8
-        self.hl = @sp + r8
+        self.hl = @sp &+ r8
+        self.f_z = false
+        self.f_n = false
+        self.f_h = (@sp & 0xF) + (r8 & 0xF) > 0xF
+        self.f_c = self.hl < @sp
         return 12
       when 0xF9
         @sp = self.hl
