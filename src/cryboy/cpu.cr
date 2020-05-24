@@ -416,7 +416,8 @@ class CPU
         self.a = (self.a >> 1) + (self.a << 7)
         return 4
       when 0x10
-        raise "FAILED TO MATCH 0x10"
+        # todo: see if something more needs to happen here...
+        return 4
       when 0x11
         self.de = d16
         return 12
