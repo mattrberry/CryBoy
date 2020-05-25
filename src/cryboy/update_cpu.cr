@@ -118,7 +118,8 @@ module DmgOps
 
     # read the operation operands from the name
     def operands : Array(String)
-      name.split(limit: 2)[1].split(',').map { |operand| normalize_operand operand }
+      split = name.split(limit: 2)
+      split.size <= 1 ? [] of String : split[1].split(',').map { |operand| normalize_operand operand }
     end
 
     # read the group as a Group enum
@@ -140,18 +141,30 @@ module DmgOps
       operand = operand.downcase
       operand = operand.sub "(", "@memory["
       operand = operand.sub ")", "]"
-      operand = operand.sub "hl+", "((hl &+= 1) - 1)"
-      operand = operand.sub "hl-", "((hl &-= 1) + 1)"
+      operand = operand.sub "hl+", "((hl &+= 1) &- 1)"
+      operand = operand.sub "hl-", "((hl &-= 1) &+ 1)"
       operand = operand.sub "ff00+", "0xFF00 &+ "
+      if group == Group::CONTROL_BR || group == Group::CONTROL_MISC
+        # distinguish between "flag c" and "register z"
+        operand = operand.sub /\bz\b/, "self.f_z"
+        operand = operand.sub /\bnz\b/, "self.f_nz"
+        operand = operand.sub /\bc\b/, "self.f_c"
+        operand = operand.sub /\bnc\b/, "self.f_nc"
+      end
       operand = operand.sub "pc", "@pc"
       operand = operand.sub "sp", "@sp"
       operand = operand.sub "af", "self.af"
       operand = operand.sub "bc", "self.bc"
       operand = operand.sub "de", "self.de"
       operand = operand.sub "hl", "self.hl"
-      if operand.size == 1
-        operand = "self.#{operand}"
-      end
+      operand = operand.sub /\ba\b/, "self.a"
+      operand = operand.sub /\bf\b/, "self.f"
+      operand = operand.sub /\bb\b/, "self.b"
+      operand = operand.sub /\bc\b/, "self.c"
+      operand = operand.sub /\bd\b/, "self.d"
+      operand = operand.sub /\be\b/, "self.e"
+      operand = operand.sub /\bh\b/, "self.h"
+      operand = operand.sub /\bl\b/, "self.l"
       operand
     end
 
@@ -167,19 +180,115 @@ module DmgOps
       [] of String
     end
 
+    def branch(cond : String, body : Array(String)) : Array(String)
+      ["if #{cond}"] + body + ["return #{cycles_branch}", "end"]
+    end
+
     # switch over operation type and generate code
     private def codegen_help : Array(String)
       case type
+      when "ADD"
+        to, from = operands
+        if group == Group::X8_ALU || from == "i8" # `ADD SP, e8` works the same
+          set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) > 0x0F", flags.h == FlagOp::DEFAULT) +
+            ["#{to} &+= #{from}"] +
+            set_flag_z("#{to} == 0", flags.z == FlagOp::DEFAULT) +
+            set_flag_c("#{to} < #{from}", flags.c == FlagOp::DEFAULT)
+        elsif group == Group::X16_ALU
+          set_flag_h("(#{to} & 0x0FFF).to_u32 + (#{from} & 0x0FFF) > 0x0FFF", flags.h == FlagOp::DEFAULT) +
+            ["#{to} &+= #{from}"] +
+            set_flag_c("#{to} < #{from}", flags.c == FlagOp::DEFAULT)
+        else
+          raise "Invalid group #{group} for ADD."
+        end
+      when "BIT"
+        bit, reg = operands
+        set_flag_z("#{reg} & (0x1 << #{bit}) == 0")
+      when "CALL"
+        instr = ["@sp -= 2", "@memory[@sp] = @pc", "@pc = u16"]
+        if operands.size == 1
+          instr
+        else
+          cond, loc = operands
+          branch(cond, instr)
+        end
+      when "CP"
+        to, from = operands
+        set_flag_z("#{to} &- #{from} == 0", flags.z == FlagOp::DEFAULT) +
+          set_flag_h("#{to} & 0xF < #{from} & 0xF", flags.h == FlagOp::DEFAULT) +
+          set_flag_c("#{to} < #{from}", flags.c == FlagOp::DEFAULT)
+      when "DEC"
+        to = operands[0]
+        ["#{to} &-= 1"] +
+          set_flag_z("#{to} == 0", flags.z == FlagOp::DEFAULT) +
+          set_flag_h("#{to} & 0x0F == 0x0F", flags.z == FlagOp::DEFAULT)
       when "INC"
         to = operands[0]
         ["#{to} &+= 1"] +
           set_flag_z("#{to} == 0", flags.z == FlagOp::DEFAULT) +
-          set_flag_h("#{to} & 0x10", flags.h == FlagOp::DEFAULT)
+          set_flag_h("#{to} & 0x1F == 0x1F", flags.h == FlagOp::DEFAULT)
+      when "JR"
+        instr = ["@pc &+= i8"]
+        if operands.size == 1
+          instr
+        else
+          cond, distance = operands
+          branch(cond, instr)
+        end
       when "LD"
         to, from = operands
         ["#{to} = #{from}"]
       when "NOP"
         [] of String
+      when "POP"
+        reg = operands[0]
+        ["#{reg} = @memory.read_word (@sp += 2) - 2"] +
+          set_flag_z("#{reg} & (0x1 << 7)", flags.z == FlagOp::DEFAULT) +
+          set_flag_n("#{reg} & (0x1 << 6)", flags.n == FlagOp::DEFAULT) +
+          set_flag_h("#{reg} & (0x1 << 5)", flags.h == FlagOp::DEFAULT) +
+          set_flag_c("#{reg} & (0x1 << 4)", flags.c == FlagOp::DEFAULT)
+      when "PREFIX"
+        [
+          "# todo: This should operate as a seperate instruction, but can't be interrupted.",
+          "#       This will require a restructure where the CPU leads the timing, rather than the PPU.",
+          "#       https://discordapp.com/channels/465585922579103744/465586075830845475/712358911151177818",
+          "#       https://discordapp.com/channels/465585922579103744/465586075830845475/712359253255520328",
+          "next_op = read_opcode",
+          "cycles = process_opcode next_op, cb = true",
+          "# izik's table lists all prefixed opcodes as a length of 2 when they should be 1",
+          "@pc &-= 1",
+        ]
+      when "PUSH"
+        ["@memory[@sp -= 2] = #{operands[0]}"]
+      when "RET"
+        instr = ["@pc = @memory.read_word @sp", "@sp += 2"]
+        if operands.size == 0
+          instr
+        else
+          cond = operands[0]
+          branch(cond, instr)
+        end
+      when "RL"
+        to = operands[0]
+        ["carry = #{to} & 0x80", "#{to} = (#{to} << 1) + (self.f_c ? 1 : 0)"] +
+          set_flag_z("#{to} == 0", flags.z == FlagOp::DEFAULT) +
+          set_flag_c("carry", flags.c == FlagOp::DEFAULT)
+      when "RLA"
+        ["carry = self.a & 0x80", "self.a = (self.a << 1) + (self.f_c ? 1 : 0)"] +
+          set_flag_c("carry", flags.c == FlagOp::DEFAULT)
+      when "SET"
+        bit, reg = operands
+        ["#{reg} |= (0x1 << #{bit})"]
+      when "SUB"
+        to, from = operands
+        set_flag_h("#{to} & 0xF < #{from} & 0xF", flags.h == FlagOp::DEFAULT) +
+          set_flag_c("#{to} < #{from}", flags.c == FlagOp::DEFAULT) +
+          ["#{to} &-= #{from}"] +
+          set_flag_z("#{to} &- #{from} == 0", flags.z == FlagOp::DEFAULT)
+      when "XOR"
+        to, from = operands
+        ["#{to} ^= #{from}"] +
+          set_flag_z("#{to} == 0", flags.z == FlagOp::DEFAULT)
       else ["raise \"Not currently supporting #{name}\""]
       end
     end
@@ -187,7 +296,7 @@ module DmgOps
     # generate the code required to process this operation
     def codegen : Array(String)
       assign_extra_integers +
-        ["@pc += #{length}"] +
+        ["@pc &+= #{length}"] +
         codegen_help +
         flags.set_reset +
         ["return #{cycles}"]
