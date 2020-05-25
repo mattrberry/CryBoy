@@ -3,30 +3,6 @@ require "compiler/crystal/command/format"
 require "http/client"
 require "json"
 
-# abstract flag setting so I don't forget to use "self."
-# `should_set` allows the code to be generated conditionally
-def set_flag_z(o : Object, should_set = true) : Array(String)
-  should_set ? ["self.f_z = #{o.to_s}"] : [] of String
-end
-
-# abstract flag setting so I don't forget to use "self."
-# `should_set` allows the code to be generated conditionally
-def set_flag_n(o : Object, should_set = true) : Array(String)
-  should_set ? ["self.f_n = #{o.to_s}"] : [] of String
-end
-
-# abstract flag setting so I don't forget to use "self."
-# `should_set` allows the code to be generated conditionally
-def set_flag_h(o : Object, should_set = true) : Array(String)
-  should_set ? ["self.f_h = #{o.to_s}"] : [] of String
-end
-
-# abstract flag setting so I don't forget to use "self."
-# `should_set` allows the code to be generated conditionally
-def set_flag_c(o : Object, should_set = true) : Array(String)
-  should_set ? ["self.f_c = #{o.to_s}"] : [] of String
-end
-
 module DmgOps
   enum FlagOp
     ZERO
@@ -70,18 +46,6 @@ module DmgOps
 
     def c : FlagOp
       str_to_flagop @c
-    end
-
-    # generates code to set/reset flags if necessary
-    def set_reset : Array(String)
-      (self.z == FlagOp::ZERO ? set_flag_z false : [] of String) +
-        (self.z == FlagOp::ONE ? set_flag_z true : [] of String) +
-        (self.n == FlagOp::ZERO ? set_flag_n false : [] of String) +
-        (self.n == FlagOp::ONE ? set_flag_n true : [] of String) +
-        (self.h == FlagOp::ZERO ? set_flag_h false : [] of String) +
-        (self.h == FlagOp::ONE ? set_flag_h true : [] of String) +
-        (self.c == FlagOp::ZERO ? set_flag_c false : [] of String) +
-        (self.c == FlagOp::ONE ? set_flag_c true : [] of String)
     end
   end
 
@@ -180,8 +144,61 @@ module DmgOps
       [] of String
     end
 
+    # create a branch condition
     def branch(cond : String, body : Array(String)) : Array(String)
       ["if #{cond}"] + body + ["return #{cycles_branch}", "end"]
+    end
+
+    # set flag z to the given value if specified by this operation
+    def set_flag_z(o : Object) : Array(String)
+      flags.z == FlagOp::DEFAULT ? set_flag_z! o : [] of String
+    end
+
+    # set flag z to the given value
+    def set_flag_z!(o : Object) : Array(String)
+      ["self.f_z = #{o.to_s}"]
+    end
+
+    # set flag n to the given value if specified by this operation
+    def set_flag_n(o : Object) : Array(String)
+      flags.n == FlagOp::DEFAULT ? set_flag_n! o : [] of String
+    end
+
+    # set flag n to the given value
+    def set_flag_n!(o : Object) : Array(String)
+      ["self.f_n = #{o.to_s}"]
+    end
+
+    # set flag h to the given value if specified by this operation
+    def set_flag_h(o : Object) : Array(String)
+      flags.h == FlagOp::DEFAULT ? set_flag_h! o : [] of String
+    end
+
+    # set flag h to the given value
+    def set_flag_h!(o : Object) : Array(String)
+      ["self.f_h = #{o.to_s}"]
+    end
+
+    # set flag c to the given value if specified by this operation
+    def set_flag_c(o : Object) : Array(String)
+      flags.c == FlagOp::DEFAULT ? set_flag_c! o : [] of String
+    end
+
+    # set flag c to the given value
+    def set_flag_c!(o : Object) : Array(String)
+      ["self.f_c = #{o.to_s}"]
+    end
+
+    # generate code to set/reset flags if necessary
+    def set_reset_flags : Array(String)
+      (flags.z == FlagOp::ZERO ? set_flag_z! false : [] of String) +
+        (flags.z == FlagOp::ONE ? set_flag_z! true : [] of String) +
+        (flags.n == FlagOp::ZERO ? set_flag_n! false : [] of String) +
+        (flags.n == FlagOp::ONE ? set_flag_n! true : [] of String) +
+        (flags.h == FlagOp::ZERO ? set_flag_h! false : [] of String) +
+        (flags.h == FlagOp::ONE ? set_flag_h! true : [] of String) +
+        (flags.c == FlagOp::ZERO ? set_flag_c! false : [] of String) +
+        (flags.c == FlagOp::ONE ? set_flag_c! true : [] of String)
     end
 
     # switch over operation type and generate code
@@ -190,14 +207,14 @@ module DmgOps
       when "ADD"
         to, from = operands
         if group == Group::X8_ALU || from == "i8" # `ADD SP, e8` works the same
-          set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) > 0x0F", flags.h == FlagOp::DEFAULT) +
+          set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) > 0x0F") +
             ["#{to} &+= #{from}"] +
-            set_flag_z("#{to} == 0", flags.z == FlagOp::DEFAULT) +
-            set_flag_c("#{to} < #{from}", flags.c == FlagOp::DEFAULT)
+            set_flag_z("#{to} == 0") +
+            set_flag_c("#{to} < #{from}")
         elsif group == Group::X16_ALU
-          set_flag_h("(#{to} & 0x0FFF).to_u32 + (#{from} & 0x0FFF) > 0x0FFF", flags.h == FlagOp::DEFAULT) +
+          set_flag_h("(#{to} & 0x0FFF).to_u32 + (#{from} & 0x0FFF) > 0x0FFF") +
             ["#{to} &+= #{from}"] +
-            set_flag_c("#{to} < #{from}", flags.c == FlagOp::DEFAULT)
+            set_flag_c("#{to} < #{from}")
         else
           raise "Invalid group #{group} for ADD."
         end
@@ -214,19 +231,19 @@ module DmgOps
         end
       when "CP"
         to, from = operands
-        set_flag_z("#{to} &- #{from} == 0", flags.z == FlagOp::DEFAULT) +
-          set_flag_h("#{to} & 0xF < #{from} & 0xF", flags.h == FlagOp::DEFAULT) +
-          set_flag_c("#{to} < #{from}", flags.c == FlagOp::DEFAULT)
+        set_flag_z("#{to} &- #{from} == 0") +
+          set_flag_h("#{to} & 0xF < #{from} & 0xF") +
+          set_flag_c("#{to} < #{from}")
       when "DEC"
         to = operands[0]
         ["#{to} &-= 1"] +
-          set_flag_z("#{to} == 0", flags.z == FlagOp::DEFAULT) +
-          set_flag_h("#{to} & 0x0F == 0x0F", flags.z == FlagOp::DEFAULT)
+          set_flag_z("#{to} == 0") +
+          set_flag_h("#{to} & 0x0F == 0x0F")
       when "INC"
         to = operands[0]
         ["#{to} &+= 1"] +
-          set_flag_z("#{to} == 0", flags.z == FlagOp::DEFAULT) +
-          set_flag_h("#{to} & 0x1F == 0x1F", flags.h == FlagOp::DEFAULT)
+          set_flag_z("#{to} == 0") +
+          set_flag_h("#{to} & 0x1F == 0x1F")
       when "JR"
         instr = ["@pc &+= i8"]
         if operands.size == 1
@@ -243,10 +260,10 @@ module DmgOps
       when "POP"
         reg = operands[0]
         ["#{reg} = @memory.read_word (@sp += 2) - 2"] +
-          set_flag_z("#{reg} & (0x1 << 7)", flags.z == FlagOp::DEFAULT) +
-          set_flag_n("#{reg} & (0x1 << 6)", flags.n == FlagOp::DEFAULT) +
-          set_flag_h("#{reg} & (0x1 << 5)", flags.h == FlagOp::DEFAULT) +
-          set_flag_c("#{reg} & (0x1 << 4)", flags.c == FlagOp::DEFAULT)
+          set_flag_z("#{reg} & (0x1 << 7)") +
+          set_flag_n("#{reg} & (0x1 << 6)") +
+          set_flag_h("#{reg} & (0x1 << 5)") +
+          set_flag_c("#{reg} & (0x1 << 4)")
       when "PREFIX"
         [
           "# todo: This should operate as a seperate instruction, but can't be interrupted.",
@@ -271,24 +288,24 @@ module DmgOps
       when "RL"
         to = operands[0]
         ["carry = #{to} & 0x80", "#{to} = (#{to} << 1) + (self.f_c ? 1 : 0)"] +
-          set_flag_z("#{to} == 0", flags.z == FlagOp::DEFAULT) +
-          set_flag_c("carry", flags.c == FlagOp::DEFAULT)
+          set_flag_z("#{to} == 0") +
+          set_flag_c("carry")
       when "RLA"
         ["carry = self.a & 0x80", "self.a = (self.a << 1) + (self.f_c ? 1 : 0)"] +
-          set_flag_c("carry", flags.c == FlagOp::DEFAULT)
+          set_flag_c("carry")
       when "SET"
         bit, reg = operands
         ["#{reg} |= (0x1 << #{bit})"]
       when "SUB"
         to, from = operands
-        set_flag_h("#{to} & 0xF < #{from} & 0xF", flags.h == FlagOp::DEFAULT) +
-          set_flag_c("#{to} < #{from}", flags.c == FlagOp::DEFAULT) +
+        set_flag_h("#{to} & 0xF < #{from} & 0xF") +
+          set_flag_c("#{to} < #{from}") +
           ["#{to} &-= #{from}"] +
-          set_flag_z("#{to} &- #{from} == 0", flags.z == FlagOp::DEFAULT)
+          set_flag_z("#{to} &- #{from} == 0")
       when "XOR"
         to, from = operands
         ["#{to} ^= #{from}"] +
-          set_flag_z("#{to} == 0", flags.z == FlagOp::DEFAULT)
+          set_flag_z("#{to} == 0")
       else ["raise \"Not currently supporting #{name}\""]
       end
     end
@@ -298,7 +315,7 @@ module DmgOps
       assign_extra_integers +
         ["@pc &+= #{length}"] +
         codegen_help +
-        flags.set_reset +
+        set_reset_flags +
         ["return #{cycles}"]
     end
   end
