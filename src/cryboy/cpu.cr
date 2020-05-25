@@ -1621,9 +1621,10 @@ class CPU
       when 0xE8 # ADD SP,i8
         i8 = @memory[@pc + 1].to_i8!
         @pc &+= 2
-        self.f_h = (@sp & 0x0F) + (i8 & 0x0F) > 0x0F
-        @sp &+= i8
-        self.f_c = @sp < i8
+        r = @sp &+ i8
+        self.f_h = (@sp ^ i8 ^ r) & 0x0010 != 0
+        self.f_c = (@sp ^ i8 ^ r) & 0x0100 != 0
+        @sp = r
         self.f_z = false
         self.f_n = false
         return 16
@@ -1711,8 +1712,8 @@ class CPU
         i8 = @memory[@pc + 1].to_i8!
         @pc &+= 2
         self.hl = @sp &+ i8
-        self.f_h = (@sp & 0x0F) + (i8 & 0x0F) > 0x0F
-        self.f_c = self.hl < @sp
+        self.f_h = (@sp ^ i8 ^ self.hl) & 0x0010 != 0
+        self.f_c = (@sp ^ i8 ^ self.hl) & 0x0100 != 0
         self.f_z = false
         self.f_n = false
         return 12

@@ -223,7 +223,7 @@ module DmgOps
         end
       when "ADD"
         to, from = operands
-        if group == Group::X8_ALU || from == "i8" # `ADD SP, e8` works the same
+        if group == Group::X8_ALU
           if to == from
             set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) > 0x0F") +
               set_flag_c("#{to} > 0x7F") +
@@ -236,7 +236,12 @@ module DmgOps
               set_flag_c("#{to} < #{from}")
           end
         elsif group == Group::X16_ALU
-          if to == from
+          if from == "i8"
+            ["r = @sp &+ i8"] +
+              set_flag_h("(@sp ^ i8 ^ r) & 0x0010 != 0") +
+              set_flag_c("(@sp ^ i8 ^ r) & 0x0100 != 0") +
+              ["@sp = r"]
+          elsif to == from
             set_flag_h("(#{to} & 0x0FFF).to_u32 + (#{from} & 0x0FFF) > 0x0FFF") +
               set_flag_c("#{to} > 0x7FFF") +
               ["#{to} &+= #{from}"]
@@ -322,8 +327,8 @@ module DmgOps
         to, from = operands
         ["#{to} = #{from}"] +
           # the following flags _only_ apply to `LD HL, SP + i8`
-          set_flag_h("(@sp & 0x0F) + (i8 & 0x0F) > 0x0F") +
-          set_flag_c("#{to} < @sp")
+          set_flag_h("(@sp ^ i8 ^ self.hl) & 0x0010 != 0") +
+          set_flag_c("(@sp ^ i8 ^ self.hl) & 0x0100 != 0")
       when "NOP"
         [] of String
       when "OR"
