@@ -124,161 +124,6 @@ class CPU
     @memory[0xFFFF] = 0x00_u8 # IE
   end
 
-  def pop : UInt16
-    @memory.read_word (@sp += 2) - 2
-  end
-
-  def push(value : UInt16) : Nil
-    @memory[@sp -= 2] = value
-  end
-
-  def set_flags(res : UInt8, op1 : UInt8, op2 : UInt8, z : FlagOp, n : FlagOp, h : FlagOp, c : FlagOp, add_sub = false)
-    case z
-    when FlagOp::ZERO    then self.f_z = 0
-    when FlagOp::ONE     then self.f_z = 1
-    when FlagOp::DEFAULT then self.f_z = res == 0
-    when FlagOp::UNCHANGED
-    end
-
-    case n
-    when FlagOp::ZERO    then self.f_n = 0
-    when FlagOp::ONE     then self.f_n = 1
-    when FlagOp::DEFAULT then self.f_n = add_sub
-    when FlagOp::UNCHANGED
-    end
-
-    case h
-    when FlagOp::ZERO    then self.f_h = 0
-    when FlagOp::ONE     then self.f_h = 1
-    when FlagOp::DEFAULT then self.f_h = (op1 ^ op2 ^ res) & 0x10 == 0x10
-    when FlagOp::UNCHANGED
-    end
-
-    case c
-    when FlagOp::ZERO    then self.f_c = 0
-    when FlagOp::ONE     then self.f_c = 1
-    when FlagOp::DEFAULT then self.f_c = res < op1
-    when FlagOp::UNCHANGED
-    end
-  end
-
-  def add(op1 : UInt8, op2 : UInt8, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt8
-    res = op1 &+ op2
-    set_flags res, op1, op2, z, n, h, c, add_sub = true
-    res
-  end
-
-  def adc(op1 : UInt8, op2 : UInt8, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt8
-    res = op1 &+ op2 &+ (f_c ? 1 : 0)
-    set_flags res, op1, op2, z, n, h, c, add_sub = true
-    res
-  end
-
-  def sub(op1 : UInt8, op2 : UInt8, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt8
-    res = op1 &- op2
-    set_flags res, op1, op2, z, n, h, c, add_sub = true
-    res
-  end
-
-  def sbc(op1 : UInt8, op2 : UInt8, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt8
-    res = op1 &- op2 &- (f_c ? 1 : 0)
-    set_flags res, op1, op2, z, n, h, c, add_sub = true
-    res
-  end
-
-  def and(op1 : UInt8, op2 : UInt8, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt8
-    res = op1 & op2
-    set_flags res, op1, op2, z, n, h, c
-    res
-  end
-
-  def or(op1 : UInt8, op2 : UInt8, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt8
-    res = op1 | op2
-    set_flags res, op1, op2, z, n, h, c
-    res
-  end
-
-  def xor(op1 : UInt8, op2 : UInt8, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt8
-    res = op1 ^ op2
-    set_flags res, op1, op2, z, n, h, c
-    res
-  end
-
-  def add(op1 : UInt16, op2 : Int8, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt16
-    # todo this case is very specific, should be moved elsewhere
-    res = op1 &+ op2
-    self.f = 0b00000000
-    self.f += (((@sp & 0xF) + (op2.to_u8! & 0xF)) > 0xF) ? 1 : 0 << 5
-    self.f += (((@sp & 0xFF) + (op2.to_u8! & 0xF)) > 0xF) ? 1 : 0 << 4
-    res
-  end
-
-  def add(operand_1 : UInt16, operand_2 : UInt16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt16
-    res = operand_1 &+ operand_2
-
-    if z == FlagOp::ZERO
-      self.f_z = false
-    elsif z == FlagOp::ONE || (z == FlagOp::DEFAULT && res == 0)
-      self.f_z = true
-    end
-
-    if n == FlagOp::ZERO
-      self.f_n = false
-    elsif n == FlagOp::ONE # || todo
-      self.f_n = true
-    end
-
-    if h == FlagOp::ZERO
-      self.f_h = false
-    elsif h == FlagOp::ONE # || todo
-      self.f_h = true
-    end
-
-    if c == FlagOp::ZERO
-      self.f_c = false
-    elsif c == FlagOp::ONE || (c == FlagOp::DEFAULT && res < operand_1)
-      self.f_c = true
-    end
-
-    res
-  end
-
-  def sub(operand_1 : UInt16, operand_2 : UInt16, z = FlagOp::UNCHANGED, n = FlagOp::UNCHANGED, h = FlagOp::UNCHANGED, c = FlagOp::UNCHANGED) : UInt16
-    res = operand_1 &- operand_2
-
-    if z == FlagOp::ZERO
-      self.f &= 0b0111_0000
-    elsif z == FlagOp::ONE || (z == FlagOp::DEFAULT && res == 0)
-      self.f |= 0b1000_0000
-    end
-
-    if n == FlagOp::ZERO
-      self.f &= 0b1011_0000
-    elsif n == FlagOp::ONE # || todo
-      self.f |= 0b0100_0000
-    end
-
-    if h == FlagOp::ZERO
-      self.f &= 0b1101_0000
-    elsif h == FlagOp::ONE # || todo
-      self.f |= 0b0010_0000
-    end
-
-    if c == FlagOp::ZERO
-      self.f &= 0b1110_0000
-    elsif c == FlagOp::ONE || (c == FlagOp::DEFAULT && res > operand_1)
-      self.f |= 0b0001_0000
-    end
-
-    res
-  end
-
-  def bit(op : UInt8, bit : Int) : Nil
-    self.f_z = (op >> bit) ^ 0x1
-    self.f_n = false
-    self.f_h = true
-  end
-
   def handle_interrupts
     # bit 0: v-blank
     if @memory.vblank && @memory.vblank_enabled
@@ -385,7 +230,8 @@ class CPU
         return 8
       when 0x07 # RLCA
         @pc &+= 1
-        raise "Not currently supporting RLCA"
+        self.a = (self.a << 1) + (self.a >> 7)
+        self.f_c = self.a & 0x01
         self.f_z = false
         self.f_n = false
         self.f_h = false
@@ -431,14 +277,15 @@ class CPU
         return 8
       when 0x0F # RRCA
         @pc &+= 1
-        raise "Not currently supporting RRCA"
+        self.a = (self.a >> 1) + (self.a << 7)
+        self.f_c = self.a & 0x80
         self.f_z = false
         self.f_n = false
         self.f_h = false
         return 4
       when 0x10 # STOP
         @pc &+= 2
-        raise "Not currently supporting STOP"
+        # todo: see if something more needs to happen here...
         return 4
       when 0x11 # LD DE,u16
         u16 = @memory.read_word @pc + 1
@@ -571,7 +418,18 @@ class CPU
         return 8
       when 0x27 # DAA
         @pc &+= 1
-        raise "Not currently supporting DAA"
+        if self.f_n == 0 # last op was an addition
+          if self.f_c || self.a > 0x99
+            self.a &+= 0x60
+            self.f_c = true
+          end
+          if self.f_h || self.a & 0x0F > 0x09
+            self.a &+= 0x06
+          end
+        else # last op was a subtraction
+          self.a &-= 0x60 if self.f_c
+          self.a &-= 0x06 if self.f_h
+        end
         self.f_h = false
         return 4
       when 0x28 # JR Z,i8
@@ -618,7 +476,7 @@ class CPU
         return 8
       when 0x2F # CPL
         @pc &+= 1
-        raise "Not currently supporting CPL"
+        self.a = ~self.a
         self.f_n = true
         self.f_h = true
         return 4
@@ -664,7 +522,6 @@ class CPU
         return 12
       when 0x37 # SCF
         @pc &+= 1
-        raise "Not currently supporting SCF"
         self.f_n = false
         self.f_h = false
         self.f_c = true
@@ -713,7 +570,7 @@ class CPU
         return 8
       when 0x3F # CCF
         @pc &+= 1
-        raise "Not currently supporting CCF"
+        self.f_c = !self.f_c
         self.f_n = false
         self.f_h = false
         return 4
@@ -935,7 +792,7 @@ class CPU
         return 8
       when 0x76 # HALT
         @pc &+= 1
-        raise "Not currently supporting HALT"
+        @halted = true if @ime
         return 4
       when 0x77 # LD (HL),A
         @pc &+= 1
@@ -1111,7 +968,7 @@ class CPU
         return 4
       when 0x90 # SUB A,B
         @pc &+= 1
-        self.f_h = self.a & 0xF < self.b & 0xF
+        self.f_h = self.a & 0x0F < self.b & 0x0F
         self.f_c = self.a < self.b
         self.a &-= self.b
         self.f_z = self.a &- self.b == 0
@@ -1119,7 +976,7 @@ class CPU
         return 4
       when 0x91 # SUB A,C
         @pc &+= 1
-        self.f_h = self.a & 0xF < self.c & 0xF
+        self.f_h = self.a & 0x0F < self.c & 0x0F
         self.f_c = self.a < self.c
         self.a &-= self.c
         self.f_z = self.a &- self.c == 0
@@ -1127,7 +984,7 @@ class CPU
         return 4
       when 0x92 # SUB A,D
         @pc &+= 1
-        self.f_h = self.a & 0xF < self.d & 0xF
+        self.f_h = self.a & 0x0F < self.d & 0x0F
         self.f_c = self.a < self.d
         self.a &-= self.d
         self.f_z = self.a &- self.d == 0
@@ -1135,7 +992,7 @@ class CPU
         return 4
       when 0x93 # SUB A,E
         @pc &+= 1
-        self.f_h = self.a & 0xF < self.e & 0xF
+        self.f_h = self.a & 0x0F < self.e & 0x0F
         self.f_c = self.a < self.e
         self.a &-= self.e
         self.f_z = self.a &- self.e == 0
@@ -1143,7 +1000,7 @@ class CPU
         return 4
       when 0x94 # SUB A,H
         @pc &+= 1
-        self.f_h = self.a & 0xF < self.h & 0xF
+        self.f_h = self.a & 0x0F < self.h & 0x0F
         self.f_c = self.a < self.h
         self.a &-= self.h
         self.f_z = self.a &- self.h == 0
@@ -1151,7 +1008,7 @@ class CPU
         return 4
       when 0x95 # SUB A,L
         @pc &+= 1
-        self.f_h = self.a & 0xF < self.l & 0xF
+        self.f_h = self.a & 0x0F < self.l & 0x0F
         self.f_c = self.a < self.l
         self.a &-= self.l
         self.f_z = self.a &- self.l == 0
@@ -1159,7 +1016,7 @@ class CPU
         return 4
       when 0x96 # SUB A,(HL)
         @pc &+= 1
-        self.f_h = self.a & 0xF < @memory[self.hl] & 0xF
+        self.f_h = self.a & 0x0F < @memory[self.hl] & 0x0F
         self.f_c = self.a < @memory[self.hl]
         self.a &-= @memory[self.hl]
         self.f_z = self.a &- @memory[self.hl] == 0
@@ -1167,7 +1024,7 @@ class CPU
         return 8
       when 0x97 # SUB A,A
         @pc &+= 1
-        self.f_h = self.a & 0xF < self.a & 0xF
+        self.f_h = self.a & 0x0F < self.a & 0x0F
         self.f_c = self.a < self.a
         self.a &-= self.a
         self.f_z = self.a &- self.a == 0
@@ -1175,42 +1032,74 @@ class CPU
         return 4
       when 0x98 # SBC A,B
         @pc &+= 1
-        raise "Not currently supporting SBC A,B"
+        carry = self.f_c ? 0x01 : 0x00
+        self.f_h = self.a & 0x0F < self.b & 0x0F + carry
+        self.f_c = self.a < self.b.to_u16 + carry
+        self.a &-= self.b &- carry
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x99 # SBC A,C
         @pc &+= 1
-        raise "Not currently supporting SBC A,C"
+        carry = self.f_c ? 0x01 : 0x00
+        self.f_h = self.a & 0x0F < self.c & 0x0F + carry
+        self.f_c = self.a < self.c.to_u16 + carry
+        self.a &-= self.c &- carry
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x9A # SBC A,D
         @pc &+= 1
-        raise "Not currently supporting SBC A,D"
+        carry = self.f_c ? 0x01 : 0x00
+        self.f_h = self.a & 0x0F < self.d & 0x0F + carry
+        self.f_c = self.a < self.d.to_u16 + carry
+        self.a &-= self.d &- carry
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x9B # SBC A,E
         @pc &+= 1
-        raise "Not currently supporting SBC A,E"
+        carry = self.f_c ? 0x01 : 0x00
+        self.f_h = self.a & 0x0F < self.e & 0x0F + carry
+        self.f_c = self.a < self.e.to_u16 + carry
+        self.a &-= self.e &- carry
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x9C # SBC A,H
         @pc &+= 1
-        raise "Not currently supporting SBC A,H"
+        carry = self.f_c ? 0x01 : 0x00
+        self.f_h = self.a & 0x0F < self.h & 0x0F + carry
+        self.f_c = self.a < self.h.to_u16 + carry
+        self.a &-= self.h &- carry
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x9D # SBC A,L
         @pc &+= 1
-        raise "Not currently supporting SBC A,L"
+        carry = self.f_c ? 0x01 : 0x00
+        self.f_h = self.a & 0x0F < self.l & 0x0F + carry
+        self.f_c = self.a < self.l.to_u16 + carry
+        self.a &-= self.l &- carry
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x9E # SBC A,(HL)
         @pc &+= 1
-        raise "Not currently supporting SBC A,(HL)"
+        carry = self.f_c ? 0x01 : 0x00
+        self.f_h = self.a & 0x0F < @memory[self.hl] & 0x0F + carry
+        self.f_c = self.a < @memory[self.hl].to_u16 + carry
+        self.a &-= @memory[self.hl] &- carry
+        self.f_z = self.a == 0
         self.f_n = true
         return 8
       when 0x9F # SBC A,A
         @pc &+= 1
-        raise "Not currently supporting SBC A,A"
+        carry = self.f_c ? 0x01 : 0x00
+        self.f_h = self.a & 0x0F < self.a & 0x0F + carry
+        self.f_c = self.a < self.a.to_u16 + carry
+        self.a &-= self.a &- carry
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0xA0 # AND A,B
@@ -1511,7 +1400,9 @@ class CPU
         return 8
       when 0xC7 # RST 00h
         @pc &+= 1
-        raise "Not currently supporting RST 00h"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x00_u16
         return 16
       when 0xC8 # RET Z
         @pc &+= 1
@@ -1574,7 +1465,9 @@ class CPU
         return 8
       when 0xCF # RST 08h
         @pc &+= 1
-        raise "Not currently supporting RST 08h"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x08_u16
         return 16
       when 0xD0 # RET NC
         @pc &+= 1
@@ -1598,7 +1491,7 @@ class CPU
         return 12
       when 0xD3 # UNUSED
         @pc &+= 1
-        raise "Not currently supporting UNUSED"
+        # unused opcode
         return 0
       when 0xD4 # CALL NC,u16
         u16 = @memory.read_word @pc + 1
@@ -1617,7 +1510,7 @@ class CPU
       when 0xD6 # SUB A,u8
         u8 = @memory[@pc + 1]
         @pc &+= 2
-        self.f_h = self.a & 0xF < u8 & 0xF
+        self.f_h = self.a & 0x0F < u8 & 0x0F
         self.f_c = self.a < u8
         self.a &-= u8
         self.f_z = self.a &- u8 == 0
@@ -1625,7 +1518,9 @@ class CPU
         return 8
       when 0xD7 # RST 10h
         @pc &+= 1
-        raise "Not currently supporting RST 10h"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x10_u16
         return 16
       when 0xD8 # RET C
         @pc &+= 1
@@ -1637,7 +1532,9 @@ class CPU
         return 8
       when 0xD9 # RETI
         @pc &+= 1
-        raise "Not currently supporting RETI"
+        @ime = true
+        @pc = memory.read_word @sp
+        @sp += 0x02
         return 16
       when 0xDA # JP C,u16
         u16 = @memory.read_word @pc + 1
@@ -1649,7 +1546,7 @@ class CPU
         return 12
       when 0xDB # UNUSED
         @pc &+= 1
-        raise "Not currently supporting UNUSED"
+        # unused opcode
         return 0
       when 0xDC # CALL C,u16
         u16 = @memory.read_word @pc + 1
@@ -1663,17 +1560,23 @@ class CPU
         return 12
       when 0xDD # UNUSED
         @pc &+= 1
-        raise "Not currently supporting UNUSED"
+        # unused opcode
         return 0
       when 0xDE # SBC A,u8
         u8 = @memory[@pc + 1]
         @pc &+= 2
-        raise "Not currently supporting SBC A,u8"
+        carry = self.f_c ? 0x01 : 0x00
+        self.f_h = self.a & 0x0F < u8 & 0x0F + carry
+        self.f_c = self.a < u8.to_u16 + carry
+        self.a &-= u8 &- carry
+        self.f_z = self.a == 0
         self.f_n = true
         return 8
       when 0xDF # RST 18h
         @pc &+= 1
-        raise "Not currently supporting RST 18h"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x18_u16
         return 16
       when 0xE0 # LD (FF00+u8),A
         u8 = @memory[@pc + 1]
@@ -1690,11 +1593,11 @@ class CPU
         return 8
       when 0xE3 # UNUSED
         @pc &+= 1
-        raise "Not currently supporting UNUSED"
+        # unused opcode
         return 0
       when 0xE4 # UNUSED
         @pc &+= 1
-        raise "Not currently supporting UNUSED"
+        # unused opcode
         return 0
       when 0xE5 # PUSH HL
         @pc &+= 1
@@ -1711,7 +1614,9 @@ class CPU
         return 8
       when 0xE7 # RST 20h
         @pc &+= 1
-        raise "Not currently supporting RST 20h"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x20_u16
         return 16
       when 0xE8 # ADD SP,i8
         i8 = @memory[@pc + 1].to_i8!
@@ -1733,15 +1638,15 @@ class CPU
         return 16
       when 0xEB # UNUSED
         @pc &+= 1
-        raise "Not currently supporting UNUSED"
+        # unused opcode
         return 0
       when 0xEC # UNUSED
         @pc &+= 1
-        raise "Not currently supporting UNUSED"
+        # unused opcode
         return 0
       when 0xED # UNUSED
         @pc &+= 1
-        raise "Not currently supporting UNUSED"
+        # unused opcode
         return 0
       when 0xEE # XOR A,u8
         u8 = @memory[@pc + 1]
@@ -1754,7 +1659,9 @@ class CPU
         return 8
       when 0xEF # RST 28h
         @pc &+= 1
-        raise "Not currently supporting RST 28h"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x28_u16
         return 16
       when 0xF0 # LD A,(FF00+u8)
         u8 = @memory[@pc + 1]
@@ -1779,7 +1686,7 @@ class CPU
         return 4
       when 0xF4 # UNUSED
         @pc &+= 1
-        raise "Not currently supporting UNUSED"
+        # unused opcode
         return 0
       when 0xF5 # PUSH AF
         @pc &+= 1
@@ -1796,12 +1703,16 @@ class CPU
         return 8
       when 0xF7 # RST 30h
         @pc &+= 1
-        raise "Not currently supporting RST 30h"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x30_u16
         return 16
       when 0xF8 # LD HL,SP+i8
         i8 = @memory[@pc + 1].to_i8!
         @pc &+= 2
-        self.hl = @sp + i8
+        self.hl = @sp &+ i8
+        self.f_h = (@sp & 0x0F) + (i8 & 0x0F) > 0x0F
+        self.f_c = self.hl < @sp
         self.f_z = false
         self.f_n = false
         return 12
@@ -1816,15 +1727,15 @@ class CPU
         return 16
       when 0xFB # EI
         @pc &+= 1
-        raise "Not currently supporting EI"
+        @ime = true
         return 4
       when 0xFC # UNUSED
         @pc &+= 1
-        raise "Not currently supporting UNUSED"
+        # unused opcode
         return 0
       when 0xFD # UNUSED
         @pc &+= 1
-        raise "Not currently supporting UNUSED"
+        # unused opcode
         return 0
       when 0xFE # CP A,u8
         u8 = @memory[@pc + 1]
@@ -1836,111 +1747,146 @@ class CPU
         return 8
       when 0xFF # RST 38h
         @pc &+= 1
-        raise "Not currently supporting RST 38h"
+        @sp -= 2
+        @memory[@sp] = @pc
+        @pc = 0x38_u16
         return 16
+      else raise "Unmatched opcode #{opcode}"
       end
     else
       case opcode
       when 0x00 # RLC B
         @pc &+= 2
-        raise "Not currently supporting RLC B"
+        self.b = (self.b << 1) + (self.b >> 7)
+        self.f_z = self.b == 0
+        self.f_c = self.b & 0x01
         self.f_n = false
         self.f_h = false
         return 8
       when 0x01 # RLC C
         @pc &+= 2
-        raise "Not currently supporting RLC C"
+        self.c = (self.c << 1) + (self.c >> 7)
+        self.f_z = self.c == 0
+        self.f_c = self.c & 0x01
         self.f_n = false
         self.f_h = false
         return 8
       when 0x02 # RLC D
         @pc &+= 2
-        raise "Not currently supporting RLC D"
+        self.d = (self.d << 1) + (self.d >> 7)
+        self.f_z = self.d == 0
+        self.f_c = self.d & 0x01
         self.f_n = false
         self.f_h = false
         return 8
       when 0x03 # RLC E
         @pc &+= 2
-        raise "Not currently supporting RLC E"
+        self.e = (self.e << 1) + (self.e >> 7)
+        self.f_z = self.e == 0
+        self.f_c = self.e & 0x01
         self.f_n = false
         self.f_h = false
         return 8
       when 0x04 # RLC H
         @pc &+= 2
-        raise "Not currently supporting RLC H"
+        self.h = (self.h << 1) + (self.h >> 7)
+        self.f_z = self.h == 0
+        self.f_c = self.h & 0x01
         self.f_n = false
         self.f_h = false
         return 8
       when 0x05 # RLC L
         @pc &+= 2
-        raise "Not currently supporting RLC L"
+        self.l = (self.l << 1) + (self.l >> 7)
+        self.f_z = self.l == 0
+        self.f_c = self.l & 0x01
         self.f_n = false
         self.f_h = false
         return 8
       when 0x06 # RLC (HL)
         @pc &+= 2
-        raise "Not currently supporting RLC (HL)"
+        @memory[self.hl] = (@memory[self.hl] << 1) + (@memory[self.hl] >> 7)
+        self.f_z = @memory[self.hl] == 0
+        self.f_c = @memory[self.hl] & 0x01
         self.f_n = false
         self.f_h = false
         return 16
       when 0x07 # RLC A
         @pc &+= 2
-        raise "Not currently supporting RLC A"
+        self.a = (self.a << 1) + (self.a >> 7)
+        self.f_z = self.a == 0
+        self.f_c = self.a & 0x01
         self.f_n = false
         self.f_h = false
         return 8
       when 0x08 # RRC B
         @pc &+= 2
-        raise "Not currently supporting RRC B"
+        self.b = (self.b >> 1) + (self.b << 7)
+        self.f_z = self.b == 0
+        self.f_c = self.b & 0x80
         self.f_n = false
         self.f_h = false
         return 8
       when 0x09 # RRC C
         @pc &+= 2
-        raise "Not currently supporting RRC C"
+        self.c = (self.c >> 1) + (self.c << 7)
+        self.f_z = self.c == 0
+        self.f_c = self.c & 0x80
         self.f_n = false
         self.f_h = false
         return 8
       when 0x0A # RRC D
         @pc &+= 2
-        raise "Not currently supporting RRC D"
+        self.d = (self.d >> 1) + (self.d << 7)
+        self.f_z = self.d == 0
+        self.f_c = self.d & 0x80
         self.f_n = false
         self.f_h = false
         return 8
       when 0x0B # RRC E
         @pc &+= 2
-        raise "Not currently supporting RRC E"
+        self.e = (self.e >> 1) + (self.e << 7)
+        self.f_z = self.e == 0
+        self.f_c = self.e & 0x80
         self.f_n = false
         self.f_h = false
         return 8
       when 0x0C # RRC H
         @pc &+= 2
-        raise "Not currently supporting RRC H"
+        self.h = (self.h >> 1) + (self.h << 7)
+        self.f_z = self.h == 0
+        self.f_c = self.h & 0x80
         self.f_n = false
         self.f_h = false
         return 8
       when 0x0D # RRC L
         @pc &+= 2
-        raise "Not currently supporting RRC L"
+        self.l = (self.l >> 1) + (self.l << 7)
+        self.f_z = self.l == 0
+        self.f_c = self.l & 0x80
         self.f_n = false
         self.f_h = false
         return 8
       when 0x0E # RRC (HL)
         @pc &+= 2
-        raise "Not currently supporting RRC (HL)"
+        @memory[self.hl] = (@memory[self.hl] >> 1) + (@memory[self.hl] << 7)
+        self.f_z = @memory[self.hl] == 0
+        self.f_c = @memory[self.hl] & 0x80
         self.f_n = false
         self.f_h = false
         return 16
       when 0x0F # RRC A
         @pc &+= 2
-        raise "Not currently supporting RRC A"
+        self.a = (self.a >> 1) + (self.a << 7)
+        self.f_z = self.a == 0
+        self.f_c = self.a & 0x80
         self.f_n = false
         self.f_h = false
         return 8
       when 0x10 # RL B
         @pc &+= 2
         carry = self.b & 0x80
-        self.b = (self.b << 1) + (self.f_c ? 1 : 0)
+        self.b = (self.b << 1) + (self.f_c ? 0x01 : 0x00)
         self.f_z = self.b == 0
         self.f_c = carry
         self.f_n = false
@@ -1949,7 +1895,7 @@ class CPU
       when 0x11 # RL C
         @pc &+= 2
         carry = self.c & 0x80
-        self.c = (self.c << 1) + (self.f_c ? 1 : 0)
+        self.c = (self.c << 1) + (self.f_c ? 0x01 : 0x00)
         self.f_z = self.c == 0
         self.f_c = carry
         self.f_n = false
@@ -1958,7 +1904,7 @@ class CPU
       when 0x12 # RL D
         @pc &+= 2
         carry = self.d & 0x80
-        self.d = (self.d << 1) + (self.f_c ? 1 : 0)
+        self.d = (self.d << 1) + (self.f_c ? 0x01 : 0x00)
         self.f_z = self.d == 0
         self.f_c = carry
         self.f_n = false
@@ -1967,7 +1913,7 @@ class CPU
       when 0x13 # RL E
         @pc &+= 2
         carry = self.e & 0x80
-        self.e = (self.e << 1) + (self.f_c ? 1 : 0)
+        self.e = (self.e << 1) + (self.f_c ? 0x01 : 0x00)
         self.f_z = self.e == 0
         self.f_c = carry
         self.f_n = false
@@ -1976,7 +1922,7 @@ class CPU
       when 0x14 # RL H
         @pc &+= 2
         carry = self.h & 0x80
-        self.h = (self.h << 1) + (self.f_c ? 1 : 0)
+        self.h = (self.h << 1) + (self.f_c ? 0x01 : 0x00)
         self.f_z = self.h == 0
         self.f_c = carry
         self.f_n = false
@@ -1985,7 +1931,7 @@ class CPU
       when 0x15 # RL L
         @pc &+= 2
         carry = self.l & 0x80
-        self.l = (self.l << 1) + (self.f_c ? 1 : 0)
+        self.l = (self.l << 1) + (self.f_c ? 0x01 : 0x00)
         self.f_z = self.l == 0
         self.f_c = carry
         self.f_n = false
@@ -1994,7 +1940,7 @@ class CPU
       when 0x16 # RL (HL)
         @pc &+= 2
         carry = @memory[self.hl] & 0x80
-        @memory[self.hl] = (@memory[self.hl] << 1) + (self.f_c ? 1 : 0)
+        @memory[self.hl] = (@memory[self.hl] << 1) + (self.f_c ? 0x01 : 0x00)
         self.f_z = @memory[self.hl] == 0
         self.f_c = carry
         self.f_n = false
@@ -2003,7 +1949,7 @@ class CPU
       when 0x17 # RL A
         @pc &+= 2
         carry = self.a & 0x80
-        self.a = (self.a << 1) + (self.f_c ? 1 : 0)
+        self.a = (self.a << 1) + (self.f_c ? 0x01 : 0x00)
         self.f_z = self.a == 0
         self.f_c = carry
         self.f_n = false
@@ -2075,97 +2021,129 @@ class CPU
         return 8
       when 0x20 # SLA B
         @pc &+= 2
-        raise "Not currently supporting SLA B"
+        self.f_c = self.b & 0x80
+        self.b <<= 1
+        self.f_z = self.b == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x21 # SLA C
         @pc &+= 2
-        raise "Not currently supporting SLA C"
+        self.f_c = self.c & 0x80
+        self.c <<= 1
+        self.f_z = self.c == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x22 # SLA D
         @pc &+= 2
-        raise "Not currently supporting SLA D"
+        self.f_c = self.d & 0x80
+        self.d <<= 1
+        self.f_z = self.d == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x23 # SLA E
         @pc &+= 2
-        raise "Not currently supporting SLA E"
+        self.f_c = self.e & 0x80
+        self.e <<= 1
+        self.f_z = self.e == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x24 # SLA H
         @pc &+= 2
-        raise "Not currently supporting SLA H"
+        self.f_c = self.h & 0x80
+        self.h <<= 1
+        self.f_z = self.h == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x25 # SLA L
         @pc &+= 2
-        raise "Not currently supporting SLA L"
+        self.f_c = self.l & 0x80
+        self.l <<= 1
+        self.f_z = self.l == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x26 # SLA (HL)
         @pc &+= 2
-        raise "Not currently supporting SLA (HL)"
+        self.f_c = @memory[self.hl] & 0x80
+        @memory[self.hl] <<= 1
+        self.f_z = @memory[self.hl] == 0
         self.f_n = false
         self.f_h = false
         return 16
       when 0x27 # SLA A
         @pc &+= 2
-        raise "Not currently supporting SLA A"
+        self.f_c = self.a & 0x80
+        self.a <<= 1
+        self.f_z = self.a == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x28 # SRA B
         @pc &+= 2
-        raise "Not currently supporting SRA B"
+        self.f_c = self.b & 0x01
+        self.b = (self.b >> 1) + (self.b & 0x80)
+        self.f_z = self.b == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x29 # SRA C
         @pc &+= 2
-        raise "Not currently supporting SRA C"
+        self.f_c = self.c & 0x01
+        self.c = (self.c >> 1) + (self.c & 0x80)
+        self.f_z = self.c == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x2A # SRA D
         @pc &+= 2
-        raise "Not currently supporting SRA D"
+        self.f_c = self.d & 0x01
+        self.d = (self.d >> 1) + (self.d & 0x80)
+        self.f_z = self.d == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x2B # SRA E
         @pc &+= 2
-        raise "Not currently supporting SRA E"
+        self.f_c = self.e & 0x01
+        self.e = (self.e >> 1) + (self.e & 0x80)
+        self.f_z = self.e == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x2C # SRA H
         @pc &+= 2
-        raise "Not currently supporting SRA H"
+        self.f_c = self.h & 0x01
+        self.h = (self.h >> 1) + (self.h & 0x80)
+        self.f_z = self.h == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x2D # SRA L
         @pc &+= 2
-        raise "Not currently supporting SRA L"
+        self.f_c = self.l & 0x01
+        self.l = (self.l >> 1) + (self.l & 0x80)
+        self.f_z = self.l == 0
         self.f_n = false
         self.f_h = false
         return 8
       when 0x2E # SRA (HL)
         @pc &+= 2
-        raise "Not currently supporting SRA (HL)"
+        self.f_c = @memory[self.hl] & 0x01
+        @memory[self.hl] = (@memory[self.hl] >> 1) + (@memory[self.hl] & 0x80)
+        self.f_z = @memory[self.hl] == 0
         self.f_n = false
         self.f_h = false
         return 16
       when 0x2F # SRA A
         @pc &+= 2
-        raise "Not currently supporting SRA A"
+        self.f_c = self.a & 0x01
+        self.a = (self.a >> 1) + (self.a & 0x80)
+        self.f_z = self.a == 0
         self.f_n = false
         self.f_h = false
         return 8
@@ -2683,259 +2661,259 @@ class CPU
         return 8
       when 0x80 # RES 0,B
         @pc &+= 2
-        raise "Not currently supporting RES 0,B"
+        self.b &= ~(0x1 << 0)
         return 8
       when 0x81 # RES 0,C
         @pc &+= 2
-        raise "Not currently supporting RES 0,C"
+        self.c &= ~(0x1 << 0)
         return 8
       when 0x82 # RES 0,D
         @pc &+= 2
-        raise "Not currently supporting RES 0,D"
+        self.d &= ~(0x1 << 0)
         return 8
       when 0x83 # RES 0,E
         @pc &+= 2
-        raise "Not currently supporting RES 0,E"
+        self.e &= ~(0x1 << 0)
         return 8
       when 0x84 # RES 0,H
         @pc &+= 2
-        raise "Not currently supporting RES 0,H"
+        self.h &= ~(0x1 << 0)
         return 8
       when 0x85 # RES 0,L
         @pc &+= 2
-        raise "Not currently supporting RES 0,L"
+        self.l &= ~(0x1 << 0)
         return 8
       when 0x86 # RES 0,(HL)
         @pc &+= 2
-        raise "Not currently supporting RES 0,(HL)"
+        @memory[self.hl] &= ~(0x1 << 0)
         return 16
       when 0x87 # RES 0,A
         @pc &+= 2
-        raise "Not currently supporting RES 0,A"
+        self.a &= ~(0x1 << 0)
         return 8
       when 0x88 # RES 1,B
         @pc &+= 2
-        raise "Not currently supporting RES 1,B"
+        self.b &= ~(0x1 << 1)
         return 8
       when 0x89 # RES 1,C
         @pc &+= 2
-        raise "Not currently supporting RES 1,C"
+        self.c &= ~(0x1 << 1)
         return 8
       when 0x8A # RES 1,D
         @pc &+= 2
-        raise "Not currently supporting RES 1,D"
+        self.d &= ~(0x1 << 1)
         return 8
       when 0x8B # RES 1,E
         @pc &+= 2
-        raise "Not currently supporting RES 1,E"
+        self.e &= ~(0x1 << 1)
         return 8
       when 0x8C # RES 1,H
         @pc &+= 2
-        raise "Not currently supporting RES 1,H"
+        self.h &= ~(0x1 << 1)
         return 8
       when 0x8D # RES 1,L
         @pc &+= 2
-        raise "Not currently supporting RES 1,L"
+        self.l &= ~(0x1 << 1)
         return 8
       when 0x8E # RES 1,(HL)
         @pc &+= 2
-        raise "Not currently supporting RES 1,(HL)"
+        @memory[self.hl] &= ~(0x1 << 1)
         return 16
       when 0x8F # RES 1,A
         @pc &+= 2
-        raise "Not currently supporting RES 1,A"
+        self.a &= ~(0x1 << 1)
         return 8
       when 0x90 # RES 2,B
         @pc &+= 2
-        raise "Not currently supporting RES 2,B"
+        self.b &= ~(0x1 << 2)
         return 8
       when 0x91 # RES 2,C
         @pc &+= 2
-        raise "Not currently supporting RES 2,C"
+        self.c &= ~(0x1 << 2)
         return 8
       when 0x92 # RES 2,D
         @pc &+= 2
-        raise "Not currently supporting RES 2,D"
+        self.d &= ~(0x1 << 2)
         return 8
       when 0x93 # RES 2,E
         @pc &+= 2
-        raise "Not currently supporting RES 2,E"
+        self.e &= ~(0x1 << 2)
         return 8
       when 0x94 # RES 2,H
         @pc &+= 2
-        raise "Not currently supporting RES 2,H"
+        self.h &= ~(0x1 << 2)
         return 8
       when 0x95 # RES 2,L
         @pc &+= 2
-        raise "Not currently supporting RES 2,L"
+        self.l &= ~(0x1 << 2)
         return 8
       when 0x96 # RES 2,(HL)
         @pc &+= 2
-        raise "Not currently supporting RES 2,(HL)"
+        @memory[self.hl] &= ~(0x1 << 2)
         return 16
       when 0x97 # RES 2,A
         @pc &+= 2
-        raise "Not currently supporting RES 2,A"
+        self.a &= ~(0x1 << 2)
         return 8
       when 0x98 # RES 3,B
         @pc &+= 2
-        raise "Not currently supporting RES 3,B"
+        self.b &= ~(0x1 << 3)
         return 8
       when 0x99 # RES 3,C
         @pc &+= 2
-        raise "Not currently supporting RES 3,C"
+        self.c &= ~(0x1 << 3)
         return 8
       when 0x9A # RES 3,D
         @pc &+= 2
-        raise "Not currently supporting RES 3,D"
+        self.d &= ~(0x1 << 3)
         return 8
       when 0x9B # RES 3,E
         @pc &+= 2
-        raise "Not currently supporting RES 3,E"
+        self.e &= ~(0x1 << 3)
         return 8
       when 0x9C # RES 3,H
         @pc &+= 2
-        raise "Not currently supporting RES 3,H"
+        self.h &= ~(0x1 << 3)
         return 8
       when 0x9D # RES 3,L
         @pc &+= 2
-        raise "Not currently supporting RES 3,L"
+        self.l &= ~(0x1 << 3)
         return 8
       when 0x9E # RES 3,(HL)
         @pc &+= 2
-        raise "Not currently supporting RES 3,(HL)"
+        @memory[self.hl] &= ~(0x1 << 3)
         return 16
       when 0x9F # RES 3,A
         @pc &+= 2
-        raise "Not currently supporting RES 3,A"
+        self.a &= ~(0x1 << 3)
         return 8
       when 0xA0 # RES 4,B
         @pc &+= 2
-        raise "Not currently supporting RES 4,B"
+        self.b &= ~(0x1 << 4)
         return 8
       when 0xA1 # RES 4,C
         @pc &+= 2
-        raise "Not currently supporting RES 4,C"
+        self.c &= ~(0x1 << 4)
         return 8
       when 0xA2 # RES 4,D
         @pc &+= 2
-        raise "Not currently supporting RES 4,D"
+        self.d &= ~(0x1 << 4)
         return 8
       when 0xA3 # RES 4,E
         @pc &+= 2
-        raise "Not currently supporting RES 4,E"
+        self.e &= ~(0x1 << 4)
         return 8
       when 0xA4 # RES 4,H
         @pc &+= 2
-        raise "Not currently supporting RES 4,H"
+        self.h &= ~(0x1 << 4)
         return 8
       when 0xA5 # RES 4,L
         @pc &+= 2
-        raise "Not currently supporting RES 4,L"
+        self.l &= ~(0x1 << 4)
         return 8
       when 0xA6 # RES 4,(HL)
         @pc &+= 2
-        raise "Not currently supporting RES 4,(HL)"
+        @memory[self.hl] &= ~(0x1 << 4)
         return 16
       when 0xA7 # RES 4,A
         @pc &+= 2
-        raise "Not currently supporting RES 4,A"
+        self.a &= ~(0x1 << 4)
         return 8
       when 0xA8 # RES 5,B
         @pc &+= 2
-        raise "Not currently supporting RES 5,B"
+        self.b &= ~(0x1 << 5)
         return 8
       when 0xA9 # RES 5,C
         @pc &+= 2
-        raise "Not currently supporting RES 5,C"
+        self.c &= ~(0x1 << 5)
         return 8
       when 0xAA # RES 5,D
         @pc &+= 2
-        raise "Not currently supporting RES 5,D"
+        self.d &= ~(0x1 << 5)
         return 8
       when 0xAB # RES 5,E
         @pc &+= 2
-        raise "Not currently supporting RES 5,E"
+        self.e &= ~(0x1 << 5)
         return 8
       when 0xAC # RES 5,H
         @pc &+= 2
-        raise "Not currently supporting RES 5,H"
+        self.h &= ~(0x1 << 5)
         return 8
       when 0xAD # RES 5,L
         @pc &+= 2
-        raise "Not currently supporting RES 5,L"
+        self.l &= ~(0x1 << 5)
         return 8
       when 0xAE # RES 5,(HL)
         @pc &+= 2
-        raise "Not currently supporting RES 5,(HL)"
+        @memory[self.hl] &= ~(0x1 << 5)
         return 16
       when 0xAF # RES 5,A
         @pc &+= 2
-        raise "Not currently supporting RES 5,A"
+        self.a &= ~(0x1 << 5)
         return 8
       when 0xB0 # RES 6,B
         @pc &+= 2
-        raise "Not currently supporting RES 6,B"
+        self.b &= ~(0x1 << 6)
         return 8
       when 0xB1 # RES 6,C
         @pc &+= 2
-        raise "Not currently supporting RES 6,C"
+        self.c &= ~(0x1 << 6)
         return 8
       when 0xB2 # RES 6,D
         @pc &+= 2
-        raise "Not currently supporting RES 6,D"
+        self.d &= ~(0x1 << 6)
         return 8
       when 0xB3 # RES 6,E
         @pc &+= 2
-        raise "Not currently supporting RES 6,E"
+        self.e &= ~(0x1 << 6)
         return 8
       when 0xB4 # RES 6,H
         @pc &+= 2
-        raise "Not currently supporting RES 6,H"
+        self.h &= ~(0x1 << 6)
         return 8
       when 0xB5 # RES 6,L
         @pc &+= 2
-        raise "Not currently supporting RES 6,L"
+        self.l &= ~(0x1 << 6)
         return 8
       when 0xB6 # RES 6,(HL)
         @pc &+= 2
-        raise "Not currently supporting RES 6,(HL)"
+        @memory[self.hl] &= ~(0x1 << 6)
         return 16
       when 0xB7 # RES 6,A
         @pc &+= 2
-        raise "Not currently supporting RES 6,A"
+        self.a &= ~(0x1 << 6)
         return 8
       when 0xB8 # RES 7,B
         @pc &+= 2
-        raise "Not currently supporting RES 7,B"
+        self.b &= ~(0x1 << 7)
         return 8
       when 0xB9 # RES 7,C
         @pc &+= 2
-        raise "Not currently supporting RES 7,C"
+        self.c &= ~(0x1 << 7)
         return 8
       when 0xBA # RES 7,D
         @pc &+= 2
-        raise "Not currently supporting RES 7,D"
+        self.d &= ~(0x1 << 7)
         return 8
       when 0xBB # RES 7,E
         @pc &+= 2
-        raise "Not currently supporting RES 7,E"
+        self.e &= ~(0x1 << 7)
         return 8
       when 0xBC # RES 7,H
         @pc &+= 2
-        raise "Not currently supporting RES 7,H"
+        self.h &= ~(0x1 << 7)
         return 8
       when 0xBD # RES 7,L
         @pc &+= 2
-        raise "Not currently supporting RES 7,L"
+        self.l &= ~(0x1 << 7)
         return 8
       when 0xBE # RES 7,(HL)
         @pc &+= 2
-        raise "Not currently supporting RES 7,(HL)"
+        @memory[self.hl] &= ~(0x1 << 7)
         return 16
       when 0xBF # RES 7,A
         @pc &+= 2
-        raise "Not currently supporting RES 7,A"
+        self.a &= ~(0x1 << 7)
         return 8
       when 0xC0 # SET 0,B
         @pc &+= 2
@@ -3193,8 +3171,9 @@ class CPU
         @pc &+= 2
         self.a |= (0x1 << 7)
         return 8
+      else raise "Unmatched cb-opcode #{opcode}"
       end
     end
-    raise "Will never be reached, but the compiler doesn't seem to recognize that."
+    raise "This will never be reached, but the compiler doesn't recognize that."
   end
 end

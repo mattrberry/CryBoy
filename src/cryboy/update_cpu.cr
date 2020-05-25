@@ -108,6 +108,8 @@ module DmgOps
       operand = operand.sub "hl+", "((hl &+= 1) &- 1)"
       operand = operand.sub "hl-", "((hl &-= 1) &+ 1)"
       operand = operand.sub "ff00+", "0xFF00 &+ "
+      operand = operand.sub "sp+i8", "sp &+ i8"
+      operand = operand.sub /(\d\d)h/, "0x\\1_u16"
       if group == Group::CONTROL_BR || group == Group::CONTROL_MISC
         # distinguish between "flag c" and "register z"
         operand = operand.sub /\bz\b/, "self.f_z"
@@ -146,7 +148,7 @@ module DmgOps
 
     # create a branch condition
     def branch(cond : String, body : Array(String)) : Array(String)
-      ["if #{cond}"] + body + ["return #{cycles_branch}", "end"]
+      ["if #{cond}"] + body + set_reset_flags + ["return #{cycles_branch}", "end"]
     end
 
     # set flag z to the given value if specified by this operation
@@ -261,11 +263,30 @@ module DmgOps
           cond, _ = operands
           branch(cond, instr)
         end
+      when "CCF"
+        set_flag_c("!self.f_c")
       when "CP"
         to, from = operands
         set_flag_z("#{to} &- #{from} == 0") +
           set_flag_h("#{to} & 0xF < #{from} & 0xF") +
           set_flag_c("#{to} < #{from}")
+      when "CPL"
+        ["self.a = ~self.a"]
+      when "DAA"
+        [
+          "if self.f_n == 0 # last op was an addition",
+          "  if self.f_c || self.a > 0x99",
+          "    self.a &+= 0x60",
+          "    self.f_c = true",
+          "  end",
+          "  if self.f_h || self.a & 0x0F > 0x09",
+          "    self.a &+= 0x06",
+          "  end",
+          "else # last op was a subtraction",
+          "  self.a &-= 0x60 if self.f_c",
+          "  self.a &-= 0x06 if self.f_h",
+          "end",
+        ]
       when "DEC"
         to = operands[0]
         ["#{to} &-= 1"] +
@@ -273,6 +294,10 @@ module DmgOps
           set_flag_h("#{to} & 0x0F == 0x0F")
       when "DI"
         ["@ime = false"]
+      when "EI"
+        ["@ime = true"]
+      when "HALT"
+        ["@halted = true if @ime"]
       when "INC"
         to = operands[0]
         ["#{to} &+= 1"] +
@@ -295,7 +320,10 @@ module DmgOps
         end
       when "LD"
         to, from = operands
-        ["#{to} = #{from}"]
+        ["#{to} = #{from}"] +
+          # the following flags _only_ apply to `LD HL, SP + i8`
+          set_flag_h("(@sp & 0x0F) + (i8 & 0x0F) > 0x0F") +
+          set_flag_c("#{to} < @sp")
       when "NOP"
         [] of String
       when "OR"
@@ -322,6 +350,9 @@ module DmgOps
         ]
       when "PUSH"
         ["@memory[@sp -= 2] = #{operands[0]}"]
+      when "RES"
+        bit, reg = operands
+        ["#{reg} &= ~(0x1 << #{bit})"]
       when "RET"
         instr = ["@pc = @memory.read_word @sp", "@sp += 2"]
         if operands.size == 0
@@ -330,14 +361,24 @@ module DmgOps
           cond = operands[0]
           branch(cond, instr)
         end
+      when "RETI"
+        ["@ime = true", "@pc = memory.read_word @sp", "@sp += 0x02"]
       when "RL"
         reg = operands[0]
-        ["carry = #{reg} & 0x80", "#{reg} = (#{reg} << 1) + (self.f_c ? 1 : 0)"] +
+        ["carry = #{reg} & 0x80", "#{reg} = (#{reg} << 1) + (self.f_c ? 0x01 : 0x00)"] +
           set_flag_z("#{reg} == 0") +
           set_flag_c("carry")
       when "RLA"
         ["carry = self.a & 0x80", "self.a = (self.a << 1) + (self.f_c ? 0x01 : 0x00)"] +
           set_flag_c("carry")
+      when "RLC"
+        reg = operands[0]
+        ["#{reg} = (#{reg} << 1) + (#{reg} >> 7)"] +
+          set_flag_z("#{reg} == 0") +
+          set_flag_c("#{reg} & 0x01")
+      when "RLCA"
+        ["self.a = (self.a << 1) + (self.a >> 7)"] +
+          set_flag_c("self.a & 0x01")
       when "RR"
         reg = operands[0]
         ["carry = #{reg} & 0x01", "#{reg} = (#{reg} >> 1) + (self.f_c ? 0x80 : 0x00)"] +
@@ -345,17 +386,49 @@ module DmgOps
       when "RRA"
         ["carry = self.a & 0x01", "self.a = (self.a >> 1) + (self.f_c ? 0x80 : 0x00)"] +
           set_flag_c("carry")
+      when "RRC"
+        reg = operands[0]
+        ["#{reg} = (#{reg} >> 1) + (#{reg} << 7)"] +
+          set_flag_z("#{reg} == 0") +
+          set_flag_c("#{reg} & 0x80")
+      when "RRCA"
+        ["self.a = (self.a >> 1) + (self.a << 7)"] +
+          set_flag_c("self.a & 0x80")
+      when "RST"
+        ["@sp -= 2", "@memory[@sp] = @pc", "@pc = #{operands[0]}"]
+      when "SBC"
+        to, from = operands
+        ["carry = self.f_c ? 0x01 : 0x00"] +
+          set_flag_h("#{to} & 0x0F < #{from} & 0x0F + carry") +
+          set_flag_c("#{to} < #{from}.to_u16 + carry") +
+          ["#{to} &-= #{from} &- carry"] +
+          set_flag_z("#{to} == 0")
+      when "SCF"
+        # should already be covered by `set_reset_flags`
+        [] of String
       when "SET"
         bit, reg = operands
         ["#{reg} |= (0x1 << #{bit})"]
+      when "SLA"
+        reg = operands[0]
+        set_flag_c("#{reg} & 0x80") +
+          ["#{reg} <<= 1"] +
+          set_flag_z("#{reg} == 0")
+      when "SRA"
+        reg = operands[0]
+        set_flag_c("#{reg} & 0x01") +
+          ["#{reg} = (#{reg} >> 1) + (#{reg} & 0x80)"] +
+          set_flag_z("#{reg} == 0")
       when "SRL"
         reg = operands[0]
         set_flag_c("#{reg} & 0x1") +
           ["#{reg} >>= 1"] +
           set_flag_z("#{reg} == 0")
+      when "STOP"
+        ["# todo: see if something more needs to happen here..."]
       when "SUB"
         to, from = operands
-        set_flag_h("#{to} & 0xF < #{from} & 0xF") +
+        set_flag_h("#{to} & 0x0F < #{from} & 0x0F") +
           set_flag_c("#{to} < #{from}") +
           ["#{to} &-= #{from}"] +
           set_flag_z("#{to} &- #{from} == 0")
@@ -363,6 +436,8 @@ module DmgOps
         reg = operands[0]
         ["#{reg} = (#{reg} << 4) + (#{reg} >> 4)"] +
           set_flag_z("#{reg} == 0")
+      when "UNUSED"
+        ["# unused opcode"]
       when "XOR"
         to, from = operands
         ["#{to} ^= #{from}"] +
@@ -395,12 +470,12 @@ module DmgOps
           ["when 0x#{index.to_s(16).rjust(2, '0').upcase} # #{operation.name}"] +
             operation.codegen
         } +
-        ["end", "else", "case opcode"] +
+        ["else raise \"Unmatched opcode \#{opcode}\"", "end", "else", "case opcode"] +
         @cb_operations.map_with_index { |operation, index|
           ["when 0x#{index.to_s(16).rjust(2, '0').upcase} # #{operation.name}"] +
             operation.codegen
         } +
-        ["end", "end"]).flatten
+        ["else raise \"Unmatched cb-opcode \#{opcode}\"", "end", "end"]).flatten
     end
   end
 end
