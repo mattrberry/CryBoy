@@ -418,7 +418,10 @@ class CPU
         return 8
       when 0x27 # DAA
         @pc &+= 1
-        if self.f_n == 0 # last op was an addition
+        if self.f_n # last op was a subtraction
+          self.a &-= 0x60 if self.f_c
+          self.a &-= 0x06 if self.f_h
+        else # last op was an addition
           if self.f_c || self.a > 0x99
             self.a &+= 0x60
             self.f_c = true
@@ -426,10 +429,8 @@ class CPU
           if self.f_h || self.a & 0x0F > 0x09
             self.a &+= 0x06
           end
-        else # last op was a subtraction
-          self.a &-= 0x60 if self.f_c
-          self.a &-= 0x06 if self.f_h
         end
+        self.f_z = self.a == 0
         self.f_h = false
         return 4
       when 0x28 # JR Z,i8
