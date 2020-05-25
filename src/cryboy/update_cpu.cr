@@ -204,20 +204,52 @@ module DmgOps
     # switch over operation type and generate code
     private def codegen_help : Array(String)
       case type
+      when "ADC"
+        to, from = operands
+        if to == from
+          ["carry = self.f_c ? 0x01 : 0x00"] +
+            set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) + carry > 0x0F") +
+            set_flag_c("#{to} > 0x7F") +
+            ["#{to} &+= #{from} &+ carry"] +
+            set_flag_z("#{to} == 0")
+        else
+          ["carry = self.f_c ? 0x01 : 0x00"] +
+            set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) + carry > 0x0F") +
+            ["#{to} &+= #{from} &+ carry"] +
+            set_flag_z("#{to} == 0") +
+            set_flag_c("#{to} < #{from}.to_u16 + carry")
+        end
       when "ADD"
         to, from = operands
         if group == Group::X8_ALU || from == "i8" # `ADD SP, e8` works the same
-          set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) > 0x0F") +
-            ["#{to} &+= #{from}"] +
-            set_flag_z("#{to} == 0") +
-            set_flag_c("#{to} < #{from}")
+          if to == from
+            set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) > 0x0F") +
+              set_flag_c("#{to} > 0x7F") +
+              ["#{to} &+= #{from}"] +
+              set_flag_z("#{to} == 0")
+          else
+            set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) > 0x0F") +
+              ["#{to} &+= #{from}"] +
+              set_flag_z("#{to} == 0") +
+              set_flag_c("#{to} < #{from}")
+          end
         elsif group == Group::X16_ALU
-          set_flag_h("(#{to} & 0x0FFF).to_u32 + (#{from} & 0x0FFF) > 0x0FFF") +
-            ["#{to} &+= #{from}"] +
-            set_flag_c("#{to} < #{from}")
+          if to == from
+            set_flag_h("(#{to} & 0x0FFF).to_u32 + (#{from} & 0x0FFF) > 0x0FFF") +
+              set_flag_c("#{to} > 0x7FFF") +
+              ["#{to} &+= #{from}"]
+          else
+            set_flag_h("(#{to} & 0x0FFF).to_u32 + (#{from} & 0x0FFF) > 0x0FFF") +
+              ["#{to} &+= #{from}"] +
+              set_flag_c("#{to} < #{from}")
+          end
         else
           raise "Invalid group #{group} for ADD."
         end
+      when "AND"
+        to, from = operands
+        ["#{to} &= #{from}"] +
+          set_flag_z("#{to} == 0")
       when "BIT"
         bit, reg = operands
         set_flag_z("#{reg} & (0x1 << #{bit}) == 0")
@@ -226,7 +258,7 @@ module DmgOps
         if operands.size == 1
           instr
         else
-          cond, loc = operands
+          cond, _ = operands
           branch(cond, instr)
         end
       when "CP"
@@ -239,17 +271,26 @@ module DmgOps
         ["#{to} &-= 1"] +
           set_flag_z("#{to} == 0") +
           set_flag_h("#{to} & 0x0F == 0x0F")
+      when "DI"
+        ["@ime = false"]
       when "INC"
         to = operands[0]
         ["#{to} &+= 1"] +
           set_flag_z("#{to} == 0") +
           set_flag_h("#{to} & 0x1F == 0x1F")
+      when "JP"
+        if operands.size == 1
+          ["@pc = #{operands[0]}"]
+        else
+          cond, loc = operands
+          branch(cond, ["@pc = #{loc}"])
+        end
       when "JR"
         instr = ["@pc &+= i8"]
         if operands.size == 1
           instr
         else
-          cond, distance = operands
+          cond, _ = operands
           branch(cond, instr)
         end
       when "LD"
@@ -257,6 +298,10 @@ module DmgOps
         ["#{to} = #{from}"]
       when "NOP"
         [] of String
+      when "OR"
+        to, from = operands
+        ["#{to} |= #{from}"] +
+          set_flag_z("#{to} == 0")
       when "POP"
         reg = operands[0]
         ["#{reg} = @memory.read_word (@sp += 2) - 2"] +
@@ -286,22 +331,38 @@ module DmgOps
           branch(cond, instr)
         end
       when "RL"
-        to = operands[0]
-        ["carry = #{to} & 0x80", "#{to} = (#{to} << 1) + (self.f_c ? 1 : 0)"] +
-          set_flag_z("#{to} == 0") +
+        reg = operands[0]
+        ["carry = #{reg} & 0x80", "#{reg} = (#{reg} << 1) + (self.f_c ? 1 : 0)"] +
+          set_flag_z("#{reg} == 0") +
           set_flag_c("carry")
       when "RLA"
-        ["carry = self.a & 0x80", "self.a = (self.a << 1) + (self.f_c ? 1 : 0)"] +
+        ["carry = self.a & 0x80", "self.a = (self.a << 1) + (self.f_c ? 0x01 : 0x00)"] +
+          set_flag_c("carry")
+      when "RR"
+        reg = operands[0]
+        ["carry = #{reg} & 0x01", "#{reg} = (#{reg} >> 1) + (self.f_c ? 0x80 : 0x00)"] +
+          set_flag_c("carry")
+      when "RRA"
+        ["carry = self.a & 0x01", "self.a = (self.a >> 1) + (self.f_c ? 0x80 : 0x00)"] +
           set_flag_c("carry")
       when "SET"
         bit, reg = operands
         ["#{reg} |= (0x1 << #{bit})"]
+      when "SRL"
+        reg = operands[0]
+        set_flag_c("#{reg} & 0x1") +
+          ["#{reg} >>= 1"] +
+          set_flag_z("#{reg} == 0")
       when "SUB"
         to, from = operands
         set_flag_h("#{to} & 0xF < #{from} & 0xF") +
           set_flag_c("#{to} < #{from}") +
           ["#{to} &-= #{from}"] +
           set_flag_z("#{to} &- #{from} == 0")
+      when "SWAP"
+        reg = operands[0]
+        ["#{reg} = (#{reg} << 4) + (#{reg} >> 4)"] +
+          set_flag_z("#{reg} == 0")
       when "XOR"
         to, from = operands
         ["#{to} ^= #{from}"] +
