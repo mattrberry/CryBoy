@@ -211,9 +211,9 @@ class CPU
         return 8
       when 0x04 # INC B
         @pc &+= 1
+        self.f_h = self.b & 0x0F == 0x0F
         self.b &+= 1
         self.f_z = self.b == 0
-        self.f_h = self.b & 0x1F == 0x1F
         self.f_n = false
         return 4
       when 0x05 # DEC B
@@ -258,9 +258,9 @@ class CPU
         return 8
       when 0x0C # INC C
         @pc &+= 1
+        self.f_h = self.c & 0x0F == 0x0F
         self.c &+= 1
         self.f_z = self.c == 0
-        self.f_h = self.c & 0x1F == 0x1F
         self.f_n = false
         return 4
       when 0x0D # DEC C
@@ -302,9 +302,9 @@ class CPU
         return 8
       when 0x14 # INC D
         @pc &+= 1
+        self.f_h = self.d & 0x0F == 0x0F
         self.d &+= 1
         self.f_z = self.d == 0
-        self.f_h = self.d & 0x1F == 0x1F
         self.f_n = false
         return 4
       when 0x15 # DEC D
@@ -350,9 +350,9 @@ class CPU
         return 8
       when 0x1C # INC E
         @pc &+= 1
+        self.f_h = self.e & 0x0F == 0x0F
         self.e &+= 1
         self.f_z = self.e == 0
-        self.f_h = self.e & 0x1F == 0x1F
         self.f_n = false
         return 4
       when 0x1D # DEC E
@@ -399,9 +399,9 @@ class CPU
         return 8
       when 0x24 # INC H
         @pc &+= 1
+        self.f_h = self.h & 0x0F == 0x0F
         self.h &+= 1
         self.f_z = self.h == 0
-        self.f_h = self.h & 0x1F == 0x1F
         self.f_n = false
         return 4
       when 0x25 # DEC H
@@ -457,9 +457,9 @@ class CPU
         return 8
       when 0x2C # INC L
         @pc &+= 1
+        self.f_h = self.l & 0x0F == 0x0F
         self.l &+= 1
         self.f_z = self.l == 0
-        self.f_h = self.l & 0x1F == 0x1F
         self.f_n = false
         return 4
       when 0x2D # DEC L
@@ -503,9 +503,9 @@ class CPU
         return 8
       when 0x34 # INC (HL)
         @pc &+= 1
+        self.f_h = @memory[self.hl] & 0x0F == 0x0F
         @memory[self.hl] &+= 1
         self.f_z = @memory[self.hl] == 0
-        self.f_h = @memory[self.hl] & 0x1F == 0x1F
         self.f_n = false
         return 12
       when 0x35 # DEC (HL)
@@ -551,9 +551,9 @@ class CPU
         return 8
       when 0x3C # INC A
         @pc &+= 1
+        self.f_h = self.a & 0x0F == 0x0F
         self.a &+= 1
         self.f_z = self.a == 0
-        self.f_h = self.a & 0x1F == 0x1F
         self.f_n = false
         return 4
       when 0x3D # DEC A
@@ -971,7 +971,7 @@ class CPU
         self.f_h = self.a & 0x0F < self.b & 0x0F
         self.f_c = self.a < self.b
         self.a &-= self.b
-        self.f_z = self.a &- self.b == 0
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x91 # SUB A,C
@@ -979,7 +979,7 @@ class CPU
         self.f_h = self.a & 0x0F < self.c & 0x0F
         self.f_c = self.a < self.c
         self.a &-= self.c
-        self.f_z = self.a &- self.c == 0
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x92 # SUB A,D
@@ -987,7 +987,7 @@ class CPU
         self.f_h = self.a & 0x0F < self.d & 0x0F
         self.f_c = self.a < self.d
         self.a &-= self.d
-        self.f_z = self.a &- self.d == 0
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x93 # SUB A,E
@@ -995,7 +995,7 @@ class CPU
         self.f_h = self.a & 0x0F < self.e & 0x0F
         self.f_c = self.a < self.e
         self.a &-= self.e
-        self.f_z = self.a &- self.e == 0
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x94 # SUB A,H
@@ -1003,7 +1003,7 @@ class CPU
         self.f_h = self.a & 0x0F < self.h & 0x0F
         self.f_c = self.a < self.h
         self.a &-= self.h
-        self.f_z = self.a &- self.h == 0
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x95 # SUB A,L
@@ -1011,7 +1011,7 @@ class CPU
         self.f_h = self.a & 0x0F < self.l & 0x0F
         self.f_c = self.a < self.l
         self.a &-= self.l
-        self.f_z = self.a &- self.l == 0
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x96 # SUB A,(HL)
@@ -1019,7 +1019,7 @@ class CPU
         self.f_h = self.a & 0x0F < @memory[self.hl] & 0x0F
         self.f_c = self.a < @memory[self.hl]
         self.a &-= @memory[self.hl]
-        self.f_z = self.a &- @memory[self.hl] == 0
+        self.f_z = self.a == 0
         self.f_n = true
         return 8
       when 0x97 # SUB A,A
@@ -1027,78 +1027,78 @@ class CPU
         self.f_h = self.a & 0x0F < self.a & 0x0F
         self.f_c = self.a < self.a
         self.a &-= self.a
-        self.f_z = self.a &- self.a == 0
+        self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x98 # SBC A,B
         @pc &+= 1
-        carry = self.f_c ? 0x01 : 0x00
-        self.f_h = self.a & 0x0F < self.b & 0x0F + carry
-        self.f_c = self.a < self.b.to_u16 + carry
-        self.a &-= self.b &- carry
+        to_sub = self.b.to_u16 + (self.f_c ? 0x01 : 0x00)
+        self.f_h = (self.a & 0x0F) < (self.b & 0x0F) + (self.f_c ? 0x01 : 0x00)
+        self.f_c = self.a < to_sub
+        self.a &-= to_sub
         self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x99 # SBC A,C
         @pc &+= 1
-        carry = self.f_c ? 0x01 : 0x00
-        self.f_h = self.a & 0x0F < self.c & 0x0F + carry
-        self.f_c = self.a < self.c.to_u16 + carry
-        self.a &-= self.c &- carry
+        to_sub = self.c.to_u16 + (self.f_c ? 0x01 : 0x00)
+        self.f_h = (self.a & 0x0F) < (self.c & 0x0F) + (self.f_c ? 0x01 : 0x00)
+        self.f_c = self.a < to_sub
+        self.a &-= to_sub
         self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x9A # SBC A,D
         @pc &+= 1
-        carry = self.f_c ? 0x01 : 0x00
-        self.f_h = self.a & 0x0F < self.d & 0x0F + carry
-        self.f_c = self.a < self.d.to_u16 + carry
-        self.a &-= self.d &- carry
+        to_sub = self.d.to_u16 + (self.f_c ? 0x01 : 0x00)
+        self.f_h = (self.a & 0x0F) < (self.d & 0x0F) + (self.f_c ? 0x01 : 0x00)
+        self.f_c = self.a < to_sub
+        self.a &-= to_sub
         self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x9B # SBC A,E
         @pc &+= 1
-        carry = self.f_c ? 0x01 : 0x00
-        self.f_h = self.a & 0x0F < self.e & 0x0F + carry
-        self.f_c = self.a < self.e.to_u16 + carry
-        self.a &-= self.e &- carry
+        to_sub = self.e.to_u16 + (self.f_c ? 0x01 : 0x00)
+        self.f_h = (self.a & 0x0F) < (self.e & 0x0F) + (self.f_c ? 0x01 : 0x00)
+        self.f_c = self.a < to_sub
+        self.a &-= to_sub
         self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x9C # SBC A,H
         @pc &+= 1
-        carry = self.f_c ? 0x01 : 0x00
-        self.f_h = self.a & 0x0F < self.h & 0x0F + carry
-        self.f_c = self.a < self.h.to_u16 + carry
-        self.a &-= self.h &- carry
+        to_sub = self.h.to_u16 + (self.f_c ? 0x01 : 0x00)
+        self.f_h = (self.a & 0x0F) < (self.h & 0x0F) + (self.f_c ? 0x01 : 0x00)
+        self.f_c = self.a < to_sub
+        self.a &-= to_sub
         self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x9D # SBC A,L
         @pc &+= 1
-        carry = self.f_c ? 0x01 : 0x00
-        self.f_h = self.a & 0x0F < self.l & 0x0F + carry
-        self.f_c = self.a < self.l.to_u16 + carry
-        self.a &-= self.l &- carry
+        to_sub = self.l.to_u16 + (self.f_c ? 0x01 : 0x00)
+        self.f_h = (self.a & 0x0F) < (self.l & 0x0F) + (self.f_c ? 0x01 : 0x00)
+        self.f_c = self.a < to_sub
+        self.a &-= to_sub
         self.f_z = self.a == 0
         self.f_n = true
         return 4
       when 0x9E # SBC A,(HL)
         @pc &+= 1
-        carry = self.f_c ? 0x01 : 0x00
-        self.f_h = self.a & 0x0F < @memory[self.hl] & 0x0F + carry
-        self.f_c = self.a < @memory[self.hl].to_u16 + carry
-        self.a &-= @memory[self.hl] &- carry
+        to_sub = @memory[self.hl].to_u16 + (self.f_c ? 0x01 : 0x00)
+        self.f_h = (self.a & 0x0F) < (@memory[self.hl] & 0x0F) + (self.f_c ? 0x01 : 0x00)
+        self.f_c = self.a < to_sub
+        self.a &-= to_sub
         self.f_z = self.a == 0
         self.f_n = true
         return 8
       when 0x9F # SBC A,A
         @pc &+= 1
-        carry = self.f_c ? 0x01 : 0x00
-        self.f_h = self.a & 0x0F < self.a & 0x0F + carry
-        self.f_c = self.a < self.a.to_u16 + carry
-        self.a &-= self.a &- carry
+        to_sub = self.a.to_u16 + (self.f_c ? 0x01 : 0x00)
+        self.f_h = (self.a & 0x0F) < (self.a & 0x0F) + (self.f_c ? 0x01 : 0x00)
+        self.f_c = self.a < to_sub
+        self.a &-= to_sub
         self.f_z = self.a == 0
         self.f_n = true
         return 4
@@ -1513,7 +1513,7 @@ class CPU
         self.f_h = self.a & 0x0F < u8 & 0x0F
         self.f_c = self.a < u8
         self.a &-= u8
-        self.f_z = self.a &- u8 == 0
+        self.f_z = self.a == 0
         self.f_n = true
         return 8
       when 0xD7 # RST 10h
@@ -1565,10 +1565,10 @@ class CPU
       when 0xDE # SBC A,u8
         u8 = @memory[@pc + 1]
         @pc &+= 2
-        carry = self.f_c ? 0x01 : 0x00
-        self.f_h = self.a & 0x0F < u8 & 0x0F + carry
-        self.f_c = self.a < u8.to_u16 + carry
-        self.a &-= u8 &- carry
+        to_sub = u8.to_u16 + (self.f_c ? 0x01 : 0x00)
+        self.f_h = (self.a & 0x0F) < (u8 & 0x0F) + (self.f_c ? 0x01 : 0x00)
+        self.f_c = self.a < to_sub
+        self.a &-= to_sub
         self.f_z = self.a == 0
         self.f_n = true
         return 8
@@ -1959,6 +1959,7 @@ class CPU
         @pc &+= 2
         carry = self.b & 0x01
         self.b = (self.b >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.b == 0
         self.f_c = carry
         self.f_n = false
         self.f_h = false
@@ -1967,6 +1968,7 @@ class CPU
         @pc &+= 2
         carry = self.c & 0x01
         self.c = (self.c >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.c == 0
         self.f_c = carry
         self.f_n = false
         self.f_h = false
@@ -1975,6 +1977,7 @@ class CPU
         @pc &+= 2
         carry = self.d & 0x01
         self.d = (self.d >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.d == 0
         self.f_c = carry
         self.f_n = false
         self.f_h = false
@@ -1983,6 +1986,7 @@ class CPU
         @pc &+= 2
         carry = self.e & 0x01
         self.e = (self.e >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.e == 0
         self.f_c = carry
         self.f_n = false
         self.f_h = false
@@ -1991,6 +1995,7 @@ class CPU
         @pc &+= 2
         carry = self.h & 0x01
         self.h = (self.h >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.h == 0
         self.f_c = carry
         self.f_n = false
         self.f_h = false
@@ -1999,6 +2004,7 @@ class CPU
         @pc &+= 2
         carry = self.l & 0x01
         self.l = (self.l >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.l == 0
         self.f_c = carry
         self.f_n = false
         self.f_h = false
@@ -2007,6 +2013,7 @@ class CPU
         @pc &+= 2
         carry = @memory[self.hl] & 0x01
         @memory[self.hl] = (@memory[self.hl] >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = @memory[self.hl] == 0
         self.f_c = carry
         self.f_n = false
         self.f_h = false
@@ -2015,6 +2022,7 @@ class CPU
         @pc &+= 2
         carry = self.a & 0x01
         self.a = (self.a >> 1) + (self.f_c ? 0x80 : 0x00)
+        self.f_z = self.a == 0
         self.f_c = carry
         self.f_n = false
         self.f_h = false

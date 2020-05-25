@@ -300,9 +300,9 @@ module DmgOps
         ["@halted = true if @ime"]
       when "INC"
         to = operands[0]
-        ["#{to} &+= 1"] +
-          set_flag_z("#{to} == 0") +
-          set_flag_h("#{to} & 0x1F == 0x1F")
+        set_flag_h("#{to} & 0x0F == 0x0F") +
+          ["#{to} &+= 1"] +
+          set_flag_z("#{to} == 0")
       when "JP"
         if operands.size == 1
           ["@pc = #{operands[0]}"]
@@ -382,6 +382,7 @@ module DmgOps
       when "RR"
         reg = operands[0]
         ["carry = #{reg} & 0x01", "#{reg} = (#{reg} >> 1) + (self.f_c ? 0x80 : 0x00)"] +
+          set_flag_z("#{reg} == 0") +
           set_flag_c("carry")
       when "RRA"
         ["carry = self.a & 0x01", "self.a = (self.a >> 1) + (self.f_c ? 0x80 : 0x00)"] +
@@ -398,10 +399,10 @@ module DmgOps
         ["@sp -= 2", "@memory[@sp] = @pc", "@pc = #{operands[0]}"]
       when "SBC"
         to, from = operands
-        ["carry = self.f_c ? 0x01 : 0x00"] +
-          set_flag_h("#{to} & 0x0F < #{from} & 0x0F + carry") +
-          set_flag_c("#{to} < #{from}.to_u16 + carry") +
-          ["#{to} &-= #{from} &- carry"] +
+        ["to_sub = #{from}.to_u16 + (self.f_c ? 0x01 : 0x00)"] +
+          set_flag_h("(#{to} & 0x0F) < (#{from} & 0x0F) + (self.f_c ? 0x01 : 0x00)") +
+          set_flag_c("#{to} < to_sub") +
+          ["#{to} &-= to_sub"] +
           set_flag_z("#{to} == 0")
       when "SCF"
         # should already be covered by `set_reset_flags`
@@ -431,7 +432,7 @@ module DmgOps
         set_flag_h("#{to} & 0x0F < #{from} & 0x0F") +
           set_flag_c("#{to} < #{from}") +
           ["#{to} &-= #{from}"] +
-          set_flag_z("#{to} &- #{from} == 0")
+          set_flag_z("#{to} == 0")
       when "SWAP"
         reg = operands[0]
         ["#{reg} = (#{reg} << 4) + (#{reg} >> 4)"] +
