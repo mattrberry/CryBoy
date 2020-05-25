@@ -2,7 +2,9 @@ require "spec"
 require "../src/cryboy"
 
 def new_cpu(bytes : Array(Int))
-  CPU.new(new_memory(bytes), true)
+  cpu = CPU.new(new_memory(bytes), true)
+  cpu.sp = 0xFFFE_u16
+  cpu
 end
 
 def new_memory(bytes : Array(Int))

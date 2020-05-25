@@ -733,16 +733,16 @@ describe CPU do
       it "subs d8 from a" do
         d8 = 0x01
         cpu = new_cpu [0xD6, d8]
-        cpu.a = 0x00
+        cpu.a = 0x10
         cpu.tick
 
         cpu.pc.should eq 2
         cpu.sp.should eq 0xFFFE
-        cpu.a.should eq 0xFF
+        cpu.a.should eq 0x0F
         cpu.f_z.should eq false
         cpu.f_n.should eq true
-        cpu.f_h.should eq false
-        cpu.f_c.should eq true
+        cpu.f_h.should eq true
+        cpu.f_c.should eq false
       end
     end
 
@@ -761,7 +761,7 @@ describe CPU do
         cpu.pc.should eq 2
         cpu.sp.should eq 0xFFFE
         cpu.b.should eq 0b01010101
-        cpu.f_z.should eq true
+        cpu.f_z.should eq false
         cpu.f_c.should eq false
         cpu.f_h.should eq true
       end

@@ -14,7 +14,7 @@ class Memory
 
   @bootrom = Bytes.new 0
 
-  def initialize(@cartridge : Cartridge, bootrom : String?)
+  def initialize(@cartridge : Cartridge, bootrom : String? = nil)
     @memory = Bytes.new 0xFFFF + 1
     @memory[0xFF00] = 0xFF_u8 # 0 means the button is PRESSED
 
