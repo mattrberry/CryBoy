@@ -2,6 +2,7 @@ require "sdl"
 require "./cartridge"
 require "./cpu"
 require "./display"
+require "./mbc/*"
 require "./memory"
 require "./ppu"
 require "./util"
@@ -9,12 +10,10 @@ require "./util"
 class Motherboard
   def initialize(bootrom : String?, rom : String)
     @cartridge = Cartridge.new rom
-    # puts "Title: #{@cartridge.title}"
-    # puts "Size:  #{@cartridge.rom_size}"
     @memory = Memory.new @cartridge, bootrom
     @cpu = CPU.new @memory, boot: !bootrom.nil?
     @ppu = PPU.new @memory
-    @display = Display.new
+    @display = Display.new title: @cartridge.title
   end
 
   def timer_divider : Nil

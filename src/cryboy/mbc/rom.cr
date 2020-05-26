@@ -1,29 +1,16 @@
-require "../cartridge"
-require "../memory"
-
 class ROM < Cartridge
-  EXTERNAL_RAM_SIZE = 0x1FFF
-
-  attr_reader :ram
-
-  def initialize(program)
-    @ram = Array.new EXTERNAL_RAM_SIZE, 0
-    @program = program
+  def initialize(@program : Bytes)
+    @ram = Bytes.new Memory::EXTERNAL_RAM.size
   end
 
-  def [](i)
-    case i
-    when Memory::EXTERNAL_RAM
-      @ram[i - 0xA000]
-    else
-      @program[i]
+  def [](index : Int) : UInt8
+    case index
+    when Memory::EXTERNAL_RAM then return @ram[index - Memory::EXTERNAL_RAM.begin]
+    else                           return @program[index]
     end
   end
 
-  def []=(i, v)
-    case i
-    when Memory::EXTERNAL_RAM
-      @ram[i - 0xA000] = v
-    end
+  def []=(index : Int, value : UInt8) : Nil
+    @ram[index - Memory::EXTERNAL_RAM.begin] = value if Memory::EXTERNAL_RAM.includes? index
   end
 end
