@@ -14,9 +14,8 @@ class Memory
 
   @bootrom = Bytes.new 0
 
-  def initialize(@cartridge : Cartridge, bootrom : String? = nil)
+  def initialize(@cartridge : Cartridge, @joypad : Joypad, bootrom : String? = nil)
     @memory = Bytes.new 0xFFFF + 1
-    @memory[0xFF00] = 0xFF_u8 # 0 means the button is PRESSED
 
     if !bootrom.nil?
       File.open bootrom do |file|
@@ -74,10 +73,14 @@ class Memory
     when ECHO                   then return @memory[index - 0x2000]
     when SPRITE_TABLE           then return @memory[index]
     when NOT_USABLE             then return 0_u8
-    when IO_PORTS               then return @memory[index]
-    when HRAM                   then return @memory[index]
-    when INTERRUPT_REG          then return @memory[index]
-    else                             raise "FAILED TO GET INDEX #{index}"
+    when IO_PORTS
+      case index
+      when 0xFF00 then return @joypad.read
+      else             return @memory[index]
+      end
+    when HRAM          then return @memory[index]
+    when INTERRUPT_REG then return @memory[index]
+    else                    raise "FAILED TO GET INDEX #{index}"
     end
   end
 
@@ -97,6 +100,7 @@ class Memory
     when NOT_USABLE   then nil # todo: should I raise here?
     when IO_PORTS
       case index
+      when 0xFF00 then @joypad.write value
       when 0xFF01 then @memory[index] = value # ; print value.chr
       when 0xFF04 then @memory[index] = 0x00_u8
       when 0xFF46 then dma_transfer(value.to_u16 << 8)

@@ -498,13 +498,13 @@ describe CPU do
     describe "0xC0" do
       it "returns if nz" do
         cpu = new_cpu [0xC0]
-        cpu.sp = 0xFF00_u16
-        cpu.memory[0xFF00] = 0x1234_u16
+        cpu.sp = 0xFFF0_u16
+        cpu.memory[0xFFF0] = 0x1234_u16
         cpu.f_z = false
         cpu.tick
 
         cpu.pc.should eq 0x1234
-        cpu.sp.should eq 0xFF02
+        cpu.sp.should eq 0xFFF2
       end
 
       it "doesn't return if not nz" do
@@ -520,12 +520,12 @@ describe CPU do
     describe "0xC1" do
       it "pops bc" do
         cpu = new_cpu [0xC1]
-        cpu.sp = 0xFF00_u16
-        cpu.memory[0xFF00_u16] = 0x1234
+        cpu.sp = 0xFFF0_u16
+        cpu.memory[0xFFF0_u16] = 0x1234
         cpu.tick
 
         cpu.pc.should eq 1
-        cpu.sp.should eq 0xFF02
+        cpu.sp.should eq 0xFFF2
         cpu.bc.should eq 0x1234
       end
     end
@@ -634,13 +634,13 @@ describe CPU do
     describe "0xD0" do
       it "returns if nc" do
         cpu = new_cpu [0xD0]
-        cpu.sp = 0xFF00_u16
-        cpu.memory[0xFF00] = 0x1234_u16
+        cpu.sp = 0xFFF0_u16
+        cpu.memory[0xFFF0] = 0x1234_u16
         cpu.f_c = false
         cpu.tick
 
         cpu.pc.should eq 0x1234
-        cpu.sp.should eq 0xFF02
+        cpu.sp.should eq 0xFFF2
       end
 
       it "doesn't return if not nc" do
@@ -656,12 +656,12 @@ describe CPU do
     describe "0xD1" do
       it "pops de" do
         cpu = new_cpu [0xD1]
-        cpu.sp = 0xFF00_u16
-        cpu.memory[0xFF00_u16] = 0x1234
+        cpu.sp = 0xFFF0_u16
+        cpu.memory[0xFFF0_u16] = 0x1234
         cpu.tick
 
         cpu.pc.should eq 1
-        cpu.sp.should eq 0xFF02
+        cpu.sp.should eq 0xFFF2
         cpu.de.should eq 0x1234
       end
     end

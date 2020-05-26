@@ -12,5 +12,5 @@ def new_memory(bytes : Array(Int))
   bytes.each_with_index do |byte, i|
     rom[i] = byte.to_u8!
   end
-  Memory.new(Cartridge.new(rom))
+  Memory.new(Cartridge.new(rom), Joypad.new)
 end

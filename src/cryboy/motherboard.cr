@@ -2,6 +2,7 @@ require "sdl"
 require "./cartridge"
 require "./cpu"
 require "./display"
+require "./joypad"
 require "./mbc/*"
 require "./memory"
 require "./ppu"
@@ -10,7 +11,8 @@ require "./util"
 class Motherboard
   def initialize(bootrom : String?, rom : String)
     @cartridge = Cartridge.new rom
-    @memory = Memory.new @cartridge, bootrom
+    @joypad = Joypad.new
+    @memory = Memory.new @cartridge, @joypad, bootrom
     @cpu = CPU.new @memory, boot: !bootrom.nil?
     @ppu = PPU.new @memory
     @display = Display.new title: @cartridge.title
@@ -53,15 +55,20 @@ class Motherboard
     repeat hz: 60 do
       while event = SDL::Event.poll
         case event
-        when SDL::Event::Quit
-          puts "quit"
-          exit 0
+        when SDL::Event::Quit then exit 0
         when SDL::Event::Keyboard
-          if event.mod.lctrl? && event.sym.q?
-            puts "ctrl+q"
-            exit 0
+          case event.sym
+          when .down?, .d?  then @joypad.down = event.keydown?
+          when .up?, .e?    then @joypad.up = event.keydown?
+          when .left?, .s?  then @joypad.left = event.keydown?
+          when .right?, .f? then @joypad.right = event.keydown?
+          when .k?          then @joypad.start = event.keydown?
+          when .l?          then @joypad.select = event.keydown?
+          when .b?, .j?     then @joypad.b = event.keydown?
+          when .a?, .k?     then @joypad.a = event.keydown?
+          else nil
           end
-        else nil # Crystal will soon require exhaustive cases
+        else nil
         end
       end
       if @ppu.lcd_enabled?
@@ -80,7 +87,6 @@ class Motherboard
         end
         @memory.vblank = true
         @display.draw @ppu.framebuffer, @memory[0xFF47] # 0xFF47 defines the color palette
-        # @display.draw_all_tiles @memory, @ppu.scanlines
 
         (144...154).each do |y|
           check_lyc y
