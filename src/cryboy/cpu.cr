@@ -128,6 +128,7 @@ class CPU
     # bit 0: v-blank
     if @memory.vblank && @memory.vblank_enabled
       @memory.vblank = false
+      @ime = false
       @sp -= 2
       @memory[@sp] = @pc
       @pc = 0x0040_u16
@@ -136,6 +137,7 @@ class CPU
     # bit 1: lcd stat
     if @memory.lcd_stat && @memory.lcd_stat_enabled
       @memory.lcd_stat = false
+      @ime = false
       @sp -= 2
       @memory[@sp] = @pc
       @pc = 0x0048_u16
@@ -144,6 +146,7 @@ class CPU
     # bit 2: timer
     if @memory.timer && @memory.timer_enabled
       @memory.timer = false
+      @ime = false
       @sp -= 2
       @memory[@sp] = @pc
       @pc = 0x0050_u16
@@ -152,6 +155,7 @@ class CPU
     # bit 3: serial
     if @memory.serial && @memory.serial_enabled
       @memory.serial = false
+      @ime = false
       @sp -= 2
       @memory[@sp] = @pc
       @pc = 0x0058_u16
@@ -160,13 +164,12 @@ class CPU
     # bit 4: joypad
     if @memory.joypad && @memory.joypad_enabled
       @memory.joypad = false
+      @ime = false
       @sp -= 2
       @memory[@sp] = @pc
       @pc = 0x0060_u16
       @halted = false
     end
-    # clear Interrupt Master Enable
-    @ime = false
   end
 
   # Runs for the specified number of machine cycles. If no argument provided,
