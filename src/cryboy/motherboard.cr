@@ -62,11 +62,11 @@ class Motherboard
           when .up?, .e?    then @joypad.up = event.keydown?
           when .left?, .s?  then @joypad.left = event.keydown?
           when .right?, .f? then @joypad.right = event.keydown?
-          when .k?          then @joypad.start = event.keydown?
+          when .semicolon?  then @joypad.start = event.keydown?
           when .l?          then @joypad.select = event.keydown?
           when .b?, .j?     then @joypad.b = event.keydown?
           when .a?, .k?     then @joypad.a = event.keydown?
-          else nil
+          else                   nil
           end
         else nil
         end
