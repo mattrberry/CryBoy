@@ -77,21 +77,21 @@ class PPU
   end
 
   def draw_sprites
-    # puts "drawing sprites"
-    (0xFF00..0xFF9F).step 4 do |sprite_address|
+    (0xFE00..0xFE9F).step 4 do |sprite_address|
       sprite = Sprite.new @memory[sprite_address], @memory[sprite_address + 1], @memory[sprite_address + 2], @memory[sprite_address + 3]
-      puts sprite if sprite.visible?
       if sprite.visible?
         (0...8).each do |row|
-          break if sprite.y + row < 16
+          y = row + sprite.y - 16
+          break if y < 0 || y >= 144
           byte_1 = @memory[sprite.tile_ptr + row * 2]
           byte_2 = @memory[sprite.tile_ptr + row * 2 + 1]
           (0...8).each do |col|
-            break if sprite.x + col < 8
+            x = col + sprite.x - 8
+            break if x < 0 || x >= 160
             lsb = (byte_1 >> (7 - col)) & 0x1
             msb = (byte_2 >> (7 - col)) & 0x1
             color = (msb << 1) | lsb
-            @framebuffer[sprite.y - 16][sprite.x - 8] = color
+            @framebuffer[y][x] = color
           end
         end
       end
@@ -108,7 +108,7 @@ class PPU
         end
       end
     end
-    # draw_sprites if sprite_enabled?
+    draw_sprites if sprite_enabled?
     @framebuffer
   end
 
