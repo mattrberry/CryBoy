@@ -115,51 +115,41 @@ class CPU
     @memory[0xFFFF] = 0x00_u8 # IE
   end
 
+  # call to the specified interrupt vector and handle ime/halted flags
+  def call_interrupt_vector(vector : UInt16) : Nil
+    @ime = false
+    @sp -= 2
+    @memory[@sp] = @pc
+    @pc = vector
+    @halted = false
+  end
+
+  # service all interrupts
   def handle_interrupts
     # bit 0: v-blank
-    if @memory.vblank && @memory.vblank_enabled
-      @memory.vblank = false
-      @ime = false
-      @sp -= 2
-      @memory[@sp] = @pc
-      @pc = 0x0040_u16
-      @halted = false
+    if @memory.vblank_interrupt && @memory.vblank_enabled
+      @memory.vblank_interrupt = false
+      call_interrupt_vector 0x0040_u16
     end
     # bit 1: lcd stat
-    if @memory.lcd_stat && @memory.lcd_stat_enabled
-      @memory.lcd_stat = false
-      @ime = false
-      @sp -= 2
-      @memory[@sp] = @pc
-      @pc = 0x0048_u16
-      @halted = false
+    if @memory.lcd_stat_interrupt && @memory.lcd_stat_enabled
+      @memory.lcd_stat_interrupt = false
+      call_interrupt_vector 0x0048_u16
     end
     # bit 2: timer
-    if @memory.timer && @memory.timer_enabled
-      @memory.timer = false
-      @ime = false
-      @sp -= 2
-      @memory[@sp] = @pc
-      @pc = 0x0050_u16
-      @halted = false
+    if @memory.timer_interrupt && @memory.timer_enabled
+      @memory.timer_interrupt = false
+      call_interrupt_vector 0x0050_u16
     end
     # bit 3: serial
-    if @memory.serial && @memory.serial_enabled
-      @memory.serial = false
-      @ime = false
-      @sp -= 2
-      @memory[@sp] = @pc
-      @pc = 0x0058_u16
-      @halted = false
+    if @memory.serial_interrupt && @memory.serial_enabled
+      @memory.serial_interrupt = false
+      call_interrupt_vector 0x0058_u16
     end
     # bit 4: joypad
-    if @memory.joypad && @memory.joypad_enabled
-      @memory.joypad = false
-      @ime = false
-      @sp -= 2
-      @memory[@sp] = @pc
-      @pc = 0x0060_u16
-      @halted = false
+    if @memory.joypad_interrupt && @memory.joypad_enabled
+      @memory.joypad_interrupt = false
+      call_interrupt_vector 0x0060_u16
     end
   end
 
@@ -172,7 +162,6 @@ class CPU
       cycles_taken = process_opcode opcode
       @timer.tick cycles_taken
       cycles -= cycles_taken
-      # interrupts
       handle_interrupts if @ime
       return if @halted
     end

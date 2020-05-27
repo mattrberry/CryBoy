@@ -20,18 +20,6 @@ class Motherboard
     @display = Display.new title: @cartridge.title
   end
 
-  def timer_divider : Nil
-    @memory[0xFF04] &+= 1
-  end
-
-  def timer_counter : Nil
-    @memory[0xFF05] &+= 1
-    if @memory[0xFF05] == 0_u8
-      @memory[0xFF05] = @memory[0xFF06]
-      @memory.timer = true
-    end
-  end
-
   def check_lyc(y : Int) : Nil
     # set ly
     @memory[0xFF44] = y.to_u8
@@ -39,7 +27,7 @@ class Motherboard
     if y.to_u8 == @memory[0xFF45]
       @memory[0xFF41] |= 0b100
       if @memory[0xFF41] & 0b01000000 > 0
-        @memory.lcd_stat = true
+        @memory.lcd_stat_interrupt = true
       end
     else
       @memory[0xFF41] &= ~0b100
@@ -84,7 +72,7 @@ class Motherboard
           stat_mode = 0
           @cpu.tick 204
         end
-        @memory.vblank = true
+        @memory.vblank_interrupt = true
         @display.draw @ppu.framebuffer, @memory[0xFF47] # 0xFF47 defines the color palette
 
         (144...154).each do |y|

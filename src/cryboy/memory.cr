@@ -39,11 +39,11 @@ class Memory
     end
   end
 
-  bit vblank, 0xFF0F, 0b00000001
-  bit lcd_stat, 0xFF0F, 0b00000010
-  bit timer, 0xFF0F, 0b00000100
-  bit serial, 0xFF0F, 0b00001000
-  bit joypad, 0xFF0F, 0b00010000
+  bit vblank_interrupt, 0xFF0F, 0b00000001
+  bit lcd_stat_interrupt, 0xFF0F, 0b00000010
+  bit timer_interrupt, 0xFF0F, 0b00000100
+  bit serial_interrupt, 0xFF0F, 0b00001000
+  bit joypad_interrupt, 0xFF0F, 0b00010000
 
   bit vblank_enabled, 0xFFFF, 0b00000001
   bit lcd_stat_enabled, 0xFFFF, 0b00000010
@@ -60,6 +60,7 @@ class Memory
   bit sprite_enabled, 0xFF40, 0b00000010
   bit bg_display, 0xFF40, 0b00000001
 
+  # read 8 bits from memory
   def [](index : Int) : UInt8
     case index
     when 0x0000...@bootrom.size then @bootrom.nil? ? @cartridge[index] : @bootrom[index]
@@ -84,6 +85,7 @@ class Memory
     end
   end
 
+  # write 8 bits to memory
   def []=(index : Int, value : UInt8) : Nil
     @bootrom = Bytes.new 0 if index == 0xFF50 && value == 0x01
     # puts "writing at index #{hex_str index.to_u16!} : #{hex_str value}"
@@ -102,7 +104,7 @@ class Memory
       case index
       when 0xFF00         then @joypad.write value
       when 0xFF01         then @raw_memory[index] = value # ; print value.chr
-      when 0xFF04..0xFF07 then self.timer = true if @timer[index] = value
+      when 0xFF04..0xFF07 then self.timer_interrupt = true if @timer[index] = value
       when 0xFF46         then dma_transfer(value.to_u16 << 8)
       else                     @raw_memory[index] = value
       end
@@ -112,11 +114,13 @@ class Memory
     end
   end
 
+  # write 16 bits to memory
   def []=(index : Int, value : UInt16) : Nil
     self[index] = (value & 0xFF).to_u8
     self[index + 1] = (value >> 8).to_u8
   end
 
+  # read 16 bits from memory
   def read_word(index : Int) : UInt16
     self[index].to_u16 | (self[index + 1].to_u16 << 8)
   end

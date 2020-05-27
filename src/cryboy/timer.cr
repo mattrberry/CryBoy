@@ -10,6 +10,7 @@ class Timer
   # maps division on cpu cycles from the clock select
   @cycle_dividers = [1024, 16, 64, 256]
 
+  # tick timer forwards by specified number of cycles
   def tick(cycles : Int32) : Nil
     @div_counter += cycles
     if @div_counter >= 256
@@ -23,6 +24,7 @@ class Timer
     end
   end
 
+  # read from timer memory
   def [](index : Int) : UInt8
     case index
     when 0xFF04 then @div
@@ -33,6 +35,7 @@ class Timer
     end
   end
 
+  # write to timer memory
   def []=(index : Int, value : UInt8) : Bool
     case index
     when 0xFF04 then @div = 0x00_u8
@@ -50,10 +53,12 @@ class Timer
     return false
   end
 
+  # are timers stopped?
   def stop? : Bool
     @tac & (0x1 << 2) == 0
   end
 
+  # select timer clock speed
   def clock_select : UInt8
     @tac & 0b11
   end
