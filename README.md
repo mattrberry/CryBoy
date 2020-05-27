@@ -2,7 +2,7 @@
 
 CryBoy is a Gameboy emulator written in Crystal. The goal of this project is an efficient Gameboy emulator with highly readable code. So far, neither aspect of the goal is accomplished.
 
-This would not be possible without the [Pan Docs](https://bgb.bircd.org/pandocs.htm). A thanks also goes out to [PyBoy](https://github.com/Baekalfen/PyBoy), which was occasionally used as a reference.
+This would not be possible without the [Pan Docs](https://gbdev.io/pandocs), [izik's opcode table](https://izik1.github.io/gbops), or the [gzb80 opcode reference](https://rednex.github.io/rgbds/gbz80.7.html). A thanks also goes out to [PyBoy](https://github.com/Baekalfen/PyBoy), which was occasionally used as a reference.
 
 ## Installation
 
@@ -12,7 +12,7 @@ After cloning the respository, you'll need to install the required shards with `
 
 ## Usage
 
-After installing the dependencies, the project can be build with `shards build --release`. At this point, the binary lives in `bin/cryboy`. The binary takes a rom path as its only argument: `bin/cryboy /path/to/rom`.
+After installing the dependencies, the project can be build with `shards build --release`. At this point, the binary lives in `bin/cryboy`. The binary takes a an optional boot rom path and a rom path as its argument: `bin/cryboy /path/to/rom` or `bin/cryboy /path/to/bootrom /path/to/rom`.
 
 ## Contributing
 
