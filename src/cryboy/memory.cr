@@ -62,24 +62,24 @@ class Memory
 
   def [](index : Int) : UInt8
     case index
-    when 0x0000...@bootrom.size then return @bootrom.nil? ? @cartridge[index] : @bootrom[index]
-    when ROM_BANK_0             then return @cartridge[index]
-    when ROM_BANK_N             then return @cartridge[index]
-    when VRAM                   then return @raw_memory[index]
-    when EXTERNAL_RAM           then return @cartridge[index]
-    when WORK_RAM_0             then return @raw_memory[index]
-    when WORK_RAM_N             then return @raw_memory[index]
-    when ECHO                   then return @raw_memory[index - 0x2000]
-    when SPRITE_TABLE           then return @raw_memory[index]
-    when NOT_USABLE             then return 0_u8
+    when 0x0000...@bootrom.size then @bootrom.nil? ? @cartridge[index] : @bootrom[index]
+    when ROM_BANK_0             then @cartridge[index]
+    when ROM_BANK_N             then @cartridge[index]
+    when VRAM                   then @raw_memory[index]
+    when EXTERNAL_RAM           then @cartridge[index]
+    when WORK_RAM_0             then @raw_memory[index]
+    when WORK_RAM_N             then @raw_memory[index]
+    when ECHO                   then @raw_memory[index - 0x2000]
+    when SPRITE_TABLE           then @raw_memory[index]
+    when NOT_USABLE             then 0_u8
     when IO_PORTS
       case index
-      when 0xFF00         then return @joypad.read
-      when 0xFF04..0xFF07 then return @timer[index]
-      else                     return @raw_memory[index]
+      when 0xFF00         then @joypad.read
+      when 0xFF04..0xFF07 then @timer[index]
+      else                     @raw_memory[index]
       end
-    when HRAM          then return @raw_memory[index]
-    when INTERRUPT_REG then return @raw_memory[index]
+    when HRAM          then @raw_memory[index]
+    when INTERRUPT_REG then @raw_memory[index]
     else                    raise "FAILED TO GET INDEX #{index}"
     end
   end

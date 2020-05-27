@@ -1,12 +1,3 @@
-require "./util"
-
-enum FlagOp
-  ZERO
-  ONE
-  DEFAULT
-  UNCHANGED
-end
-
 class CPU
   macro register(upper, lower, mask = nil)
     @{{upper.id}} : UInt8 = 0_u8

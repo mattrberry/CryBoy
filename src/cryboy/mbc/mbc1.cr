@@ -17,7 +17,7 @@ class MBC1 < Cartridge
       else
         0xFF_u8
       end
-    else raise "Somehow trying to read from invalid index #{hex_str index.to_u16} in cartridge."
+    else raise "Reading from invalid cartridge register #{hex_str index.to_u16!}"
     end
   end
 
@@ -43,7 +43,7 @@ class MBC1 < Cartridge
           @ram[(@ram_bank * Memory::EXTERNAL_RAM.size) + (index - Memory::EXTERNAL_RAM.begin)] = value
         end
       end
-    else raise "Somehow trying to write to invalid index #{hex_str index.to_u16} in cartridge."
+    else raise "Writing to invalid cartridge register: #{hex_str index.to_u16!}"
     end
   end
 end

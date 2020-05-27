@@ -95,7 +95,7 @@ class Motherboard
         # todo render blank screen
         stat_mode = 0
         # set ly
-        @memory[0xFF44] = 0_u8
+        @memory[0xFF44] = 0x00_u8
         # tick 1 full screen time
         @cpu.tick 154 * 456
       end
