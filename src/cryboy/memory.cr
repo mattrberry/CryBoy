@@ -15,7 +15,7 @@ class Memory
   getter raw_memory = Bytes.new 0xFFFF + 1
   @bootrom = Bytes.new 0
 
-  def initialize(@cartridge : Cartridge, @joypad : Joypad, bootrom : String? = nil)
+  def initialize(@cartridge : Cartridge, @joypad : Joypad, @timer : Timer, bootrom : String? = nil)
     if !bootrom.nil?
       File.open bootrom do |file|
         raise "Bootrom too big: #{file.size}" if file.size > 256
@@ -74,8 +74,9 @@ class Memory
     when NOT_USABLE             then return 0_u8
     when IO_PORTS
       case index
-      when 0xFF00 then return @joypad.read
-      else             return @raw_memory[index]
+      when 0xFF00         then return @joypad.read
+      when 0xFF04..0xFF07 then return @timer[index]
+      else                     return @raw_memory[index]
       end
     when HRAM          then return @raw_memory[index]
     when INTERRUPT_REG then return @raw_memory[index]
@@ -99,11 +100,11 @@ class Memory
     when NOT_USABLE   then nil # todo: should I raise here?
     when IO_PORTS
       case index
-      when 0xFF00 then @joypad.write value
-      when 0xFF01 then @raw_memory[index] = value # ; print value.chr
-      when 0xFF04 then @raw_memory[index] = 0x00_u8
-      when 0xFF46 then dma_transfer(value.to_u16 << 8)
-      else             @raw_memory[index] = value
+      when 0xFF00         then @joypad.write value
+      when 0xFF01         then @raw_memory[index] = value # ; print value.chr
+      when 0xFF04..0xFF07 then self.timer = true if @timer[index] = value
+      when 0xFF46         then dma_transfer(value.to_u16 << 8)
+      else                     @raw_memory[index] = value
       end
     when HRAM          then @raw_memory[index] = value
     when INTERRUPT_REG then @raw_memory[index] = value

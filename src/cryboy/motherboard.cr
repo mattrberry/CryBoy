@@ -13,8 +13,8 @@ class Motherboard
   def initialize(bootrom : String?, rom : String)
     @cartridge = Cartridge.new rom
     @joypad = Joypad.new
-    @memory = Memory.new @cartridge, @joypad, bootrom
-    @timer = Timer.new @memory
+    @timer = Timer.new
+    @memory = Memory.new @cartridge, @joypad, @timer, bootrom
     @cpu = CPU.new @memory, @timer, boot: !bootrom.nil?
     @ppu = PPU.new @memory
     @display = Display.new title: @cartridge.title
