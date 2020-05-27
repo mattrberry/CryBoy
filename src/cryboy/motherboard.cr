@@ -78,11 +78,11 @@ class Motherboard
           @cpu.tick 80
 
           stat_mode = 3
-          @cpu.tick 170
+          @cpu.tick 172
           @ppu.scanline y
 
           stat_mode = 0
-          @cpu.tick 206
+          @cpu.tick 204
         end
         @memory.vblank = true
         @display.draw @ppu.framebuffer, @memory[0xFF47] # 0xFF47 defines the color palette
