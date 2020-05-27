@@ -12,11 +12,10 @@ class Memory
   HRAM          = 0xFF80..0xFFFE
   INTERRUPT_REG = 0xFFFF
 
+  getter raw_memory = Bytes.new 0xFFFF + 1
   @bootrom = Bytes.new 0
 
   def initialize(@cartridge : Cartridge, @joypad : Joypad, bootrom : String? = nil)
-    @memory = Bytes.new 0xFFFF + 1
-
     if !bootrom.nil?
       File.open bootrom do |file|
         raise "Bootrom too big: #{file.size}" if file.size > 256
@@ -66,20 +65,20 @@ class Memory
     when 0x0000...@bootrom.size then return @bootrom.nil? ? @cartridge[index] : @bootrom[index]
     when ROM_BANK_0             then return @cartridge[index]
     when ROM_BANK_N             then return @cartridge[index]
-    when VRAM                   then return @memory[index]
+    when VRAM                   then return @raw_memory[index]
     when EXTERNAL_RAM           then return @cartridge[index]
-    when WORK_RAM_0             then return @memory[index]
-    when WORK_RAM_N             then return @memory[index]
-    when ECHO                   then return @memory[index - 0x2000]
-    when SPRITE_TABLE           then return @memory[index]
+    when WORK_RAM_0             then return @raw_memory[index]
+    when WORK_RAM_N             then return @raw_memory[index]
+    when ECHO                   then return @raw_memory[index - 0x2000]
+    when SPRITE_TABLE           then return @raw_memory[index]
     when NOT_USABLE             then return 0_u8
     when IO_PORTS
       case index
       when 0xFF00 then return @joypad.read
-      else             return @memory[index]
+      else             return @raw_memory[index]
       end
-    when HRAM          then return @memory[index]
-    when INTERRUPT_REG then return @memory[index]
+    when HRAM          then return @raw_memory[index]
+    when INTERRUPT_REG then return @raw_memory[index]
     else                    raise "FAILED TO GET INDEX #{index}"
     end
   end
@@ -91,23 +90,23 @@ class Memory
     case index
     when ROM_BANK_0   then @cartridge[index] = value
     when ROM_BANK_N   then @cartridge[index] = value
-    when VRAM         then @memory[index] = value
+    when VRAM         then @raw_memory[index] = value
     when EXTERNAL_RAM then @cartridge[index] = value
-    when WORK_RAM_0   then @memory[index] = value
-    when WORK_RAM_N   then @memory[index] = value
-    when ECHO         then @memory[index - 0x2000] = value
-    when SPRITE_TABLE then @memory[index] = value
+    when WORK_RAM_0   then @raw_memory[index] = value
+    when WORK_RAM_N   then @raw_memory[index] = value
+    when ECHO         then @raw_memory[index - 0x2000] = value
+    when SPRITE_TABLE then @raw_memory[index] = value
     when NOT_USABLE   then nil # todo: should I raise here?
     when IO_PORTS
       case index
       when 0xFF00 then @joypad.write value
-      when 0xFF01 then @memory[index] = value # ; print value.chr
-      when 0xFF04 then @memory[index] = 0x00_u8
+      when 0xFF01 then @raw_memory[index] = value # ; print value.chr
+      when 0xFF04 then @raw_memory[index] = 0x00_u8
       when 0xFF46 then dma_transfer(value.to_u16 << 8)
-      else             @memory[index] = value
+      else             @raw_memory[index] = value
       end
-    when HRAM          then @memory[index] = value
-    when INTERRUPT_REG then @memory[index] = value
+    when HRAM          then @raw_memory[index] = value
+    when INTERRUPT_REG then @raw_memory[index] = value
     else                    raise "FAILED TO SET INDEX #{index}"
     end
   end

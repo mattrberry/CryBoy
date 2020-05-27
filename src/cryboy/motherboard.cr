@@ -6,6 +6,7 @@ require "./joypad"
 require "./mbc/*"
 require "./memory"
 require "./ppu"
+require "./timer"
 require "./util"
 
 class Motherboard
@@ -13,7 +14,8 @@ class Motherboard
     @cartridge = Cartridge.new rom
     @joypad = Joypad.new
     @memory = Memory.new @cartridge, @joypad, bootrom
-    @cpu = CPU.new @memory, boot: !bootrom.nil?
+    @timer = Timer.new @memory
+    @cpu = CPU.new @memory, @timer, boot: !bootrom.nil?
     @ppu = PPU.new @memory
     @display = Display.new title: @cartridge.title
   end
@@ -49,9 +51,6 @@ class Motherboard
   end
 
   def run : Nil
-    # repeat hz: 60, in_fiber: true { @display.draw @ppu.frame }
-    # repeat hz: 16384, in_fiber: true { timer_divider }
-    # repeat hz: @memory[0xFF07] == 0b00 ? 4096 : @memory[0xFF07] == 0b01 ? 262144 : @memory[0xFF07] == 0b10 ? 65536 : 16384, in_fiber: true { timer_counter }
     repeat hz: 60 do
       while event = SDL::Event.poll
         case event

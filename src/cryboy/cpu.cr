@@ -79,7 +79,7 @@ class CPU
   property halted = false
   property memory
 
-  def initialize(@memory : Memory, boot = false)
+  def initialize(@memory : Memory, @timer : Timer, boot = false)
     skip_boot if !boot
   end
 
@@ -178,7 +178,9 @@ class CPU
   def tick(cycles = 1) : Nil
     while cycles > 0
       opcode = read_opcode
-      cycles -= process_opcode opcode
+      cycles_taken = process_opcode opcode
+      @timer.tick cycles_taken
+      cycles -= cycles_taken
       # interrupts
       handle_interrupts if @ime
       return if @halted
