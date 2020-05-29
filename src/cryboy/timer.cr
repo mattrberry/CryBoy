@@ -10,8 +10,8 @@ class Timer
   # maps division on cpu cycles from the clock select
   @cycle_dividers = [1024, 16, 64, 256]
 
-  # tick timer forwards by specified number of cycles
-  def tick(cycles : Int32) : Nil
+  # tick timer forward by specified number of cycles
+  def tick(cycles : Int) : Nil
     @div_counter += cycles
     if @div_counter >= 256
       @div &+= 1

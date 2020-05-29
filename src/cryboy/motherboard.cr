@@ -11,6 +11,11 @@ require "./util"
 
 class Motherboard
   def initialize(bootrom : String?, rom : String)
+    SDL.init(SDL::Init::VIDEO | SDL::Init::AUDIO | SDL::Init::JOYSTICK)
+    at_exit { SDL.quit }
+
+    LibSDL.joystick_open 0
+
     @cartridge = Cartridge.new rom
     @joypad = Joypad.new
     @timer = Timer.new
@@ -42,20 +47,9 @@ class Motherboard
     repeat hz: 60 do
       while event = SDL::Event.poll
         case event
-        when SDL::Event::Quit then exit 0
-        when SDL::Event::Keyboard
-          case event.sym
-          when .down?, .d?  then @joypad.down = event.keydown?
-          when .up?, .e?    then @joypad.up = event.keydown?
-          when .left?, .s?  then @joypad.left = event.keydown?
-          when .right?, .f? then @joypad.right = event.keydown?
-          when .semicolon?  then @joypad.start = event.keydown?
-          when .l?          then @joypad.select = event.keydown?
-          when .b?, .j?     then @joypad.b = event.keydown?
-          when .a?, .k?     then @joypad.a = event.keydown?
-          else                   nil
-          end
-        else nil
+        when SDL::Event::Quit                                                then exit 0
+        when SDL::Event::Keyboard, SDL::Event::JoyHat, SDL::Event::JoyButton then @joypad.handle_joypad_event event
+        else                                                                      nil
         end
       end
       if @ppu.lcd_enabled?

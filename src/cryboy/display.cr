@@ -1,11 +1,7 @@
-require "sdl"
-
 class Display
   @colors = [SDL::Color[0xFF], SDL::Color[0xAA], SDL::Color[0x55], SDL::Color[0x00]]
 
   def initialize(@scale = 2, @width = 160, @height = 144, title : String? = nil)
-    SDL.init(SDL::Init::VIDEO)
-    at_exit { SDL.quit }
     @window = SDL::Window.new("CryBoy" + (title.nil? ? "" : " - #{title}"), @width * @scale, @height * @scale)
     @renderer = SDL::Renderer.new @window
   end
