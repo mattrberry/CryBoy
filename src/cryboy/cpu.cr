@@ -1,4 +1,6 @@
 class CPU
+  CLOCK_SPEED = 4194304
+
   macro register(upper, lower, mask = nil)
     @{{upper.id}} : UInt8 = 0_u8
     @{{lower.id}} : UInt8 = 0_u8
@@ -70,7 +72,7 @@ class CPU
   property halted = false
   property memory
 
-  def initialize(@memory : Memory, @timer : Timer, boot = false)
+  def initialize(@memory : Memory, @timer : Timer, @apu : APU, boot = false)
     skip_boot if !boot
   end
 
@@ -161,6 +163,7 @@ class CPU
       opcode = read_opcode
       cycles_taken = process_opcode opcode
       @timer.tick cycles_taken
+      @apu.tick cycles_taken
       cycles -= cycles_taken
       handle_interrupts if @ime
       return if @halted

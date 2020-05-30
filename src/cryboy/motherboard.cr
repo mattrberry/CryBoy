@@ -1,4 +1,5 @@
 require "sdl"
+require "./apu"
 require "./cartridge"
 require "./cpu"
 require "./display"
@@ -19,8 +20,9 @@ class Motherboard
     @cartridge = Cartridge.new rom
     @joypad = Joypad.new
     @timer = Timer.new
-    @memory = Memory.new @cartridge, @joypad, @timer, bootrom
-    @cpu = CPU.new @memory, @timer, boot: !bootrom.nil?
+    @apu = APU.new
+    @memory = Memory.new @cartridge, @joypad, @timer, @apu, bootrom
+    @cpu = CPU.new @memory, @timer, @apu, boot: !bootrom.nil?
     @ppu = PPU.new @memory
     @display = Display.new title: @cartridge.title
   end
