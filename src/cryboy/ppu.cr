@@ -134,21 +134,22 @@ class PPU
     if lcd_enabled?
       if self.mode_flag == 2 # oam search
         if @counter >= 80    # end of oam search reached
-          @counter -= 80
+          @counter -= 80     # reset counter, saving extra cycles
           self.mode_flag = 3 # switch to drawing
         end
       elsif self.mode_flag == 3 # drawing
         if @counter >= 172      # end of drawing reached
-          @counter -= 172
-          self.mode_flag = 0 # switch to hblank
-          scanline @ly
+          @counter -= 172       # reset counter, saving extra cycles
+          self.mode_flag = 0    # switch to hblank
+          @interrupts.lcd_stat_interrupt = true if hblank_interrupt_enabled
+          scanline @ly # store scanline data
         end
       elsif self.mode_flag == 0 # hblank
         if @counter >= 204      # end of hblank reached
-          @counter -= 204
+          @counter -= 204       # reset counter, saving extra cycles
           @ly += 1
           check_lyc
-          if @ly == 144
+          if @ly == 144        # final row of screen complete
             self.mode_flag = 1 # switch to vblank
             @interrupts.lcd_stat_interrupt = true if vblank_interrupt_enabled
             @interrupts.vblank_interrupt = true
@@ -159,20 +160,21 @@ class PPU
         end
       elsif self.mode_flag == 1 # vblank
         if @counter >= 456      # end of line reached
-          @counter -= 456
+          @counter -= 456       # reset counter, saving extra cycles
           @ly += 1
           check_lyc
           if @ly == 154        # end of vblank reached
             self.mode_flag = 2 # switch to oam search
-            @ly = 0
+            @ly = 0            # reset ly
           end
         end
       else
         raise "Invalid mode #{self.mode_flag}"
       end
-    else
-      self.mode_flag = 0
-      @ly = 0
+    else                 # lcd is disabled
+      @cycles = 0        # reset cycle counter
+      self.mode_flag = 0 # default mode that allows reading all vram
+      @ly = 0            # reset ly
     end
   end
 
