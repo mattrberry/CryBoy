@@ -70,7 +70,7 @@ class CPU
   property halted = false
   property memory
 
-  def initialize(@memory : Memory, @timer : Timer, boot = false)
+  def initialize(@memory : Memory, @interrupts : Interrupts, @ppu : PPU, @timer : Timer, boot = false)
     skip_boot if !boot
   end
 
@@ -127,28 +127,28 @@ class CPU
   # service all interrupts
   def handle_interrupts
     # bit 0: v-blank
-    if @memory.vblank_interrupt && @memory.vblank_enabled
-      @memory.vblank_interrupt = false
+    if @interrupts.vblank_interrupt && @interrupts.vblank_enabled
+      @interrupts.vblank_interrupt = false
       call_interrupt_vector 0x0040_u16
     end
     # bit 1: lcd stat
-    if @memory.lcd_stat_interrupt && @memory.lcd_stat_enabled
-      @memory.lcd_stat_interrupt = false
+    if @interrupts.lcd_stat_interrupt && @interrupts.lcd_stat_enabled
+      @interrupts.lcd_stat_interrupt = false
       call_interrupt_vector 0x0048_u16
     end
     # bit 2: timer
-    if @memory.timer_interrupt && @memory.timer_enabled
-      @memory.timer_interrupt = false
+    if @interrupts.timer_interrupt && @interrupts.timer_enabled
+      @interrupts.timer_interrupt = false
       call_interrupt_vector 0x0050_u16
     end
     # bit 3: serial
-    if @memory.serial_interrupt && @memory.serial_enabled
-      @memory.serial_interrupt = false
+    if @interrupts.serial_interrupt && @interrupts.serial_enabled
+      @interrupts.serial_interrupt = false
       call_interrupt_vector 0x0058_u16
     end
     # bit 4: joypad
-    if @memory.joypad_interrupt && @memory.joypad_enabled
-      @memory.joypad_interrupt = false
+    if @interrupts.joypad_interrupt && @interrupts.joypad_enabled
+      @interrupts.joypad_interrupt = false
       call_interrupt_vector 0x0060_u16
     end
   end
@@ -160,6 +160,7 @@ class CPU
     while cycles > 0
       opcode = read_opcode
       cycles_taken = process_opcode opcode
+      @memory.@ppu.tick cycles_taken
       @timer.tick cycles_taken
       cycles -= cycles_taken
       handle_interrupts if @ime

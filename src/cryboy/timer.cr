@@ -10,8 +10,12 @@ class Timer
   # maps division on cpu cycles from the clock select
   @cycle_dividers = [1024, 16, 64, 256]
 
+  def initialize(@interrupts : Interrupts)
+  end
+
   # tick timer forward by specified number of cycles
-  def tick(cycles : Int) : Nil
+  def tick(cycles : Int) : Bool
+    timer_interrupt = false
     @div_counter += cycles
     if @div_counter >= 256
       @div &+= 1
@@ -21,7 +25,12 @@ class Timer
     while @tima_counter >= @cycle_dividers[clock_select]
       @tima &+= 1
       @tima_counter -= @cycle_dividers[clock_select]
+      if @tima == 0
+        @interrupts.timer_interrupt = true
+        @tima = @tma
+      end
     end
+    timer_interrupt
   end
 
   # read from timer memory
@@ -39,13 +48,7 @@ class Timer
   def []=(index : Int, value : UInt8) : Bool
     case index
     when 0xFF04 then @div = 0x00_u8
-    when 0xFF05
-      if @tima &+ value > @tima
-        @tima &+= value
-      else
-        @tima = @tma
-        return true
-      end
+    when 0xFF05 then @tima = value
     when 0xFF06 then @tma = value
     when 0xFF07 then @tac = value
     else             raise "Writing to invalid timer register: #{hex_str index.to_u16!}"
