@@ -1,14 +1,3 @@
-struct Scanline
-  property scx, scy, wx, wy, tile_map
-
-  def initialize(@scx : UInt8, @scy : UInt8, @wx : UInt8, @wy : UInt8, @tile_map : UInt8)
-  end
-
-  def to_s(io : IO)
-    io << "Scanline(scx:#{scx}, scy:#{scy}, wx:#{wx}, wy:#{wy}, tile_map:#{tile_map}"
-  end
-end
-
 struct Sprite
   def initialize(@y : UInt8, @x : UInt8, @tile_num : UInt8, @attributes : UInt8)
   end
@@ -51,45 +40,46 @@ struct Sprite
 end
 
 class PPU
-  property scanlines = Array(Scanline).new 144, Scanline.new(0, 0, 0, 0, 0)
-  @framebuffer = Array(Array(UInt8)).new 144 { Array(UInt8).new 160, 0_u8 }
+  property framebuffer = Array(Array(UInt8)).new 144 { Array(UInt8).new 160, 0_u8 }
 
   @counter : UInt32 = 0_u32
 
-  @vram = Bytes.new Memory::VRAM.size
-  @sprite_table = Bytes.new Memory::SPRITE_TABLE.size
-  @lcd_control : UInt8 = 0x00_u8 # 0xFF40
-  @lcd_status : UInt8 = 0x00_u8  # 0xFF41
-  @scy : UInt8 = 0x00_u8         # 0xFF42
-  @scx : UInt8 = 0x00_u8         # 0xFF43
-  @ly : UInt8 = 0x00_u8          # 0xFF44
-  @lyc : UInt8 = 0x00_u8         # 0xFF45
-  @dma : UInt8 = 0x00_u8         # 0xFF46
-  @bgp : UInt8 = 0x00_u8         # 0xFF47
-  @obp0 : UInt8 = 0x00_u8        # 0xFF48
-  @obp1 : UInt8 = 0x00_u8        # 0xFF49
-  @wy : UInt8 = 0x00_u8          # 0xFF4A
-  @wx : UInt8 = 0x00_u8          # 0xFF4B
+  @vram = Bytes.new Memory::VRAM.size                 # 0x8000..0x9FFF
+  @sprite_table = Bytes.new Memory::SPRITE_TABLE.size # 0xFE00..0xFE9F
+  @lcd_control : UInt8 = 0x00_u8                      # 0xFF40
+  @lcd_status : UInt8 = 0x00_u8                       # 0xFF41
+  @scy : UInt8 = 0x00_u8                              # 0xFF42
+  @scx : UInt8 = 0x00_u8                              # 0xFF43
+  @ly : UInt8 = 0x00_u8                               # 0xFF44
+  @lyc : UInt8 = 0x00_u8                              # 0xFF45
+  @dma : UInt8 = 0x00_u8                              # 0xFF46
+  @bgp : UInt8 = 0x00_u8                              # 0xFF47
+  @obp0 : UInt8 = 0x00_u8                             # 0xFF48
+  @obp1 : UInt8 = 0x00_u8                             # 0xFF49
+  @wy : UInt8 = 0x00_u8                               # 0xFF4A
+  @wx : UInt8 = 0x00_u8                               # 0xFF4B
 
   def initialize(@interrupts : Interrupts)
   end
 
-  def scanline(y : Int)
-    @scanlines[y] = Scanline.new @scx, @scy, @wx, @wy, bg_window_tile_map
-  end
-
-  def draw_background(x : Int, y : Int, scanline : Scanline)
-    background_map = bg_tile_map == 0_u8 ? 0x9800 : 0x9C00
-    tile_num = self[background_map + (((x + scanline.scx) // 8) % 32) + ((((y + scanline.scy) // 8) * 32) % (32 * 32))]
-    tile_data_table = scanline.tile_map == 0 ? 0x9000 : 0x8000
-    tile_ptr = tile_data_table + 16 * tile_num
-    tile_row = (y + scanline.scy) % 8
-    byte_1 = self[tile_ptr + tile_row * 2]
-    byte_2 = self[tile_ptr + tile_row * 2 + 1]
-    lsb = (byte_1 >> (7 - ((x + scanline.scx) % 8))) & 0x1
-    msb = (byte_2 >> (7 - ((x + scanline.scx) % 8))) & 0x1
-    color = (msb << 1) | lsb
-    @framebuffer[y][x] = color
+  def scanline
+    background_map = bg_tile_map == 0_u8 ? 0x1800 : 0x1C00      # 0x9800 : 0x9C00
+    tile_data_table = bg_window_tile_map == 0 ? 0x1000 : 0x0000 # 0x9000 : 0x8000
+    tile_row = (@ly.to_u16 + @scy) % 8
+    (0...160).each do |x|
+      if window_enabled? && @wy <= @ly && @wx <= x
+        # puts "window enabled"
+      elsif bg_display?
+        tile_num = @vram[background_map + (((x + @scx) // 8) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))]
+        tile_ptr = tile_data_table + 16 * tile_num
+        byte_1 = @vram[tile_ptr + tile_row * 2]
+        byte_2 = @vram[tile_ptr + tile_row * 2 + 1]
+        lsb = (byte_1 >> (7 - ((x + @scx) % 8))) & 0x1
+        msb = (byte_2 >> (7 - ((x + @scx) % 8))) & 0x1
+        color = (msb << 1) | lsb
+        @framebuffer[@ly][x] = color
+      end
+    end
   end
 
   def draw_sprites
@@ -114,20 +104,6 @@ class PPU
     end
   end
 
-  def framebuffer : Array(Array(UInt8))
-    @scanlines.each_with_index do |scanline, y|
-      (0...160).each do |x|
-        if window_enabled? && scanline.wy <= y && scanline.wx <= x
-          # puts "window enabled"
-        elsif bg_display?
-          draw_background x, y, scanline
-        end
-      end
-    end
-    draw_sprites if sprite_enabled?
-    @framebuffer
-  end
-
   # tick ppu forward by specified number of cycles
   def tick(cycles : Int) : Nil
     @counter += cycles
@@ -142,7 +118,7 @@ class PPU
           @counter -= 172       # reset counter, saving extra cycles
           self.mode_flag = 0    # switch to hblank
           @interrupts.lcd_stat_interrupt = true if hblank_interrupt_enabled
-          scanline @ly # store scanline data
+          scanline # store scanline data
         end
       elsif self.mode_flag == 0 # hblank
         if @counter >= 204      # end of hblank reached
@@ -166,13 +142,14 @@ class PPU
           if @ly == 154        # end of vblank reached
             self.mode_flag = 2 # switch to oam search
             @ly = 0            # reset ly
+            @interrupts.lcd_stat_interrupt = true if oam_interrupt_enabled
           end
         end
       else
         raise "Invalid mode #{self.mode_flag}"
       end
     else                 # lcd is disabled
-      @cycles = 0        # reset cycle counter
+      @counter = 0       # reset cycle counter
       self.mode_flag = 0 # default mode that allows reading all vram
       @ly = 0            # reset ly
     end
@@ -217,7 +194,7 @@ class PPU
     case index
     when Memory::VRAM         then @vram[index - Memory::VRAM.begin] = value
     when Memory::SPRITE_TABLE then @sprite_table[index - Memory::SPRITE_TABLE.begin] = value
-    when 0xFF40               then @lcd_control = value
+    when 0xFF40               then puts "lcd control : #{hex_str value}"; @lcd_control = value
     when 0xFF41               then @lcd_status = value
     when 0xFF42               then @scy = value
     when 0xFF43               then @scx = value

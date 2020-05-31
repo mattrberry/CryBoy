@@ -160,7 +160,7 @@ class CPU
     while cycles > 0
       opcode = read_opcode
       cycles_taken = process_opcode opcode
-      @memory.@ppu.tick cycles_taken
+      @ppu.tick cycles_taken
       @timer.tick cycles_taken
       cycles -= cycles_taken
       handle_interrupts if @ime

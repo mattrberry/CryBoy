@@ -25,41 +25,6 @@ class Memory
     end
   end
 
-  macro bit(name, location, mask)
-    {{name.id.upcase}}_MASK = {{mask}}
-    def {{name.id}}=(on : Int | Bool)
-      if on == false || on == 0
-        self[{{location}}] &= ~{{name.id.upcase}}_MASK
-      else
-        self[{{location}}] |= {{name.id.upcase}}_MASK
-      end
-    end
-    def {{name.id}} : Bool
-      self[{{location}}] & {{name.id.upcase}}_MASK == {{name.id.upcase}}_MASK
-    end
-  end
-
-  bit vblank_interrupt, 0xFF0F, 0b00000001
-  bit lcd_stat_interrupt, 0xFF0F, 0b00000010
-  bit timer_interrupt, 0xFF0F, 0b00000100
-  bit serial_interrupt, 0xFF0F, 0b00001000
-  bit joypad_interrupt, 0xFF0F, 0b00010000
-
-  bit vblank_enabled, 0xFFFF, 0b00000001
-  bit lcd_stat_enabled, 0xFFFF, 0b00000010
-  bit timer_enabled, 0xFFFF, 0b00000100
-  bit serial_enabled, 0xFFFF, 0b00001000
-  bit joypad_enabled, 0xFFFF, 0b00010000
-
-  bit lcd_enabled, 0xFF40, 0b10000000
-  bit window_tile_map, 0xFF40, 0b01000000
-  bit window_enabled, 0xFF40, 0b00100000
-  bit bg_window_tile_map, 0xFF40, 0b00010000
-  bit bg_tile_map, 0xFF40, 0b00001000
-  bit sprite_height, 0xFF40, 0b00000100
-  bit sprite_enabled, 0xFF40, 0b00000010
-  bit bg_display, 0xFF40, 0b00000001
-
   # read 8 bits from memory
   def [](index : Int) : UInt8
     case index
