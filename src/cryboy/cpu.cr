@@ -158,13 +158,16 @@ class CPU
   # executed.
   def tick(cycles = 1) : Nil
     while cycles > 0
-      opcode = read_opcode
-      cycles_taken = process_opcode opcode
+      if @halted
+        cycles_taken = 4
+      else
+        opcode = read_opcode
+        cycles_taken = process_opcode opcode
+      end
       @ppu.tick cycles_taken
       @timer.tick cycles_taken
       cycles -= cycles_taken
       handle_interrupts if @ime
-      return if @halted
     end
   end
 

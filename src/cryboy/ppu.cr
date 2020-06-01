@@ -194,7 +194,7 @@ class PPU
     case index
     when Memory::VRAM         then @vram[index - Memory::VRAM.begin] = value
     when Memory::SPRITE_TABLE then @sprite_table[index - Memory::SPRITE_TABLE.begin] = value
-    when 0xFF40               then puts "lcd control : #{hex_str value}"; @lcd_control = value
+    when 0xFF40               then @lcd_control = value
     when 0xFF41               then @lcd_status = value
     when 0xFF42               then @scy = value
     when 0xFF43               then @scx = value
