@@ -9,7 +9,11 @@ struct Sprite
   def on_line(line : Int, sprite_height = 8) : Tuple(UInt16, UInt16)?
     actual_y = -16 + y
     if actual_y <= line < (actual_y + sprite_height)
-      {tile_ptr + (line - actual_y) * 2, tile_ptr + (line - actual_y) * 2 + 1}
+      if y_flip?
+        {tile_ptr + (actual_y + sprite_height - line) * 2, tile_ptr + (actual_y + sprite_height - line) * 2 + 1}
+      else
+        {tile_ptr + (line - actual_y) * 2, tile_ptr + (line - actual_y) * 2 + 1}
+      end
     end
   end
 
@@ -107,8 +111,13 @@ class PPU
           (0...8).each do |col|
             x = col + sprite.x - 8
             break unless 0 <= x < 160
-            lsb = (@vram[bytes[0]] >> (7 - col)) & 0x1
-            msb = (@vram[bytes[1]] >> (7 - col)) & 0x1
+            if sprite.x_flip?
+              lsb = (@vram[bytes[0]] >> col) & 0x1
+              msb = (@vram[bytes[1]] >> col) & 0x1
+            else
+              lsb = (@vram[bytes[0]] >> (7 - col)) & 0x1
+              msb = (@vram[bytes[1]] >> (7 - col)) & 0x1
+            end
             color = (msb << 1) | lsb
             @framebuffer[@ly][x] = color.to_u8
           end
