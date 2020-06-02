@@ -6,6 +6,13 @@ struct Sprite
     io << "Sprite(y:#{@y}, x:#{@x}, tile_num:#{@tile_num}, tile_ptr: #{hex_str tile_ptr}, visible:#{visible?}, priority:#{priority}, y_flip:#{y_flip?}, x_flip:#{x_flip?}, palette_number:#{palette_number}"
   end
 
+  def on_line(line : Int, sprite_height = 8) : Tuple(UInt16, UInt16)?
+    actual_y = -16 + y
+    if actual_y <= line < (actual_y + sprite_height)
+      {tile_ptr + (line - actual_y) * 2, tile_ptr + (line - actual_y) * 2 + 1}
+    end
+  end
+
   def visible? : Bool
     ((1...160).includes? y) && ((1...168).includes? x)
   end
@@ -19,7 +26,8 @@ struct Sprite
   end
 
   def tile_ptr : UInt16
-    0x8000_u16 + 16 * @tile_num
+    16_u16 * @tile_num
+    # 0x8000_u16 + 16 * @tile_num
   end
 
   def priority : UInt8
@@ -63,15 +71,25 @@ class PPU
   end
 
   def scanline
+    window_map = window_tile_map == 0_u8 ? 0x1800 : 0x1C00      # 0x9800 : 0x9C00
     background_map = bg_tile_map == 0_u8 ? 0x1800 : 0x1C00      # 0x9800 : 0x9C00
     tile_data_table = bg_window_tile_map == 0 ? 0x1000 : 0x0000 # 0x9000 : 0x8000
+    tile_row_window = (@ly.to_u16 + @scy) % 8
     tile_row = (@ly.to_u16 + @scy) % 8
     (0...160).each do |x|
-      if window_enabled? && @wy <= @ly && @wx <= x
-        # puts "window enabled"
+      if window_enabled? && @wy <= @ly && -7 + @wx <= x
+        # tile_num = @vram[window_map + (x // 8) + (@ly.to_u16 // 8) * 32]
+        tile_num = @vram[window_map + (((x - @wx - 7) // 8) % 32) + ((((@ly.to_u16 - @wy) // 8) * 32) % (32 * 32))]
+        tile_ptr = tile_data_table + 16 * tile_num
+        byte_1 = @vram[tile_ptr + tile_row_window * 2]
+        byte_2 = @vram[tile_ptr + tile_row_window * 2 + 1]
+        lsb = (byte_1 >> (7 - ((x - @wx - 7) % 8))) & 0x1
+        msb = (byte_2 >> (7 - ((x - @wx - 7) % 8))) & 0x1
+        color = (msb << 1) | lsb
+        @framebuffer[@ly][x] = color
       elsif bg_display?
         tile_num = @vram[background_map + (((x + @scx) // 8) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))]
-        tile_ptr = tile_data_table + 16 * tile_num
+        tile_ptr = tile_data_table + 16 * tile_num # todo other address space
         byte_1 = @vram[tile_ptr + tile_row * 2]
         byte_2 = @vram[tile_ptr + tile_row * 2 + 1]
         lsb = (byte_1 >> (7 - ((x + @scx) % 8))) & 0x1
@@ -80,24 +98,19 @@ class PPU
         @framebuffer[@ly][x] = color
       end
     end
-  end
 
-  def draw_sprites
-    (0xFE00..0xFE9F).step 4 do |sprite_address|
-      sprite = Sprite.new self[sprite_address], self[sprite_address + 1], self[sprite_address + 2], self[sprite_address + 3]
-      if sprite.visible?
-        (0...8).each do |row|
-          y = row + sprite.y - 16
-          break if y < 0 || y >= 144
-          byte_1 = self[sprite.tile_ptr + row * 2]
-          byte_2 = self[sprite.tile_ptr + row * 2 + 1]
+    if sprite_enabled?
+      count = 0
+      (0x00..0x9F).step 4 do |sprite_address|
+        sprite = Sprite.new @sprite_table[sprite_address], @sprite_table[sprite_address + 1], @sprite_table[sprite_address + 2], @sprite_table[sprite_address + 3]
+        if bytes = sprite.on_line @ly, sprite_height
           (0...8).each do |col|
             x = col + sprite.x - 8
-            break if x < 0 || x >= 160
-            lsb = (byte_1 >> (7 - col)) & 0x1
-            msb = (byte_2 >> (7 - col)) & 0x1
+            break unless 0 <= x < 160
+            lsb = (@vram[bytes[0]] >> (7 - col)) & 0x1
+            msb = (@vram[bytes[1]] >> (7 - col)) & 0x1
             color = (msb << 1) | lsb
-            @framebuffer[y][x] = color
+            @framebuffer[@ly][x] = color.to_u8
           end
         end
       end
