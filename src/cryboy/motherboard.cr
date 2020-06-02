@@ -40,7 +40,7 @@ class Motherboard
   def run : Nil
     repeat hz: 60 do
       handle_events
-      @cpu.tick 70244
+      @cpu.tick 70224
       @display.draw @ppu.framebuffer, @memory[0xFF47] # 0xFF47 defines the color palette
     end
   end
