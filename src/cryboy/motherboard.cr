@@ -41,7 +41,8 @@ class Motherboard
   end
 
   def run : Nil
-    repeat hz: 60 do
+    # rate-limiting is done via audio sync
+    loop do
       handle_events
       @cpu.tick 70224
     end
