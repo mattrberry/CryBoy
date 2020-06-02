@@ -1,3 +1,9 @@
+lib LibSDL
+  fun queue_audio = SDL_QueueAudio(dev : AudioDeviceID, data : Void*, len : UInt32) : Int
+  fun get_queued_audio_size = SDL_GetQueuedAudioSize(dev : AudioDeviceID) : UInt32
+  fun delay = SDL_Delay(ms : UInt32) : Nil
+end
+
 abstract class SoundChannel
   # useful for mapping memory
   # inheriting classes must define @RANGE
@@ -171,7 +177,7 @@ class APU
         @frame_sequencer_stage = 0 if (@frame_sequencer_stage += 1) > 7
       end
 
-       # put 1 frame in buffer
+      # put 1 frame in buffer
       if @cycles % (CPU::CLOCK_SPEED // SAMPLE_RATE) == 0
         amplitude = @channel1.get_amplitude @buffer_pos
         @buffer[@buffer_pos] = amplitude      # left
@@ -179,7 +185,7 @@ class APU
         @buffer_pos += 2
       end
 
-       # push to SDL if buffer is full
+      # push to SDL if buffer is full
       if @buffer_pos >= BUFFER_SIZE
         while LibSDL.get_queued_audio_size(1) > BUFFER_SIZE * sizeof(Float32)
           puts "delay" # never seems to happen
