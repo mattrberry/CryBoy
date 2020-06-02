@@ -3,6 +3,9 @@ require "compiler/crystal/command/format"
 require "http/client"
 require "json"
 
+OPCODE_JSON_URL = "https://raw.githubusercontent.com/izik1/gbops/master/dmgops.json"
+FILE_PATH       = "src/cryboy/opcodes.cr"
+
 module DmgOps
   enum FlagOp
     ZERO
@@ -103,7 +106,7 @@ module DmgOps
     # normalize an operand to work with the existing cpu methods/fields
     def normalize_operand(operand : String) : String
       operand = operand.downcase
-      operand = operand.sub "(", "@memory["
+      operand = operand.sub "(", "cpu.memory["
       operand = operand.sub ")", "]"
       operand = operand.sub "hl+", "((hl &+= 1) &- 1)"
       operand = operand.sub "hl-", "((hl &-= 1) &+ 1)"
@@ -112,36 +115,36 @@ module DmgOps
       operand = operand.sub /(\d\d)h/, "0x\\1_u16"
       if group == Group::CONTROL_BR || group == Group::CONTROL_MISC
         # distinguish between "flag c" and "register z"
-        operand = operand.sub /\bz\b/, "self.f_z"
-        operand = operand.sub /\bnz\b/, "self.f_nz"
-        operand = operand.sub /\bc\b/, "self.f_c"
-        operand = operand.sub /\bnc\b/, "self.f_nc"
+        operand = operand.sub /\bz\b/, "cpu.f_z"
+        operand = operand.sub /\bnz\b/, "cpu.f_nz"
+        operand = operand.sub /\bc\b/, "cpu.f_c"
+        operand = operand.sub /\bnc\b/, "cpu.f_nc"
       end
-      operand = operand.sub "pc", "@pc"
-      operand = operand.sub "sp", "@sp"
-      operand = operand.sub "af", "self.af"
-      operand = operand.sub "bc", "self.bc"
-      operand = operand.sub "de", "self.de"
-      operand = operand.sub "hl", "self.hl"
-      operand = operand.sub /\ba\b/, "self.a"
-      operand = operand.sub /\bf\b/, "self.f"
-      operand = operand.sub /\bb\b/, "self.b"
-      operand = operand.sub /\bc\b/, "self.c"
-      operand = operand.sub /\bd\b/, "self.d"
-      operand = operand.sub /\be\b/, "self.e"
-      operand = operand.sub /\bh\b/, "self.h"
-      operand = operand.sub /\bl\b/, "self.l"
+      operand = operand.sub "pc", "cpu.pc"
+      operand = operand.sub "sp", "cpu.sp"
+      operand = operand.sub "af", "cpu.af"
+      operand = operand.sub "bc", "cpu.bc"
+      operand = operand.sub "de", "cpu.de"
+      operand = operand.sub "hl", "cpu.hl"
+      operand = operand.sub /\ba\b/, "cpu.a"
+      operand = operand.sub /\bf\b/, "cpu.f"
+      operand = operand.sub /\bb\b/, "cpu.b"
+      operand = operand.sub /\bc\b/, "cpu.c"
+      operand = operand.sub /\bd\b/, "cpu.d"
+      operand = operand.sub /\be\b/, "cpu.e"
+      operand = operand.sub /\bh\b/, "cpu.h"
+      operand = operand.sub /\bl\b/, "cpu.l"
       operand
     end
 
     # set u8, u16, and i8 if necessary
     def assign_extra_integers : Array(String)
       if name.includes? "u8"
-        return ["u8 = @memory[@pc + 1]"]
+        return ["u8 = cpu.memory[cpu.pc + 1]"]
       elsif name.includes? "u16"
-        return ["u16 = @memory.read_word @pc + 1"]
+        return ["u16 = cpu.memory.read_word cpu.pc + 1"]
       elsif name.includes? "i8"
-        return ["i8 = @memory[@pc + 1].to_i8!"]
+        return ["i8 = cpu.memory[cpu.pc + 1].to_i8!"]
       end
       [] of String
     end
@@ -158,7 +161,7 @@ module DmgOps
 
     # set flag z to the given value
     def set_flag_z!(o : Object) : Array(String)
-      ["self.f_z = #{o.to_s}"]
+      ["cpu.f_z = #{o.to_s}"]
     end
 
     # set flag n to the given value if specified by this operation
@@ -168,7 +171,7 @@ module DmgOps
 
     # set flag n to the given value
     def set_flag_n!(o : Object) : Array(String)
-      ["self.f_n = #{o.to_s}"]
+      ["cpu.f_n = #{o.to_s}"]
     end
 
     # set flag h to the given value if specified by this operation
@@ -178,7 +181,7 @@ module DmgOps
 
     # set flag h to the given value
     def set_flag_h!(o : Object) : Array(String)
-      ["self.f_h = #{o.to_s}"]
+      ["cpu.f_h = #{o.to_s}"]
     end
 
     # set flag c to the given value if specified by this operation
@@ -188,7 +191,7 @@ module DmgOps
 
     # set flag c to the given value
     def set_flag_c!(o : Object) : Array(String)
-      ["self.f_c = #{o.to_s}"]
+      ["cpu.f_c = #{o.to_s}"]
     end
 
     # generate code to set/reset flags if necessary
@@ -209,13 +212,13 @@ module DmgOps
       when "ADC"
         to, from = operands
         if to == from
-          ["carry = self.f_c ? 0x01 : 0x00"] +
+          ["carry = cpu.f_c ? 0x01 : 0x00"] +
             set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) + carry > 0x0F") +
             set_flag_c("#{to} > 0x7F") +
             ["#{to} &+= #{from} &+ carry"] +
             set_flag_z("#{to} == 0")
         else
-          ["carry = self.f_c ? 0x01 : 0x00"] +
+          ["carry = cpu.f_c ? 0x01 : 0x00"] +
             set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) + carry > 0x0F") +
             ["#{to} &+= #{from} &+ carry"] +
             set_flag_z("#{to} == 0") +
@@ -237,10 +240,10 @@ module DmgOps
           end
         elsif group == Group::X16_ALU
           if from == "i8"
-            ["r = @sp &+ i8"] +
-              set_flag_h("(@sp ^ i8 ^ r) & 0x0010 != 0") +
-              set_flag_c("(@sp ^ i8 ^ r) & 0x0100 != 0") +
-              ["@sp = r"]
+            ["r = cpu.sp &+ i8"] +
+              set_flag_h("(cpu.sp ^ i8 ^ r) & 0x0010 != 0") +
+              set_flag_c("(cpu.sp ^ i8 ^ r) & 0x0100 != 0") +
+              ["cpu.sp = r"]
           elsif to == from
             set_flag_h("(#{to} & 0x0FFF).to_u32 + (#{from} & 0x0FFF) > 0x0FFF") +
               set_flag_c("#{to} > 0x7FFF") +
@@ -261,7 +264,7 @@ module DmgOps
         bit, reg = operands
         set_flag_z("#{reg} & (0x1 << #{bit}) == 0")
       when "CALL"
-        instr = ["@sp -= 2", "@memory[@sp] = @pc", "@pc = u16"]
+        instr = ["cpu.sp -= 2", "cpu.memory[cpu.sp] = cpu.pc", "cpu.pc = u16"]
         if operands.size == 1
           instr
         else
@@ -269,41 +272,41 @@ module DmgOps
           branch(cond, instr)
         end
       when "CCF"
-        set_flag_c("!self.f_c")
+        set_flag_c("!cpu.f_c")
       when "CP"
         to, from = operands
         set_flag_z("#{to} &- #{from} == 0") +
           set_flag_h("#{to} & 0xF < #{from} & 0xF") +
           set_flag_c("#{to} < #{from}")
       when "CPL"
-        ["self.a = ~self.a"]
+        ["cpu.a = ~cpu.a"]
       when "DAA"
         [
-          "if self.f_n # last op was a subtraction",
-          "  self.a &-= 0x60 if self.f_c",
-          "  self.a &-= 0x06 if self.f_h",
+          "if cpu.f_n # last op was a subtraction",
+          "  cpu.a &-= 0x60 if cpu.f_c",
+          "  cpu.a &-= 0x06 if cpu.f_h",
           "else # last op was an addition",
-          "  if self.f_c || self.a > 0x99",
-          "    self.a &+= 0x60",
-          "    self.f_c = true",
+          "  if cpu.f_c || cpu.a > 0x99",
+          "    cpu.a &+= 0x60",
+          "    cpu.f_c = true",
           "  end",
-          "  if self.f_h || self.a & 0x0F > 0x09",
-          "    self.a &+= 0x06",
+          "  if cpu.f_h || cpu.a & 0x0F > 0x09",
+          "    cpu.a &+= 0x06",
           "  end",
           "end",
         ] +
-          set_flag_z("self.a == 0")
+          set_flag_z("cpu.a == 0")
       when "DEC"
         to = operands[0]
         ["#{to} &-= 1"] +
           set_flag_z("#{to} == 0") +
           set_flag_h("#{to} & 0x0F == 0x0F")
       when "DI"
-        ["@ime = false"]
+        ["cpu.ime = false"]
       when "EI"
-        ["@ime = true"]
+        ["cpu.ime = true"]
       when "HALT"
-        ["@halted = true if @ime"]
+        ["cpu.halted = true if cpu.ime"]
       when "INC"
         to = operands[0]
         set_flag_h("#{to} & 0x0F == 0x0F") +
@@ -311,13 +314,13 @@ module DmgOps
           set_flag_z("#{to} == 0")
       when "JP"
         if operands.size == 1
-          ["@pc = #{operands[0]}"]
+          ["cpu.pc = #{operands[0]}"]
         else
           cond, loc = operands
-          branch(cond, ["@pc = #{loc}"])
+          branch(cond, ["cpu.pc = #{loc}"])
         end
       when "JR"
-        instr = ["@pc &+= i8"]
+        instr = ["cpu.pc &+= i8"]
         if operands.size == 1
           instr
         else
@@ -328,8 +331,8 @@ module DmgOps
         to, from = operands
         ["#{to} = #{from}"] +
           # the following flags _only_ apply to `LD HL, SP + i8`
-          set_flag_h("(@sp ^ i8 ^ self.hl) & 0x0010 != 0") +
-          set_flag_c("(@sp ^ i8 ^ self.hl) & 0x0100 != 0")
+          set_flag_h("(cpu.sp ^ i8 ^ cpu.hl) & 0x0010 != 0") +
+          set_flag_c("(cpu.sp ^ i8 ^ cpu.hl) & 0x0100 != 0")
       when "NOP"
         [] of String
       when "OR"
@@ -338,7 +341,7 @@ module DmgOps
           set_flag_z("#{to} == 0")
       when "POP"
         reg = operands[0]
-        ["#{reg} = @memory.read_word (@sp += 2) - 2"] +
+        ["#{reg} = cpu.memory.read_word (cpu.sp += 2) - 2"] +
           set_flag_z("#{reg} & (0x1 << 7)") +
           set_flag_n("#{reg} & (0x1 << 6)") +
           set_flag_h("#{reg} & (0x1 << 5)") +
@@ -349,18 +352,17 @@ module DmgOps
           "#       This will require a restructure where the CPU leads the timing, rather than the PPU.",
           "#       https://discordapp.com/channels/465585922579103744/465586075830845475/712358911151177818",
           "#       https://discordapp.com/channels/465585922579103744/465586075830845475/712359253255520328",
-          "next_op = read_opcode",
-          "cycles = process_opcode next_op, cb = true",
+          "cycles = Opcodes::PREFIXED[cpu.memory[cpu.pc]].call cpu",
           "# izik's table lists all prefixed opcodes as a length of 2 when they should be 1",
-          "@pc &-= 1",
+          "cpu.pc &-= 1",
         ]
       when "PUSH"
-        ["@memory[@sp -= 2] = #{operands[0]}"]
+        ["cpu.memory[cpu.sp -= 2] = #{operands[0]}"]
       when "RES"
         bit, reg = operands
         ["#{reg} &= ~(0x1 << #{bit})"]
       when "RET"
-        instr = ["@pc = @memory.read_word @sp", "@sp += 2"]
+        instr = ["cpu.pc = cpu.memory.read_word cpu.sp", "cpu.sp += 2"]
         if operands.size == 0
           instr
         else
@@ -368,14 +370,14 @@ module DmgOps
           branch(cond, instr)
         end
       when "RETI"
-        ["@ime = true", "@pc = memory.read_word @sp", "@sp += 0x02"]
+        ["cpu.ime = true", "cpu.pc = cpu.memory.read_word cpu.sp", "cpu.sp += 0x02"]
       when "RL"
         reg = operands[0]
-        ["carry = #{reg} & 0x80", "#{reg} = (#{reg} << 1) + (self.f_c ? 0x01 : 0x00)"] +
+        ["carry = #{reg} & 0x80", "#{reg} = (#{reg} << 1) + (cpu.f_c ? 0x01 : 0x00)"] +
           set_flag_z("#{reg} == 0") +
           set_flag_c("carry")
       when "RLA"
-        ["carry = self.a & 0x80", "self.a = (self.a << 1) + (self.f_c ? 0x01 : 0x00)"] +
+        ["carry = cpu.a & 0x80", "cpu.a = (cpu.a << 1) + (cpu.f_c ? 0x01 : 0x00)"] +
           set_flag_c("carry")
       when "RLC"
         reg = operands[0]
@@ -383,15 +385,15 @@ module DmgOps
           set_flag_z("#{reg} == 0") +
           set_flag_c("#{reg} & 0x01")
       when "RLCA"
-        ["self.a = (self.a << 1) + (self.a >> 7)"] +
-          set_flag_c("self.a & 0x01")
+        ["cpu.a = (cpu.a << 1) + (cpu.a >> 7)"] +
+          set_flag_c("cpu.a & 0x01")
       when "RR"
         reg = operands[0]
-        ["carry = #{reg} & 0x01", "#{reg} = (#{reg} >> 1) + (self.f_c ? 0x80 : 0x00)"] +
+        ["carry = #{reg} & 0x01", "#{reg} = (#{reg} >> 1) + (cpu.f_c ? 0x80 : 0x00)"] +
           set_flag_z("#{reg} == 0") +
           set_flag_c("carry")
       when "RRA"
-        ["carry = self.a & 0x01", "self.a = (self.a >> 1) + (self.f_c ? 0x80 : 0x00)"] +
+        ["carry = cpu.a & 0x01", "cpu.a = (cpu.a >> 1) + (cpu.f_c ? 0x80 : 0x00)"] +
           set_flag_c("carry")
       when "RRC"
         reg = operands[0]
@@ -399,14 +401,14 @@ module DmgOps
           set_flag_z("#{reg} == 0") +
           set_flag_c("#{reg} & 0x80")
       when "RRCA"
-        ["self.a = (self.a >> 1) + (self.a << 7)"] +
-          set_flag_c("self.a & 0x80")
+        ["cpu.a = (cpu.a >> 1) + (cpu.a << 7)"] +
+          set_flag_c("cpu.a & 0x80")
       when "RST"
-        ["@sp -= 2", "@memory[@sp] = @pc", "@pc = #{operands[0]}"]
+        ["cpu.sp -= 2", "cpu.memory[cpu.sp] = cpu.pc", "cpu.pc = #{operands[0]}"]
       when "SBC"
         to, from = operands
-        ["to_sub = #{from}.to_u16 + (self.f_c ? 0x01 : 0x00)"] +
-          set_flag_h("(#{to} & 0x0F) < (#{from} & 0x0F) + (self.f_c ? 0x01 : 0x00)") +
+        ["to_sub = #{from}.to_u16 + (cpu.f_c ? 0x01 : 0x00)"] +
+          set_flag_h("(#{to} & 0x0F) < (#{from} & 0x0F) + (cpu.f_c ? 0x01 : 0x00)") +
           set_flag_c("#{to} < to_sub") +
           ["#{to} &-= to_sub"] +
           set_flag_z("#{to} == 0")
@@ -456,7 +458,7 @@ module DmgOps
     # generate the code required to process this operation
     def codegen : Array(String)
       assign_extra_integers +
-        ["@pc &+= #{length}"] +
+        ["cpu.pc &+= #{length}"] +
         codegen_help +
         set_reset_flags +
         ["return #{cycles}"]
@@ -472,27 +474,26 @@ module DmgOps
     @cb_operations : Array(Operation)
 
     def codegen : Array(String)
-      (["if !cb", "case opcode"] +
+      (["class Opcodes", "UNPREFIXED = ["] +
         @operations.map_with_index { |operation, index|
-          ["when 0x#{index.to_s(16).rjust(2, '0').upcase} # #{operation.name}"] +
-            operation.codegen
+          ["# 0x#{index.to_s(16).rjust(2, '0').upcase} #{operation.name}", "->(cpu : CPU) {"] +
+            operation.codegen +
+            ["},"]
         } +
-        ["else raise \"Unmatched opcode \#{opcode}\"", "end", "else", "case opcode"] +
+        ["]", "PREFIXED = ["] +
         @cb_operations.map_with_index { |operation, index|
-          ["when 0x#{index.to_s(16).rjust(2, '0').upcase} # #{operation.name}"] +
-            operation.codegen
+          ["# 0x#{index.to_s(16).rjust(2, '0').upcase} #{operation.name}", "->(cpu : CPU) {"] +
+            operation.codegen +
+            ["},"]
         } +
-        ["else raise \"Unmatched cb-opcode \#{opcode}\"", "end", "end"]).flatten
+        ["]", "end"]).flatten
     end
   end
 end
 
-# get izik's opcode table
-HTTP::Client.get("https://raw.githubusercontent.com/izik1/gbops/master/dmgops.json") do |response|
-  # parse json response
-  response = DmgOps::Response.from_json(response.body_io)
-  # generate opcode execution code
-  codegen = response.codegen.join("\n")
-  # format and print to stdout/stderr
-  Crystal::Command::FormatCommand.new(["-"], stdin: IO::Memory.new codegen).run
+HTTP::Client.get OPCODE_JSON_URL do |response|
+  parsed = DmgOps::Response.from_json(response.body_io)
+  codegen = parsed.codegen.join("\n")
+  File.write FILE_PATH, codegen
+  Crystal::Command::FormatCommand.new([FILE_PATH]).run
 end
