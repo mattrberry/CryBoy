@@ -77,10 +77,10 @@ class Memory
       when 0xFF04..0xFF07 then @timer[index] = value
       when 0xFF0F         then @interrupts[index] = value
       when 0xFF10..0xFF3F then @memory[index] = value
+      when 0xFF46         then dma_transfer(value.to_u16 << 8)
       when 0xFF40..0xFF4B then @ppu[index] = value
       when 0xFF4F         then @ppu[index] = value
       when 0xFF51..0xFF55 then @ppu[index] = value
-      when 0xFF46         then dma_transfer(value.to_u16 << 8)
       else                     @memory[index] = value
       end
     when HRAM          then @memory[index] = value
