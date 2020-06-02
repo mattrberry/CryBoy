@@ -19,12 +19,12 @@ class Motherboard
 
     @cartridge = Cartridge.new rom
     @interrupts = Interrupts.new
-    @ppu = PPU.new @interrupts
+    @display = Display.new title: @cartridge.title
+    @ppu = PPU.new @display, @interrupts
     @joypad = Joypad.new
     @timer = Timer.new @interrupts
     @memory = Memory.new @cartridge, @interrupts, @ppu, @joypad, @timer, bootrom
     @cpu = CPU.new @memory, @interrupts, @ppu, @timer, boot: !bootrom.nil?
-    @display = Display.new title: @cartridge.title
   end
 
   def handle_events : Nil
@@ -41,7 +41,6 @@ class Motherboard
     repeat hz: 60 do
       handle_events
       @cpu.tick 70224
-      @display.draw @ppu.framebuffer, @memory[0xFF47] # 0xFF47 defines the color palette
     end
   end
 end

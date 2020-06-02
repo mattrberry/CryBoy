@@ -67,7 +67,7 @@ class PPU
   @wy : UInt8 = 0x00_u8                               # 0xFF4A
   @wx : UInt8 = 0x00_u8                               # 0xFF4B
 
-  def initialize(@interrupts : Interrupts)
+  def initialize(@display : Display, @interrupts : Interrupts)
   end
 
   def scanline
@@ -142,6 +142,7 @@ class PPU
             self.mode_flag = 1 # switch to vblank
             @interrupts.lcd_stat_interrupt = true if vblank_interrupt_enabled
             @interrupts.vblank_interrupt = true
+            @display.draw framebuffer, @bgp # render at vblank
           else
             self.mode_flag = 2 # switch to oam search
             @interrupts.lcd_stat_interrupt = true if oam_interrupt_enabled
