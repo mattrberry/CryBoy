@@ -10,7 +10,7 @@ struct Sprite
     actual_y = -16 + y
     if actual_y <= line < (actual_y + sprite_height)
       if y_flip?
-        {tile_ptr + (actual_y + sprite_height - line) * 2, tile_ptr + (actual_y + sprite_height - line) * 2 + 1}
+        {tile_ptr + (actual_y + sprite_height - line - 1) * 2, tile_ptr + (actual_y + sprite_height - line - 1) * 2 + 1}
       else
         {tile_ptr + (line - actual_y) * 2, tile_ptr + (line - actual_y) * 2 + 1}
       end
@@ -119,7 +119,7 @@ class PPU
               msb = (@vram[bytes[1]] >> (7 - col)) & 0x1
             end
             color = (msb << 1) | lsb
-            @framebuffer[@ly][x] = color.to_u8
+            @framebuffer[@ly][x] = color.to_u8 if color > 0
           end
         end
       end
