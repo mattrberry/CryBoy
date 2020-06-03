@@ -71,7 +71,7 @@ class Channel1 < SoundChannel # todo: sweep
         @amp_count -= @period // 8
         @wave_duty_pos = (@wave_duty_pos + 1) % 8
       end
-      @wave_duty[@wave_pattern_duty][@wave_duty_pos].to_f32 * @volume
+      @wave_duty[@wave_pattern_duty][@wave_duty_pos].to_f32 * @volume / 15
     else
       @amp_count = 0
       0_f32
@@ -90,33 +90,33 @@ class Channel1 < SoundChannel # todo: sweep
   end
 
   def []=(index : Int, value : UInt8) : Nil
-    puts "#{hex_str index.to_u16!} -> #{hex_str value}"
+    # puts "#{hex_str index.to_u16!} -> #{hex_str value}"
     case index
     when 0xFF10
     when 0xFF11
       @wave_pattern_duty = value >> 6
       @remaining_length = 64_u8 - (value & 0x3F)
-      puts "wave duty: #{@wave_pattern_duty}, sound length: #{@remaining_length}"
+      # puts "wave duty: #{@wave_pattern_duty}, sound length: #{@remaining_length}"
     when 0xFF12
       @initial_volume = value >> 4
       @increasing = value & (0x1 << 3) == 1
       @envelope_sweep_number = value & 0x07
-      puts "initial volume: #{@initial_volume}, increasing: #{@increasing}, sweep number #{@envelope_sweep_number}"
+      # puts "initial volume: #{@initial_volume}, increasing: #{@increasing}, sweep number #{@envelope_sweep_number}"
     when 0xFF13
       @frequency = (@frequency & 0x700) | value
       # clock on every APU sample
-      @period = APU::SAMPLE_RATE // (CPU::CLOCK_SPEED // (32 * (2048 - @frequency)))
+      @period = APU::SAMPLE_RATE // (CPU::CLOCK_SPEED // (8 * (2048 - @frequency)))
     when 0xFF14
       @trigger = value & (0x1 << 7) != 0
       if @trigger
-        puts "wrote trigger. setting volume to #{@initial_volume}"
+        # puts "wrote trigger. setting volume to #{@initial_volume}"
         @volume = @initial_volume
         @current_envelope_sweep = @envelope_sweep_number
       end
       @counter_selection = value & (0x1 << 6) != 0
       @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x3) << 8)
       # clock on every APU sample
-      @period = APU::SAMPLE_RATE // (CPU::CLOCK_SPEED // (32 * (2048 - @frequency)))
+      @period = APU::SAMPLE_RATE // (CPU::CLOCK_SPEED // (8 * (2048 - @frequency)))
     else raise "Writing to invalid channel 1 register: #{hex_str index.to_u16!}"
     end
   end
