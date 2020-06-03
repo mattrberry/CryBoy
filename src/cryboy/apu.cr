@@ -153,6 +153,14 @@ class APU
 
   # tick apu forward by specified number of cycles
   def tick(cycles : Int) : Nil
+    # There is currently a bug in Crystal's GC when it comes to c-bindings with
+    # threads. I'm not sure how to fix that. It leads to periodic background
+    # noise, and it prevents me from adding multiple channels of audio. Until
+    # this can be resolved, I've disabled audio. Since I was using audio for
+    # limiting the rate of the emulator, I have now moved that to a new
+    # nanosleep binding, which lives in util.cr.
+    return
+
     (0...cycles).each do
       @cycles &+= 1
 

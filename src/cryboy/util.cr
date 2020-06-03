@@ -1,12 +1,27 @@
+lib LibC
+  fun nanosleep = nanosleep(req : LibC::Timespec*, rem : LibC::Timespec*) : LibC::Int
+end
+
+def nanosleep(nanoseconds : Number)
+  req = LibC::Timespec.new
+  req.tv_nsec = nanoseconds.to_u32
+  LibC.nanosleep(pointerof(req), nil)
+end
+
+def nanosleep(time_span : Time::Span)
+  nanosleep time_span.total_nanoseconds
+end
+
 def repeat(hz : Int, &block)
+  period = (1_000_000_000 / hz).to_i
   loop do
     start_time = Time.utc
     block.call
     end_time = Time.utc
-    next_cycle = start_time + Time::Span.new nanoseconds: (1_000_000_000 / hz).to_i
+    next_cycle = start_time + Time::Span.new nanoseconds: period
     if next_cycle > end_time
       # puts "Sleeping in Repeat(hz:#{hz}) for #{next_cycle - end_time}, #{100*(next_cycle - end_time).total_microseconds//(next_cycle - start_time).total_microseconds}%"
-      sleep next_cycle - end_time
+      nanosleep next_cycle - end_time
     else
       # puts "Took too long by #{end_time - next_cycle}"
     end
