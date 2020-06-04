@@ -129,21 +129,24 @@ class CPU
 
   # service all interrupts
   def handle_interrupts
-    if @interrupts.vblank_interrupt && @interrupts.vblank_enabled
-      @interrupts.vblank_interrupt = false
-      call_interrupt_vector 0x0040_u16
-    elsif @interrupts.lcd_stat_interrupt && @interrupts.lcd_stat_enabled
-      @interrupts.lcd_stat_interrupt = false
-      call_interrupt_vector 0x0048_u16
-    elsif @interrupts.timer_interrupt && @interrupts.timer_enabled
-      @interrupts.timer_interrupt = false
-      call_interrupt_vector 0x0050_u16
-    elsif @interrupts.serial_interrupt && @interrupts.serial_enabled
-      @interrupts.serial_interrupt = false
-      call_interrupt_vector 0x0058_u16
-    elsif @interrupts.joypad_interrupt && @interrupts.joypad_enabled
-      @interrupts.joypad_interrupt = false
-      call_interrupt_vector 0x0060_u16
+    @halted = false if @interrupts[0xFF0F] & @interrupts[0xFFFF] != 0xE0_u8
+    if @ime
+      if @interrupts.vblank_interrupt && @interrupts.vblank_enabled
+        @interrupts.vblank_interrupt = false
+        call_interrupt_vector 0x0040_u16
+      elsif @interrupts.lcd_stat_interrupt && @interrupts.lcd_stat_enabled
+        @interrupts.lcd_stat_interrupt = false
+        call_interrupt_vector 0x0048_u16
+      elsif @interrupts.timer_interrupt && @interrupts.timer_enabled
+        @interrupts.timer_interrupt = false
+        call_interrupt_vector 0x0050_u16
+      elsif @interrupts.serial_interrupt && @interrupts.serial_enabled
+        @interrupts.serial_interrupt = false
+        call_interrupt_vector 0x0058_u16
+      elsif @interrupts.joypad_interrupt && @interrupts.joypad_enabled
+        @interrupts.joypad_interrupt = false
+        call_interrupt_vector 0x0060_u16
+      end
     end
   end
 
@@ -181,7 +184,7 @@ class CPU
       @apu.tick cycles_taken
       @timer.tick cycles_taken
       cycles -= cycles_taken
-      handle_interrupts if @ime
+      handle_interrupts
     end
   end
 end

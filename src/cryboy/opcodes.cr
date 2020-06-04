@@ -837,7 +837,7 @@ class Opcodes
     # 0x76 HALT
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.halted = true if cpu.ime
+      cpu.halted = true
       return 4
     },
     # 0x77 LD (HL),A

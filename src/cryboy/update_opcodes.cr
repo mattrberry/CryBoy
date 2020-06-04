@@ -306,7 +306,7 @@ module DmgOps
       when "EI"
         ["cpu.set_ime true"]
       when "HALT"
-        ["cpu.halted = true if cpu.ime"]
+        ["cpu.halted = true"]
       when "INC"
         to = operands[0]
         set_flag_h("#{to} & 0x0F == 0x0F") +
