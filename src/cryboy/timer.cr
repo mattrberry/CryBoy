@@ -21,13 +21,15 @@ class Timer
       @div &+= 1
       @div_counter -= 256
     end
-    @tima_counter += cycles
-    while @tima_counter >= @cycle_dividers[clock_select]
-      @tima &+= 1
-      @tima_counter -= @cycle_dividers[clock_select]
-      if @tima == 0
-        @interrupts.timer_interrupt = true
-        @tima = @tma
+    if enabled?
+      @tima_counter += cycles
+      while @tima_counter >= @cycle_dividers[clock_select]
+        @tima &+= 1
+        @tima_counter -= @cycle_dividers[clock_select]
+        if @tima == 0
+          @interrupts.timer_interrupt = true
+          @tima = @tma
+        end
       end
     end
     timer_interrupt
@@ -56,9 +58,9 @@ class Timer
     return false
   end
 
-  # are timers stopped?
-  def stop? : Bool
-    @tac & (0x1 << 2) == 0
+  # are timers enabled?
+  def enabled? : Bool
+    @tac & (0x1 << 2) != 0
   end
 
   # select timer clock speed

@@ -68,7 +68,8 @@ class CPU
 
   property pc = 0x0000_u16
   property sp = 0x0000_u16
-  property ime = true # todo test how this changes
+  getter ime = false
+  @ime_enable = 0 # enable ime after this many instructions
   property halted = false
   property memory
 
@@ -128,31 +129,38 @@ class CPU
 
   # service all interrupts
   def handle_interrupts
-    # bit 0: v-blank
     if @interrupts.vblank_interrupt && @interrupts.vblank_enabled
       @interrupts.vblank_interrupt = false
       call_interrupt_vector 0x0040_u16
-    end
-    # bit 1: lcd stat
-    if @interrupts.lcd_stat_interrupt && @interrupts.lcd_stat_enabled
+    elsif @interrupts.lcd_stat_interrupt && @interrupts.lcd_stat_enabled
       @interrupts.lcd_stat_interrupt = false
       call_interrupt_vector 0x0048_u16
-    end
-    # bit 2: timer
-    if @interrupts.timer_interrupt && @interrupts.timer_enabled
+    elsif @interrupts.timer_interrupt && @interrupts.timer_enabled
       @interrupts.timer_interrupt = false
       call_interrupt_vector 0x0050_u16
-    end
-    # bit 3: serial
-    if @interrupts.serial_interrupt && @interrupts.serial_enabled
+    elsif @interrupts.serial_interrupt && @interrupts.serial_enabled
       @interrupts.serial_interrupt = false
       call_interrupt_vector 0x0058_u16
-    end
-    # bit 4: joypad
-    if @interrupts.joypad_interrupt && @interrupts.joypad_enabled
+    elsif @interrupts.joypad_interrupt && @interrupts.joypad_enabled
       @interrupts.joypad_interrupt = false
       call_interrupt_vector 0x0060_u16
     end
+  end
+
+  def set_ime(ime : Bool, do_now : Bool = false) : Nil
+    if do_now
+      @ime = ime
+    else
+      if ime # enable _after_ next instruction
+        @ime_enable = 2
+      else # disable immediately
+        @ime = false
+      end
+    end
+  end
+
+  def print_state : Nil
+    puts "AF:#{hex_str self.af} BC:#{hex_str self.bc} DE:#{hex_str self.de} HL:#{hex_str self.hl} | PC:#{hex_str @pc} | OP:#{hex_str @memory[@pc]} | IME:#{@ime ? 1 : 0}"
   end
 
   # Runs for the specified number of machine cycles. If no argument provided,
@@ -164,6 +172,10 @@ class CPU
         cycles_taken = 4
       else
         cycles_taken = Opcodes::UNPREFIXED[@memory[@pc]].call self
+      end
+      if @ime_enable > 0
+        @ime = true if @ime_enable == 1
+        @ime_enable -= 1
       end
       @ppu.tick cycles_taken
       @apu.tick cycles_taken

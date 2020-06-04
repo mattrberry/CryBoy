@@ -1774,7 +1774,7 @@ class Opcodes
     # 0xD9 RETI
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.ime = true
+      cpu.set_ime true
       cpu.pc = cpu.memory.read_word cpu.sp
       cpu.sp += 0x02
       return 16
@@ -1977,7 +1977,7 @@ class Opcodes
     # 0xF3 DI
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.ime = false
+      cpu.set_ime false
       return 4
     },
     # 0xF4 UNUSED
@@ -2038,7 +2038,7 @@ class Opcodes
     # 0xFB EI
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.ime = true
+      cpu.set_ime true
       return 4
     },
     # 0xFC UNUSED

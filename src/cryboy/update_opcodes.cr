@@ -302,9 +302,9 @@ module DmgOps
           set_flag_z("#{to} == 0") +
           set_flag_h("#{to} & 0x0F == 0x0F")
       when "DI"
-        ["cpu.ime = false"]
+        ["cpu.set_ime false"]
       when "EI"
-        ["cpu.ime = true"]
+        ["cpu.set_ime true"]
       when "HALT"
         ["cpu.halted = true if cpu.ime"]
       when "INC"
@@ -370,7 +370,7 @@ module DmgOps
           branch(cond, instr)
         end
       when "RETI"
-        ["cpu.ime = true", "cpu.pc = cpu.memory.read_word cpu.sp", "cpu.sp += 0x02"]
+        ["cpu.set_ime true", "cpu.pc = cpu.memory.read_word cpu.sp", "cpu.sp += 0x02"]
       when "RL"
         reg = operands[0]
         ["carry = #{reg} & 0x80", "#{reg} = (#{reg} << 1) + (cpu.f_c ? 0x01 : 0x00)"] +
