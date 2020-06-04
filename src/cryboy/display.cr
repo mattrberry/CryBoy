@@ -1,5 +1,5 @@
 class Display
-  @colors = [SDL::Color[0xFF], SDL::Color[0xAA], SDL::Color[0x55], SDL::Color[0x00]]
+  @colors = [SDL::Color[0xE0, 0xF8, 0xCF], SDL::Color[0x86, 0xC0, 0x6C], SDL::Color[0x30, 0x68, 0x50], SDL::Color[0x07, 0x17, 0x20]]
 
   def initialize(@scale = 2, @width = 160, @height = 144, title : String? = nil)
     @window = SDL::Window.new("CryBoy" + (title.nil? ? "" : " - #{title}"), @width * @scale, @height * @scale)
