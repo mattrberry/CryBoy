@@ -71,31 +71,37 @@ class PPU
   @wy : UInt8 = 0x00_u8                               # 0xFF4A
   @wx : UInt8 = 0x00_u8                               # 0xFF4B
 
+  @current_window_line = 0
+
   def initialize(@display : Display, @interrupts : Interrupts)
   end
 
   def scanline
+    @current_window_line = 0 if @ly == 0
+    should_increment_window_line = false
     bg_palette = palette_to_array @bgp
     window_map = window_tile_map == 0_u8 ? 0x1800 : 0x1C00      # 0x9800 : 0x9C00
     background_map = bg_tile_map == 0_u8 ? 0x1800 : 0x1C00      # 0x9800 : 0x9C00
-    tile_data_table = bg_window_tile_map == 0 ? 0x1000 : 0x0000 # 0x9000 : 0x8000
-    tile_row_window = (@ly.to_u16 + @scy) % 8
+    tile_data_table = bg_window_tile_data == 0 ? 0x1000 : 0x0000 # 0x9000 : 0x8000
+    tile_row_window = @current_window_line % 8
     tile_row = (@ly.to_u16 + @scy) % 8
     (0...160).each do |x|
-      if window_enabled? && @wy <= @ly && -7 + @wx <= x
-        tile_num = @vram[window_map + (((x - @wx + 7) // 8) % 32) + ((((@ly.to_u16 - @wy) // 8) * 32) % (32 * 32))]
-        tile_num = tile_num.to_i8! if bg_window_tile_map == 0
+      if window_enabled? && @ly >= @wy && x + 7 >= @wx
+        should_increment_window_line = true
+        tile_num_addr = window_map + ((x + 7 - @wx) // 8) + ((@current_window_line // 8) * 32)
+        tile_num = @vram[tile_num_addr]
+        tile_num = tile_num.to_i8! if bg_window_tile_data == 0
         tile_ptr = tile_data_table + 16 * tile_num
         byte_1 = @vram[tile_ptr + tile_row_window * 2]
         byte_2 = @vram[tile_ptr + tile_row_window * 2 + 1]
-        lsb = (byte_1 >> (7 - ((x - @wx - 7) % 8))) & 0x1
-        msb = (byte_2 >> (7 - ((x - @wx - 7) % 8))) & 0x1
+        lsb = (byte_1 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
+        msb = (byte_2 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         color = (msb << 1) | lsb
         @framebuffer[@ly][x] = bg_palette[color]
       elsif bg_display?
         tile_num = @vram[background_map + (((x + @scx) // 8) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))]
-        tile_num = tile_num.to_i8! if bg_window_tile_map == 0
-        tile_ptr = tile_data_table + 16 * tile_num # todo other address space
+        tile_num = tile_num.to_i8! if bg_window_tile_data == 0
+        tile_ptr = tile_data_table + 16 * tile_num
         byte_1 = @vram[tile_ptr + tile_row * 2]
         byte_2 = @vram[tile_ptr + tile_row * 2 + 1]
         lsb = (byte_1 >> (7 - ((x + @scx) % 8))) & 0x1
@@ -104,6 +110,7 @@ class PPU
         @framebuffer[@ly][x] = bg_palette[color]
       end
     end
+    @current_window_line += 1 if should_increment_window_line
 
     if sprite_enabled?
       sprite_locations = Set(Tuple(UInt8, Int32)).new
@@ -259,7 +266,7 @@ class PPU
     @lcd_control & (0x1 << 5) != 0
   end
 
-  def bg_window_tile_map : UInt8
+  def bg_window_tile_data : UInt8
     @lcd_control & (0x1 << 4)
   end
 
