@@ -1,10 +1,12 @@
-# CryBoy ![CryBoy Graphic](README/gameboy.png)
+# <img height="46" src="README/cryboy.svg"/> ![](README/gameboy.png)
 
 CryBoy is a Gameboy emulator written in Crystal. The goal of this project is an efficient Gameboy emulator with highly readable code.
 
 This would not be possible without the [Pan Docs](https://gbdev.io/pandocs), [izik's opcode table](https://izik1.github.io/gbops), or the [gzb80 opcode reference](https://rednex.github.io/rgbds/gbz80.7.html). A thanks also goes out to [PyBoy](https://github.com/Baekalfen/PyBoy), which was a useful reference when I first started this project.
 
-![](README/bootrom.gif) ![](README/tetris.gif) ![](README/cpu_instrs.gif)
+![](README/bootrom.gif)
+![](README/tetris.gif)
+![](README/cpu_instrs.gif)
 
 ## Installation
 
