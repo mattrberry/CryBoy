@@ -8,11 +8,21 @@ struct Sprite
 
   def on_line(line : Int, sprite_height = 8) : Tuple(UInt16, UInt16)?
     actual_y = -16 + y
+    if sprite_height == 8
+      tile_ptr = 16_u16 * @tile_num
+    else # 8x16 tile
+      if (actual_y + 8 < line) ^ y_flip?
+        tile_ptr = 16_u16 * (@tile_num | 0x01)
+      else
+        tile_ptr = 16_u16 * (@tile_num & 0xFE)
+      end
+    end
+    sprite_row = (line.to_i16 - actual_y) % 8
     if actual_y <= line < (actual_y + sprite_height)
       if y_flip?
-        {tile_ptr + (actual_y + sprite_height - line - 1) * 2, tile_ptr + (actual_y + sprite_height - line - 1) * 2 + 1}
+        {tile_ptr + (7 - sprite_row) * 2, tile_ptr + (7 - sprite_row) * 2 + 1}
       else
-        {tile_ptr + (line - actual_y) * 2, tile_ptr + (line - actual_y) * 2 + 1}
+        {tile_ptr + sprite_row * 2, tile_ptr + sprite_row * 2 + 1}
       end
     end
   end
@@ -27,11 +37,6 @@ struct Sprite
 
   def x : UInt8
     @x
-  end
-
-  def tile_ptr : UInt16
-    16_u16 * @tile_num
-    # 0x8000_u16 + 16 * @tile_num
   end
 
   def priority : UInt8
