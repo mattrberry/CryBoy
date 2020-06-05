@@ -110,7 +110,7 @@ class PPU
         if bytes = sprite.on_line @ly, sprite_height
           (0...8).each do |col|
             x = col + sprite.x - 8
-            break unless 0 <= x < 160
+            next unless 0 <= x < 160
             if sprite.x_flip?
               lsb = (@vram[bytes[0]] >> col) & 0x1
               msb = (@vram[bytes[1]] >> col) & 0x1
