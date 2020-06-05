@@ -6,6 +6,7 @@ This would not be possible without the [Pan Docs](https://gbdev.io/pandocs), [iz
 
 ![](README/bootrom.gif)
 ![](README/tetris.gif)
+![](README/linksawakening.gif)
 ![](README/cpu_instrs.gif)
 
 ## Installation
