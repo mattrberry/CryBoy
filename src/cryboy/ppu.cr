@@ -124,7 +124,9 @@ class PPU
               msb = (@vram[bytes[1]] >> (7 - col)) & 0x1
             end
             color = (msb << 1) | lsb
-            @framebuffer[@ly][x] = sprite_palette[color] if color > 0
+            if color > 0
+              @framebuffer[@ly][x] = sprite_palette[color] if sprite.priority == 0 || @framebuffer[@ly][x] == bg_palette[0]
+            end
           end
         end
       end
