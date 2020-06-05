@@ -6,25 +6,28 @@ struct Sprite
     io << "Sprite(y:#{@y}, x:#{@x}, tile_num:#{@tile_num}, tile_ptr: #{hex_str tile_ptr}, visible:#{visible?}, priority:#{priority}, y_flip:#{y_flip?}, x_flip:#{x_flip?}, palette_number:#{palette_number}"
   end
 
-  def on_line(line : Int, sprite_height = 8) : Tuple(UInt16, UInt16)?
+  def on_line(line : Int, sprite_height = 8) : Bool
+    y <= line + 16 < y + sprite_height
+  end
+
+  # behavior is undefined if sprite is not on given line
+  def bytes(line : Int, sprite_height = 8) : Tuple(UInt16, UInt16)
     actual_y = -16 + y
     if sprite_height == 8
       tile_ptr = 16_u16 * @tile_num
     else # 8x16 tile
-      if (actual_y + 8 < line) ^ y_flip?
+      if (actual_y + 8 <= line) ^ y_flip?
         tile_ptr = 16_u16 * (@tile_num | 0x01)
       else
         tile_ptr = 16_u16 * (@tile_num & 0xFE)
       end
     end
     sprite_row = (line.to_i16 - actual_y) % 8
-    if actual_y <= line < (actual_y + sprite_height)
       if y_flip?
         {tile_ptr + (7 - sprite_row) * 2, tile_ptr + (7 - sprite_row) * 2 + 1}
       else
         {tile_ptr + sprite_row * 2, tile_ptr + sprite_row * 2 + 1}
       end
-    end
   end
 
   def visible? : Bool
@@ -81,12 +84,31 @@ class PPU
   def initialize(@display : Display, @interrupts : Interrupts)
   end
 
+  # get first 10 sprites on scanline, ordered
+  # the order dictates how sprites should render, with the first ones on the bottom
+  def get_sprites : Array(Sprite)
+    sprites = [] of Sprite
+    (0x00..0x9F).step 4 do |sprite_address|
+      sprite = Sprite.new @sprite_table[sprite_address], @sprite_table[sprite_address + 1], @sprite_table[sprite_address + 2], @sprite_table[sprite_address + 3]
+      if sprite.on_line @ly, sprite_height
+        index = 0
+        sprites.each do |sprite_elm|
+          break if sprite.x >= sprite_elm.x
+          index += 1
+        end
+        sprites.insert index, sprite
+      end
+      break if sprites.size >= 10
+    end
+    sprites
+  end
+
   def scanline
     @current_window_line = 0 if @ly == 0
     should_increment_window_line = false
     bg_palette = palette_to_array @bgp
-    window_map = window_tile_map == 0_u8 ? 0x1800 : 0x1C00      # 0x9800 : 0x9C00
-    background_map = bg_tile_map == 0_u8 ? 0x1800 : 0x1C00      # 0x9800 : 0x9C00
+    window_map = window_tile_map == 0_u8 ? 0x1800 : 0x1C00       # 0x9800 : 0x9C00
+    background_map = bg_tile_map == 0_u8 ? 0x1800 : 0x1C00       # 0x9800 : 0x9C00
     tile_data_table = bg_window_tile_data == 0 ? 0x1000 : 0x0000 # 0x9000 : 0x8000
     tile_row_window = @current_window_line % 8
     tile_row = (@ly.to_u16 + @scy) % 8
@@ -118,30 +140,22 @@ class PPU
     @current_window_line += 1 if should_increment_window_line
 
     if sprite_enabled?
-      sprite_locations = Set(Tuple(UInt8, Int32)).new
-      count = 0
-      (0x00..0x9F).step 4 do |sprite_address|
-        sprite = Sprite.new @sprite_table[sprite_address], @sprite_table[sprite_address + 1], @sprite_table[sprite_address + 2], @sprite_table[sprite_address + 3]
+      get_sprites.each do |sprite|
         sprite_palette = palette_to_array(sprite.palette_number == 0 ? @obp0 : @obp1)
-        if bytes = sprite.on_line @ly, sprite_height
-          break if count >= 10 # only 10 sprites per line
-          count += 1
-          (0...8).each do |col|
-            x = col + sprite.x - 8
-            next if sprite_locations.includes?({@ly, x}) # highest priority on top
-            sprite_locations.add({@ly, x})
-            next unless 0 <= x < 160 # only render sprites on screen
-            if sprite.x_flip?
-              lsb = (@vram[bytes[0]] >> col) & 0x1
-              msb = (@vram[bytes[1]] >> col) & 0x1
-            else
-              lsb = (@vram[bytes[0]] >> (7 - col)) & 0x1
-              msb = (@vram[bytes[1]] >> (7 - col)) & 0x1
-            end
-            color = (msb << 1) | lsb
-            if color > 0 # only render opaque colors, 0 is transparent
-              @framebuffer[@ly][x] = sprite_palette[color] if sprite.priority == 0 || @framebuffer[@ly][x] == bg_palette[0]
-            end
+        bytes = sprite.bytes @ly, sprite_height
+        (0...8).each do |col|
+          x = col + sprite.x - 8
+          next unless 0 <= x < 160 # only render sprites on screen
+          if sprite.x_flip?
+            lsb = (@vram[bytes[0]] >> col) & 0x1
+            msb = (@vram[bytes[1]] >> col) & 0x1
+          else
+            lsb = (@vram[bytes[0]] >> (7 - col)) & 0x1
+            msb = (@vram[bytes[1]] >> (7 - col)) & 0x1
+          end
+          color = (msb << 1) | lsb
+          if color > 0 # only render opaque colors, 0 is transparent
+            @framebuffer[@ly][x] = sprite_palette[color] if sprite.priority == 0 || @framebuffer[@ly][x] == bg_palette[0]
           end
         end
       end
