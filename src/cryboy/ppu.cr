@@ -84,7 +84,7 @@ class PPU
     (0...160).each do |x|
       if window_enabled? && @wy <= @ly && -7 + @wx <= x
         # tile_num = @vram[window_map + (x // 8) + (@ly.to_u16 // 8) * 32]
-        tile_num = @vram[window_map + (((x - @wx - 7) // 8) % 32) + ((((@ly.to_u16 - @wy) // 8) * 32) % (32 * 32))]
+        tile_num = @vram[window_map + (((x - @wx + 7) // 8) % 32) + ((((@ly.to_u16 - @wy) // 8) * 32) % (32 * 32))]
         tile_ptr = tile_data_table + 16 * tile_num
         byte_1 = @vram[tile_ptr + tile_row_window * 2]
         byte_2 = @vram[tile_ptr + tile_row_window * 2 + 1]
