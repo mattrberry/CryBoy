@@ -75,6 +75,7 @@ class PPU
   end
 
   def scanline
+    bg_palette = palette_to_array @bgp
     window_map = window_tile_map == 0_u8 ? 0x1800 : 0x1C00      # 0x9800 : 0x9C00
     background_map = bg_tile_map == 0_u8 ? 0x1800 : 0x1C00      # 0x9800 : 0x9C00
     tile_data_table = bg_window_tile_map == 0 ? 0x1000 : 0x0000 # 0x9000 : 0x8000
@@ -90,7 +91,7 @@ class PPU
         lsb = (byte_1 >> (7 - ((x - @wx - 7) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x - @wx - 7) % 8))) & 0x1
         color = (msb << 1) | lsb
-        @framebuffer[@ly][x] = color
+        @framebuffer[@ly][x] = bg_palette[color]
       elsif bg_display?
         tile_num = @vram[background_map + (((x + @scx) // 8) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))]
         tile_ptr = tile_data_table + 16 * tile_num # todo other address space
@@ -99,7 +100,7 @@ class PPU
         lsb = (byte_1 >> (7 - ((x + @scx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + @scx) % 8))) & 0x1
         color = (msb << 1) | lsb
-        @framebuffer[@ly][x] = color
+        @framebuffer[@ly][x] = bg_palette[color]
       end
     end
 
@@ -107,6 +108,7 @@ class PPU
       count = 0
       (0x00..0x9F).step 4 do |sprite_address|
         sprite = Sprite.new @sprite_table[sprite_address], @sprite_table[sprite_address + 1], @sprite_table[sprite_address + 2], @sprite_table[sprite_address + 3]
+        sprite_palette = palette_to_array(sprite.palette_number == 0 ? @obp0 : @obp1)
         if bytes = sprite.on_line @ly, sprite_height
           break if count >= 10
           count += 1
@@ -121,7 +123,7 @@ class PPU
               msb = (@vram[bytes[1]] >> (7 - col)) & 0x1
             end
             color = (msb << 1) | lsb
-            @framebuffer[@ly][x] = color.to_u8 if color > 0
+            @framebuffer[@ly][x] = sprite_palette[color] if color > 0
           end
         end
       end
@@ -303,5 +305,11 @@ class PPU
 
   def mode_flag=(mode : UInt8)
     @lcd_status = (@lcd_status & 0b11111100) | mode
+  end
+
+  # palettes
+
+  def palette_to_array(palette : UInt8) : Array(UInt8)
+    [palette & 0x3, (palette >> 2) & 0x3, (palette >> 4) & 0x3, (palette >> 6) & 0x3]
   end
 end

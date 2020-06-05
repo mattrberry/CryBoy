@@ -8,10 +8,9 @@ class Display
   end
 
   def draw(framebuffer : Array(Array(UInt8)), palette : UInt8) : Nil
-    colors = [@colors[palette & 0x3], @colors[(palette >> 2) & 0x3], @colors[(palette >> 4) & 0x3], @colors[(palette >> 6) & 0x3]]
     framebuffer.each_with_index do |scanline, y|
       scanline.each_with_index do |color, x|
-        @renderer.draw_color = colors[color]
+        @renderer.draw_color = @colors[color]
         @renderer.draw_point x, y
       end
     end
