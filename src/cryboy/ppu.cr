@@ -106,16 +106,19 @@ class PPU
     end
 
     if sprite_enabled?
+      sprite_locations = Set(Tuple(UInt8, Int32)).new
       count = 0
       (0x00..0x9F).step 4 do |sprite_address|
         sprite = Sprite.new @sprite_table[sprite_address], @sprite_table[sprite_address + 1], @sprite_table[sprite_address + 2], @sprite_table[sprite_address + 3]
         sprite_palette = palette_to_array(sprite.palette_number == 0 ? @obp0 : @obp1)
         if bytes = sprite.on_line @ly, sprite_height
-          break if count >= 10
+          break if count >= 10 # only 10 sprites per line
           count += 1
           (0...8).each do |col|
             x = col + sprite.x - 8
-            next unless 0 <= x < 160
+            next if sprite_locations.includes?({@ly, x}) # highest priority on top
+            sprite_locations.add({@ly, x})
+            next unless 0 <= x < 160 # only render sprites on screen
             if sprite.x_flip?
               lsb = (@vram[bytes[0]] >> col) & 0x1
               msb = (@vram[bytes[1]] >> col) & 0x1
@@ -124,7 +127,7 @@ class PPU
               msb = (@vram[bytes[1]] >> (7 - col)) & 0x1
             end
             color = (msb << 1) | lsb
-            if color > 0
+            if color > 0 # only render opaque colors, 0 is transparent
               @framebuffer[@ly][x] = sprite_palette[color] if sprite.priority == 0 || @framebuffer[@ly][x] == bg_palette[0]
             end
           end
