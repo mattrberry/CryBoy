@@ -108,6 +108,8 @@ class PPU
       (0x00..0x9F).step 4 do |sprite_address|
         sprite = Sprite.new @sprite_table[sprite_address], @sprite_table[sprite_address + 1], @sprite_table[sprite_address + 2], @sprite_table[sprite_address + 3]
         if bytes = sprite.on_line @ly, sprite_height
+          break if count >= 10
+          count += 1
           (0...8).each do |col|
             x = col + sprite.x - 8
             next unless 0 <= x < 160
