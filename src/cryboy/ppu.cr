@@ -23,11 +23,11 @@ struct Sprite
       end
     end
     sprite_row = (line.to_i16 - actual_y) % 8
-      if y_flip?
-        {tile_ptr + (7 - sprite_row) * 2, tile_ptr + (7 - sprite_row) * 2 + 1}
-      else
-        {tile_ptr + sprite_row * 2, tile_ptr + sprite_row * 2 + 1}
-      end
+    if y_flip?
+      {tile_ptr + (7 - sprite_row) * 2, tile_ptr + (7 - sprite_row) * 2 + 1}
+    else
+      {tile_ptr + sprite_row * 2, tile_ptr + sprite_row * 2 + 1}
+    end
   end
 
   def visible? : Bool
@@ -60,7 +60,7 @@ struct Sprite
 end
 
 class PPU
-  property framebuffer = Array(Array(UInt8)).new 144 { Array(UInt8).new 160, 0_u8 }
+  property framebuffer = Array(Array(UInt8)).new(Display::HEIGHT) {Array(UInt8).new Display::WIDTH, 0_u8}
 
   @counter : UInt32 = 0_u32
 
@@ -112,7 +112,7 @@ class PPU
     tile_data_table = bg_window_tile_data == 0 ? 0x1000 : 0x0000 # 0x9000 : 0x8000
     tile_row_window = @current_window_line % 8
     tile_row = (@ly.to_u16 + @scy) % 8
-    (0...160).each do |x|
+    (0...Display::WIDTH).each do |x|
       if window_enabled? && @ly >= @wy && x + 7 >= @wx
         should_increment_window_line = true
         tile_num_addr = window_map + ((x + 7 - @wx) // 8) + ((@current_window_line // 8) * 32)
@@ -145,7 +145,7 @@ class PPU
         bytes = sprite.bytes @ly, sprite_height
         (0...8).each do |col|
           x = col + sprite.x - 8
-          next unless 0 <= x < 160 # only render sprites on screen
+          next unless 0 <= x < Display::WIDTH # only render sprites on screen
           if sprite.x_flip?
             lsb = (@vram[bytes[0]] >> col) & 0x1
             msb = (@vram[bytes[1]] >> col) & 0x1
@@ -183,8 +183,8 @@ class PPU
           @counter -= 204       # reset counter, saving extra cycles
           @ly += 1
           check_lyc
-          if @ly == 144        # final row of screen complete
-            self.mode_flag = 1 # switch to vblank
+          if @ly == Display::HEIGHT # final row of screen complete
+            self.mode_flag = 1      # switch to vblank
             @interrupts.lcd_stat_interrupt = true if vblank_interrupt_enabled
             @interrupts.vblank_interrupt = true
             @display.draw framebuffer, @bgp # render at vblank
