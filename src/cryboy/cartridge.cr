@@ -7,6 +7,10 @@ abstract class Cartridge
     io.to_s
   }
 
+  getter rom_size : UInt32 {
+    0x8000_u32 << @program[0x0148]
+  }
+
   getter ram_size : UInt32 {
     case @program[0x0149]
     when 0x01 then 0x0800_u32
@@ -21,7 +25,9 @@ abstract class Cartridge
   # open rom, determine MBC type, and initialize the correct cartridge
   def self.new(rom_path : String) : Cartridge
     rom = File.open rom_path do |file|
-      bytes = Bytes.new file.size
+      rom_size = file.read_at(0x0148, 1) { |io| 0x8000 << io.read_byte.not_nil! }
+      file.pos = 0
+      bytes = Bytes.new rom_size.not_nil!
       file.read bytes
       bytes
     end
