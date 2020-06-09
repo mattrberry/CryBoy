@@ -13,7 +13,7 @@ class MBC1 < Cartridge
     when Memory::ROM_BANK_N then @program[(@rom_bank * Memory::ROM_BANK_N.size) + (index - Memory::ROM_BANK_N.begin)]
     when Memory::EXTERNAL_RAM
       if @ram_enabled
-        @ram[index - Memory::EXTERNAL_RAM.begin]
+        @ram[(@ram_bank * Memory::EXTERNAL_RAM.size) + (index - Memory::EXTERNAL_RAM.begin)]
       else
         0xFF_u8
       end
