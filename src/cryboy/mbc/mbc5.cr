@@ -21,7 +21,9 @@ class MBC5 < Cartridge
   def []=(index : Int, value : UInt8) : Nil
     case index
     when 0x0000..0x1FFF # different than mbc1, now 8-bit reg
-      @ram_enabled = value & 0xFF == 0x0A
+      enabling = value & 0xFF == 0x0A
+      save_game if @ram_enabled && !enabling
+      @ram_enabled = enabling
     when 0x2000..0x2FFF # select lower 8 bits
       @rom_bank_number = (@rom_bank_number & 0x0100) | value
     when 0x3000..0x3FFF # select upper 1 bit

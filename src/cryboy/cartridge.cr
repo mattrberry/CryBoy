@@ -1,5 +1,6 @@
 abstract class Cartridge
   @rom : Bytes = Bytes.new 0
+  @ram : Bytes = Bytes.new 0
 
   getter title : String {
     io = IO::Memory.new
@@ -21,6 +22,8 @@ abstract class Cartridge
     else           0x0000_u32
     end
   }
+
+  @sav_file_path : String?
 
   # open rom, determine MBC type, and initialize the correct cartridge
   def self.new(rom_path : String) : Cartridge
@@ -45,6 +48,23 @@ abstract class Cartridge
   # create a new Cartridge with the given bytes as rom
   def self.new(rom : Bytes) : Cartridge
     ROM.new rom
+  end
+
+  # save the game to a .sav file
+  def save_game : Nil
+    unless @sav_file_path.nil?
+      puts "saving game"
+      File.write(@sav_file_path.not_nil!, @ram)
+    end
+  end
+
+  # load the game from a .sav file
+  def load_game(sav_file_path : String) : Nil
+    @sav_file_path = sav_file_path
+    File.open sav_file_path do |file|
+      puts "loading game"
+      file.read @ram
+    end
   end
 
   # the offset of the given bank number in rom

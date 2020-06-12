@@ -20,6 +20,8 @@ class Motherboard
     LibSDL.joystick_open 0
 
     @cartridge = Cartridge.new rom
+    sav_file = rom.rpartition('.')[0] + ".sav"
+    @cartridge.load_game(sav_file) if File.exists?(sav_file)
     @interrupts = Interrupts.new
     @display = Display.new title: @cartridge.title
     @ppu = PPU.new @display, @interrupts

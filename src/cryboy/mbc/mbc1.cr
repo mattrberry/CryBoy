@@ -37,7 +37,9 @@ class MBC1 < Cartridge
   def []=(index : Int, value : UInt8) : Nil
     case index
     when 0x0000..0x1FFF
-      @ram_enabled = value & 0x0F == 0x0A
+      enabling = value & 0x0F == 0x0A
+      save_game if @ram_enabled && !enabling
+      @ram_enabled = enabling
     when 0x2000..0x3FFF
       @reg1 = value & 0b00011111 # select 5 bits
       @reg1 += 1 if @reg1 == 0   # translate 0 to 1
