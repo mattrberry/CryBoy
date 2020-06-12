@@ -39,6 +39,8 @@ abstract class Cartridge
     case cartridge_type
     when 0x00, 0x08, 0x09 then ROM.new rom
     when 0x01, 0x02, 0x03 then MBC1.new rom
+    when 0x0F, 0x10, 0x11,
+         0x12, 0x13 then MBC3.new rom
     when 0x19, 0x1A, 0x1B,
          0x1C, 0x1D, 0x1E then MBC5.new rom
     else raise "Unimplemented cartridge type: #{hex_str cartridge_type}"

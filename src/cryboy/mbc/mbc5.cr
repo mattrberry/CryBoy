@@ -2,8 +2,8 @@ class MBC5 < Cartridge
   def initialize(@rom : Bytes)
     @ram = Bytes.new ram_size
     @ram_enabled = false
-    @rom_bank_number = 1_u16 # 9-bit reg
-    @ram_bank_number = 0_u8  # 4-bit reg
+    @rom_bank_number = 0_u16 # 9-bit register
+    @ram_bank_number = 0_u8  # 4-bit register
   end
 
   def [](index : Int) : UInt8
@@ -20,7 +20,7 @@ class MBC5 < Cartridge
 
   def []=(index : Int, value : UInt8) : Nil
     case index
-    when 0x0000..0x1FFF # different than mbc1, now 8-bit reg
+    when 0x0000..0x1FFF # different than mbc1, now 8-bit register
       enabling = value & 0xFF == 0x0A
       save_game if @ram_enabled && !enabling
       @ram_enabled = enabling
