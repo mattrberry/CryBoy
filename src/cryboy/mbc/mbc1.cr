@@ -1,22 +1,22 @@
 class MBC1 < Cartridge
-  def initialize(@program : Bytes)
+  def initialize(@rom : Bytes)
     @ram = Bytes.new ram_size
-    @rom_bank = 1
-    @ram_bank = 0
     @ram_enabled = false
-    @mode = 0
+    @mode = 0_u8
+    @reg1 = 1_u8 # main rom banking register
+    @reg2 = 0_u8 # secondary banking register
   end
 
-  def rom_bank_offset : Int
-    (@rom_bank * Memory::ROM_BANK_N.size) % rom_size
+  def rom_bank_offset(bank_number : Int) : Int
+    (bank_number.to_u32 * Memory::ROM_BANK_N.size) % rom_size
   end
 
   def rom_offset(index : Int) : Int
     index - Memory::ROM_BANK_N.begin
   end
 
-  def ram_bank_offset : Int
-    (@ram_bank * Memory::EXTERNAL_RAM.size) % ram_size
+  def ram_bank_offset(bank_number : Int) : Int
+    (bank_number.to_u32 * Memory::EXTERNAL_RAM.size) % ram_size
   end
 
   def ram_offset(index : Int) : Int
@@ -25,11 +25,24 @@ class MBC1 < Cartridge
 
   def [](index : Int) : UInt8
     case index
-    when Memory::ROM_BANK_0 then @program[index]
-    when Memory::ROM_BANK_N then @program[rom_bank_offset + rom_offset index]
+    when Memory::ROM_BANK_0
+      if @mode == 0
+        @rom[index]
+      else
+        # can contain banks 20/40/60 in mode 1
+        bank_number = (@reg2 << 5)
+        @rom[rom_bank_offset(bank_number) + index]
+      end
+    when Memory::ROM_BANK_N
+      bank_number = ((@reg2 << 5) | @reg1)
+      @rom[rom_bank_offset(bank_number) + rom_offset(index)]
     when Memory::EXTERNAL_RAM
       if @ram_enabled
-        @ram[ram_bank_offset + ram_offset index]
+        if @mode == 0
+          @ram[ram_offset index]
+        else
+          @ram[ram_bank_offset(@reg2) + ram_offset(index)]
+        end
       else
         0xFF_u8
       end
@@ -39,24 +52,21 @@ class MBC1 < Cartridge
 
   def []=(index : Int, value : UInt8) : Nil
     case index
-    when 0x0000..0x1FFF then @ram_enabled = value & 0x0F == 0x0A
+    when 0x0000..0x1FFF
+      @ram_enabled = value & 0x0F == 0x0A
     when 0x2000..0x3FFF
-      @rom_bank = (@rom_bank & 0b11100000) | (value & 0b00011111)
-      @rom_bank += 1 if [0x00, 0x20, 0x40, 0x60].includes? @rom_bank
+      @reg1 = value & 0b00011111 # select 5 bits
+      @reg1 += 1 if @reg1 == 0   # translate 0 to 1
     when 0x4000..0x5FFF
-      if @mode == 0
-        @rom_bank = (@rom_bank & 0b00011111) | (value & 0b00000011)
-        @rom_bank += 1 if [0x00, 0x20, 0x40, 0x60].includes? @rom_bank
-      else
-        @ram_bank = 0x3 & value
-      end
-    when 0x6000..0x7FFF then @mode = 0x1 & value
+      @reg2 = value & 0b00000011 # select 2 bits
+    when 0x6000..0x7FFF
+      @mode = value & 0x1
     when Memory::EXTERNAL_RAM
       if @ram_enabled
         if @mode == 0
           @ram[ram_offset index] = value
         else
-          @ram[ram_bank_offset + ram_offset index] = value
+          @ram[ram_bank_offset(@reg2) + ram_offset(index)] = value
         end
       end
     else raise "Writing to invalid cartridge register: #{hex_str index.to_u16!}"

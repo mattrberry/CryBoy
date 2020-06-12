@@ -27,7 +27,7 @@ CryBoy is still a work in progress. As of right now, all of the following featur
 - PPU renders on a scanline basis.
 - PPU draws background, window, and sprites.
 - Tetris seems to work without any issues (other than missing sound).
-- MBC1 cartridges are supported.
+- MBC1 cartridges are supported (except for multicarts)
 
 There is still a lot missing from CryBoy. Some of these missing pieces include
 

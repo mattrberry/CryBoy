@@ -1,18 +1,18 @@
 abstract class Cartridge
-  @program : Bytes = Bytes.new 0
+  @rom : Bytes = Bytes.new 0
 
   getter title : String {
     io = IO::Memory.new
-    io.write @program[0x0134...0x13F]
+    io.write @rom[0x0134...0x13F]
     io.to_s
   }
 
   getter rom_size : UInt32 {
-    0x8000_u32 << @program[0x0148]
+    0x8000_u32 << @rom[0x0148]
   }
 
   getter ram_size : UInt32 {
-    case @program[0x0149]
+    case @rom[0x0149]
     when 0x01 then 0x0800_u32
     when 0x02 then 0x2000_u32
     when 0x03 then 0x2000_u32 * 4
