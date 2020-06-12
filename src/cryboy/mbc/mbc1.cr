@@ -7,22 +7,6 @@ class MBC1 < Cartridge
     @reg2 = 0_u8 # secondary banking register
   end
 
-  def rom_bank_offset(bank_number : Int) : Int
-    (bank_number.to_u32 * Memory::ROM_BANK_N.size) % rom_size
-  end
-
-  def rom_offset(index : Int) : Int
-    index - Memory::ROM_BANK_N.begin
-  end
-
-  def ram_bank_offset(bank_number : Int) : Int
-    (bank_number.to_u32 * Memory::EXTERNAL_RAM.size) % ram_size
-  end
-
-  def ram_offset(index : Int) : Int
-    index - Memory::EXTERNAL_RAM.begin
-  end
-
   def [](index : Int) : UInt8
     case index
     when Memory::ROM_BANK_0
