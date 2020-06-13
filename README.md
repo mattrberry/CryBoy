@@ -7,7 +7,7 @@ This would not be possible without the [Pan Docs](https://gbdev.io/pandocs), [iz
 ![](README/bootrom.gif)
 ![](README/tetris.gif)
 ![](README/linksawakening.gif)
-![](README/cpu_instrs.gif)
+![](README/pokemonyellow.gif)
 
 ## Installation
 
@@ -26,8 +26,10 @@ CryBoy is still a work in progress. As of right now, all of the following featur
 - CPU passes all of [blargg's cpu tests](https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs).
 - PPU renders on a scanline basis.
 - PPU draws background, window, and sprites.
-- Tetris seems to work without any issues (other than missing sound).
-- MBC1 cartridges are supported (except for multicarts)
+- Save files work as intended, and are compatible with other emulators like BGB.
+- MBC1 cartridges are supported (except for multicarts).
+- MBC3 cartridges are supported (except timers).
+- MBC5 cartridges are supported.
 
 There is still a lot missing from CryBoy. Some of these missing pieces include
 
