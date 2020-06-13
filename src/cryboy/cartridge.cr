@@ -1,6 +1,7 @@
 abstract class Cartridge
   @rom : Bytes = Bytes.new 0
   @ram : Bytes = Bytes.new 0
+  property sav_file_path : String = ""
 
   getter title : String {
     io = IO::Memory.new
@@ -23,8 +24,6 @@ abstract class Cartridge
     end
   }
 
-  @sav_file_path : String?
-
   # open rom, determine MBC type, and initialize the correct cartridge
   def self.new(rom_path : String) : Cartridge
     rom = File.open rom_path do |file|
@@ -36,15 +35,19 @@ abstract class Cartridge
     end
 
     cartridge_type = rom[0x0147]
-    case cartridge_type
-    when 0x00, 0x08, 0x09 then ROM.new rom
-    when 0x01, 0x02, 0x03 then MBC1.new rom
-    when 0x0F, 0x10, 0x11,
-         0x12, 0x13 then MBC3.new rom
-    when 0x19, 0x1A, 0x1B,
-         0x1C, 0x1D, 0x1E then MBC5.new rom
-    else raise "Unimplemented cartridge type: #{hex_str cartridge_type}"
-    end
+    cartridge = case cartridge_type
+                when 0x00, 0x08, 0x09 then ROM.new rom
+                when 0x01, 0x02, 0x03 then MBC1.new rom
+                when 0x0F, 0x10, 0x11,
+                     0x12, 0x13 then MBC3.new rom
+                when 0x19, 0x1A, 0x1B,
+                     0x1C, 0x1D, 0x1E then MBC5.new rom
+                else raise "Unimplemented cartridge type: #{hex_str cartridge_type}"
+                end
+
+    cartridge.sav_file_path = rom_path.rpartition('.')[0] + ".sav"
+    cartridge.load_game if File.exists?(cartridge.sav_file_path)
+    cartridge
   end
 
   # create a new Cartridge with the given bytes as rom
@@ -54,17 +57,12 @@ abstract class Cartridge
 
   # save the game to a .sav file
   def save_game : Nil
-    unless @sav_file_path.nil?
-      puts "saving game"
-      File.write(@sav_file_path.not_nil!, @ram)
-    end
+    File.write(@sav_file_path.not_nil!, @ram)
   end
 
   # load the game from a .sav file
-  def load_game(sav_file_path : String) : Nil
-    @sav_file_path = sav_file_path
-    File.open sav_file_path do |file|
-      puts "loading game"
+  def load_game : Nil
+    File.open @sav_file_path do |file|
       file.read @ram
     end
   end

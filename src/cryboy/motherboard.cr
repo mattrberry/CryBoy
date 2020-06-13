@@ -13,15 +13,13 @@ require "./timer"
 require "./util"
 
 class Motherboard
-  def initialize(bootrom : String?, rom : String)
+  def initialize(bootrom : String?, rom_path : String)
     SDL.init(SDL::Init::VIDEO | SDL::Init::AUDIO | SDL::Init::JOYSTICK)
     at_exit { SDL.quit }
 
     LibSDL.joystick_open 0
 
-    @cartridge = Cartridge.new rom
-    sav_file = rom.rpartition('.')[0] + ".sav"
-    @cartridge.load_game(sav_file) if File.exists?(sav_file)
+    @cartridge = Cartridge.new rom_path
     @interrupts = Interrupts.new
     @display = Display.new title: @cartridge.title
     @ppu = PPU.new @display, @interrupts
