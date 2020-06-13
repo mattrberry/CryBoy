@@ -99,7 +99,7 @@ class Channel1 < SoundChannel # todo: sweep
       # puts "wave duty: #{@wave_pattern_duty}, sound length: #{@remaining_length}"
     when 0xFF12
       @initial_volume = value >> 4
-      @increasing = value & (0x1 << 3) == 1
+      @increasing = value & (0x1 << 3) != 0
       @envelope_sweep_number = value & 0x07
       # puts "initial volume: #{@initial_volume}, increasing: #{@increasing}, sweep number #{@envelope_sweep_number}"
     when 0xFF13
