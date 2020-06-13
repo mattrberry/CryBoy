@@ -67,8 +67,9 @@ class Timer
       @cycles_until_tima_update = -1 # prevent immediate load from tma
     when 0xFF06 then @tma = value
     when 0xFF07
-      @enabled = value & (0b100) != 0
-      self.div = 0x0000_u16 if !@enabled # reset div on disable
+      disabled = value & (0b100) == 0
+      self.div = 0x0000_u16 if disabled # reset div on disable
+      @enabled = !disabled
       @clock_select = value & 0b011
       @bit_for_tima = case @clock_select
                       when 0b00 then 9 # 4194   Hz (clock / 1024)
