@@ -254,7 +254,7 @@ class PPU
     when Memory::VRAM         then @vram[index - Memory::VRAM.begin] = value
     when Memory::SPRITE_TABLE then @sprite_table[index - Memory::SPRITE_TABLE.begin] = value
     when 0xFF40               then @lcd_control = value
-    when 0xFF41               then @lcd_status = value
+    when 0xFF41               then @lcd_status = (@lcd_status & 0b10000111) | (value & 0b01111000)
     when 0xFF42               then @scy = value
     when 0xFF43               then @scx = value
     when 0xFF44               then @ly = value
