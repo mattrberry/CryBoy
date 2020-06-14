@@ -1,6 +1,11 @@
 class MBC1 < Cartridge
   def initialize(@rom : Bytes)
-    @ram = Bytes.new ram_size
+    if ram_size == 0 && (@rom[0x0147] == 0x02 || @rom[0x0147] == 0x03)
+      STDERR.puts "MBC1 cartridge has ram, but `ram_size` was reported as 0. Ignoring `ram_size` and using 8kB of ram."
+      @ram = Bytes.new 0x2000
+    else
+      @ram = Bytes.new ram_size
+    end
     @ram_enabled = false
     @mode = 0_u8
     @reg1 = 1_u8 # main rom banking register
@@ -21,7 +26,7 @@ class MBC1 < Cartridge
       bank_number = ((@reg2 << 5) | @reg1)
       @rom[rom_bank_offset(bank_number) + rom_offset(index)]
     when Memory::EXTERNAL_RAM
-      if @ram_enabled
+      if @ram_enabled && @ram.size > 0
         if @mode == 0
           @ram[ram_offset index]
         else
@@ -48,7 +53,7 @@ class MBC1 < Cartridge
     when 0x6000..0x7FFF
       @mode = value & 0x1
     when Memory::EXTERNAL_RAM
-      if @ram_enabled
+      if @ram_enabled && @ram.size > 0
         if @mode == 0
           @ram[ram_offset index] = value
         else
