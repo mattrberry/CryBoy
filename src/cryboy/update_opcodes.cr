@@ -353,8 +353,8 @@ module DmgOps
           "#       https://discordapp.com/channels/465585922579103744/465586075830845475/712358911151177818",
           "#       https://discordapp.com/channels/465585922579103744/465586075830845475/712359253255520328",
           "cycles = Opcodes::PREFIXED[cpu.memory[cpu.pc]].call cpu",
-          "# izik's table lists all prefixed opcodes as a length of 2 when they should be 1",
-          "cpu.pc &-= 1",
+          "cpu.pc &-= 1 # izik's table lists all prefixed opcodes as a length of 2 when they should be 1",
+          "return cycles",
         ]
       when "PUSH"
         ["cpu.memory[cpu.sp -= 2] = #{operands[0]}"]

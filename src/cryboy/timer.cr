@@ -25,7 +25,7 @@ class Timer
     if @cycles_until_tima_update > -1
       if @cycles_until_tima_update == 0
         @interrupts.timer_interrupt = true
-        @timer = @tma
+        @tima = @tma
       end
       @cycles_until_tima_update -= 1
     end
@@ -68,7 +68,7 @@ class Timer
     when 0xFF06 then @tma = value
     when 0xFF07
       disabled = value & (0b100) == 0
-      self.div = 0x0000_u16 if disabled # reset div on disable
+      self.div = 0x0000_u16 if disabled # reset div on disable (todo, this is wrong)
       @enabled = !disabled
       @clock_select = value & 0b011
       @bit_for_tima = case @clock_select
