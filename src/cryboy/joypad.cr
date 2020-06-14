@@ -15,8 +15,8 @@ class Joypad
 
   def read : UInt8
     array_to_uint8 [
-      0,
-      0,
+      1,
+      1,
       !@button_keys,
       !@direction_keys,
       !((@down && @direction_keys) || (@start && @button_keys)),
