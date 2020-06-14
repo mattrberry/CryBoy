@@ -60,7 +60,7 @@ struct Sprite
 end
 
 class PPU
-  property framebuffer = Array(Array(UInt8)).new(Display::HEIGHT) { Array(UInt8).new Display::WIDTH, 0_u8 }
+  property framebuffer = Array(Array(UInt8)).new(Display::HEIGHT) {Array(UInt8).new Display::WIDTH, 0_u8}
 
   @counter : UInt32 = 0_u32
 
@@ -209,7 +209,7 @@ class PPU
       end
     else                 # lcd is disabled
       @counter = 0       # reset cycle counter
-      self.mode_flag = 2 # ppu starts in mode 2 when re-enabled
+      self.mode_flag = 0 # default mode that allows reading all vram
       @ly = 0            # reset ly
     end
   end
@@ -225,26 +225,11 @@ class PPU
     end
   end
 
-  # can't access vram in mode 3
-  def can_access_vram : Bool
-    !lcd_enabled? || mode_flag != 3
-  end
-
-  # can't access oam in mode 2 or 3
-  def can_access_oam : Bool
-    !lcd_enabled? || (mode_flag != 2 && mode_flag != 3)
-  end
-
-  # can't access cgb palettes in mode 3
-  def can_access_cgb_palettes : Bool
-    !lcd_enabled? || mode_flag != 3
-  end
-
   # read from ppu memory
   def [](index : Int) : UInt8
     case index
-    when Memory::VRAM         then can_access_vram ? @vram[index - Memory::VRAM.begin] : 0xFF_u8
-    when Memory::SPRITE_TABLE then can_access_oam ? @sprite_table[index - Memory::SPRITE_TABLE.begin] : 0xFF_u8
+    when Memory::VRAM         then @vram[index - Memory::VRAM.begin]
+    when Memory::SPRITE_TABLE then @sprite_table[index - Memory::SPRITE_TABLE.begin]
     when 0xFF40               then @lcd_control
     when 0xFF41               then @lcd_status
     when 0xFF42               then @scy
@@ -266,8 +251,8 @@ class PPU
   # write to ppu memory
   def []=(index : Int, value : UInt8) : Nil
     case index
-    when Memory::VRAM         then @vram[index - Memory::VRAM.begin] = value if can_access_vram
-    when Memory::SPRITE_TABLE then @sprite_table[index - Memory::SPRITE_TABLE.begin] = value if can_access_oam
+    when Memory::VRAM         then @vram[index - Memory::VRAM.begin] = value
+    when Memory::SPRITE_TABLE then @sprite_table[index - Memory::SPRITE_TABLE.begin] = value
     when 0xFF40               then @lcd_control = value
     when 0xFF41               then @lcd_status = value
     when 0xFF42               then @scy = value
