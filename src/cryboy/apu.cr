@@ -83,7 +83,7 @@ class Channel1 < SoundChannel # todo: sweep
     when 0xFF10 then 0x00_u8
     when 0xFF11 then 0x3F_u8 | (@wave_pattern_duty << 6) # rest is write-only
     when 0xFF12 then (@initial_volume << 4) | (@increasing ? 0x1 << 3 : 0) | @envelope_sweep_number
-    when 0xFF13 then 0xFF_u8                                      # write-only
+    when 0xFF13 then 0xFF_u8                                       # write-only
     when 0xFF14 then 0xBF_u8 | ((@counter_selection ? 1 : 0) << 6) # rest is write-only
     else             raise "Reading from invalid channel 1 register: #{hex_str index.to_u16!}"
     end
@@ -136,6 +136,11 @@ class APU
   @buffer_pos = 0
   @cycles = 0_u64
   @frame_sequencer_stage = 0
+
+  @left_enable = false
+  @left_volume = 0_u8
+  @right_enable = false
+  @right_volume = 0_u8
 
   def initialize
     @audiospec = LibSDL::AudioSpec.new
@@ -211,8 +216,11 @@ class APU
     return 0xFF_u8 if !@sound_enabled && index != 0xFF26
     case index
     when @channel1 then @channel1[index]
-    when 0xFF26    then 0x70_u8 | (@sound_enabled ? 0x1 << 7 : 0x0) | (@channel1.counter_selection ? 0x1 : 0x0)
-    else                0xFF_u8
+    when 0xFF24
+      ((@left_enable ? 0b10000000 : 0) | (@left_volume << 4) |
+        (@right_enable ? 0b00001000 : 0) | @right_volume).to_u8
+    when 0xFF26 then 0x70_u8 | (@sound_enabled ? 0x1 << 7 : 0x0) | (@channel1.counter_selection ? 0x1 : 0x0)
+    else             0xFF_u8
     end
   end
 
@@ -222,8 +230,12 @@ class APU
     case index
     when @channel1 then @channel1[index] = value
     when 0xFF24
+      @left_enable = value & 0b10000000 != 0
+      @left_volume = (value & 0b01110000) >> 4
+      @right_enable = value & 0b00001000 != 0
+      @right_volume = (value & 0b00000111)
     when 0xFF25
-    when 0xFF26 then @sound_enabled = value & 0x80 == 0x80 # todo: bits 0-3
+    when 0xFF26 then @sound_enabled = value & 0x80 == 0x80
     end
   end
 end
