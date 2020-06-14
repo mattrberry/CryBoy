@@ -60,7 +60,7 @@ struct Sprite
 end
 
 class PPU
-  property framebuffer = Array(Array(UInt8)).new(Display::HEIGHT) {Array(UInt8).new Display::WIDTH, 0_u8}
+  property framebuffer = Array(Array(UInt8)).new(Display::HEIGHT) { Array(UInt8).new Display::WIDTH, 0_u8 }
 
   @counter : UInt32 = 0_u32
 
@@ -81,6 +81,17 @@ class PPU
 
   @current_window_line = 0
 
+  # gets ly
+  def ly : UInt8
+    @ly
+  end
+
+  # sets ly AND sets coincidence flag
+  def ly=(value : UInt8) : Nil
+    @ly = value
+    self.coincidence_flag = @ly == @lyc
+  end
+
   def initialize(@display : Display, @interrupts : Interrupts)
   end
 
@@ -90,7 +101,7 @@ class PPU
     sprites = [] of Sprite
     (0x00..0x9F).step 4 do |sprite_address|
       sprite = Sprite.new @sprite_table[sprite_address], @sprite_table[sprite_address + 1], @sprite_table[sprite_address + 2], @sprite_table[sprite_address + 3]
-      if sprite.on_line @ly, sprite_height
+      if sprite.on_line self.ly, sprite_height
         index = 0
         sprites.each do |sprite_elm|
           break if sprite.x >= sprite_elm.x
@@ -104,16 +115,16 @@ class PPU
   end
 
   def scanline
-    @current_window_line = 0 if @ly == 0
+    @current_window_line = 0 if self.ly == 0
     should_increment_window_line = false
     bg_palette = palette_to_array @bgp
     window_map = window_tile_map == 0_u8 ? 0x1800 : 0x1C00       # 0x9800 : 0x9C00
     background_map = bg_tile_map == 0_u8 ? 0x1800 : 0x1C00       # 0x9800 : 0x9C00
     tile_data_table = bg_window_tile_data == 0 ? 0x1000 : 0x0000 # 0x9000 : 0x8000
     tile_row_window = @current_window_line % 8
-    tile_row = (@ly.to_u16 + @scy) % 8
+    tile_row = (self.ly.to_u16 + @scy) % 8
     (0...Display::WIDTH).each do |x|
-      if window_enabled? && @ly >= @wy && x + 7 >= @wx
+      if window_enabled? && self.ly >= @wy && x + 7 >= @wx
         should_increment_window_line = true
         tile_num_addr = window_map + ((x + 7 - @wx) // 8) + ((@current_window_line // 8) * 32)
         tile_num = @vram[tile_num_addr]
@@ -124,9 +135,9 @@ class PPU
         lsb = (byte_1 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         color = (msb << 1) | lsb
-        @framebuffer[@ly][x] = bg_palette[color]
+        @framebuffer[self.ly][x] = bg_palette[color]
       elsif bg_display?
-        tile_num = @vram[background_map + (((x + @scx) // 8) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))]
+        tile_num = @vram[background_map + (((x + @scx) // 8) % 32) + ((((self.ly.to_u16 + @scy) // 8) * 32) % (32 * 32))]
         tile_num = tile_num.to_i8! if bg_window_tile_data == 0
         tile_ptr = tile_data_table + 16 * tile_num
         byte_1 = @vram[tile_ptr + tile_row * 2]
@@ -134,7 +145,7 @@ class PPU
         lsb = (byte_1 >> (7 - ((x + @scx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + @scx) % 8))) & 0x1
         color = (msb << 1) | lsb
-        @framebuffer[@ly][x] = bg_palette[color]
+        @framebuffer[self.ly][x] = bg_palette[color]
       end
     end
     @current_window_line += 1 if should_increment_window_line
@@ -142,7 +153,7 @@ class PPU
     if sprite_enabled?
       get_sprites.each do |sprite|
         sprite_palette = palette_to_array(sprite.palette_number == 0 ? @obp0 : @obp1)
-        bytes = sprite.bytes @ly, sprite_height
+        bytes = sprite.bytes self.ly, sprite_height
         (0...8).each do |col|
           x = col + sprite.x - 8
           next unless 0 <= x < Display::WIDTH # only render sprites on screen
@@ -155,11 +166,26 @@ class PPU
           end
           color = (msb << 1) | lsb
           if color > 0 # only render opaque colors, 0 is transparent
-            @framebuffer[@ly][x] = sprite_palette[color] if sprite.priority == 0 || @framebuffer[@ly][x] == bg_palette[0]
+            @framebuffer[self.ly][x] = sprite_palette[color] if sprite.priority == 0 || @framebuffer[self.ly][x] == bg_palette[0]
           end
         end
       end
     end
+  end
+
+  @old_stat_flag = false
+
+  # handle stat interrupts
+  # stat interrupts are only requested on the rising edge
+  def handle_stat_interrupt : Nil
+    stat_flag = (coincidence_flag && coincidence_interrupt_enabled) ||
+                (mode_flag == 2 && oam_interrupt_enabled) ||
+                (mode_flag == 0 && hblank_interrupt_enabled) ||
+                (mode_flag == 1 && vblank_interrupt_enabled)
+    if !@old_stat_flag && stat_flag
+      @interrupts.lcd_stat_interrupt = true
+    end
+    @old_stat_flag = stat_flag
   end
 
   # tick ppu forward by specified number of cycles
@@ -175,53 +201,37 @@ class PPU
         if @counter >= 172      # end of drawing reached
           @counter -= 172       # reset counter, saving extra cycles
           self.mode_flag = 0    # switch to hblank
-          @interrupts.lcd_stat_interrupt = true if hblank_interrupt_enabled
-          scanline # store scanline data
+          scanline              # store scanline data
         end
       elsif self.mode_flag == 0 # hblank
         if @counter >= 204      # end of hblank reached
           @counter -= 204       # reset counter, saving extra cycles
-          @ly += 1
-          check_lyc
-          if @ly == Display::HEIGHT # final row of screen complete
-            self.mode_flag = 1      # switch to vblank
-            @interrupts.lcd_stat_interrupt = true if vblank_interrupt_enabled
+          self.ly += 1
+          if self.ly == Display::HEIGHT # final row of screen complete
+            self.mode_flag = 1          # switch to vblank
             @interrupts.vblank_interrupt = true
             @display.draw framebuffer, @bgp # render at vblank
           else
             self.mode_flag = 2 # switch to oam search
-            @interrupts.lcd_stat_interrupt = true if oam_interrupt_enabled
           end
         end
       elsif self.mode_flag == 1 # vblank
         if @counter >= 456      # end of line reached
           @counter -= 456       # reset counter, saving extra cycles
-          @ly += 1
-          check_lyc
-          if @ly == 154        # end of vblank reached
+          self.ly += 1
+          if self.ly == 154    # end of vblank reached
             self.mode_flag = 2 # switch to oam search
-            @ly = 0            # reset ly
-            @interrupts.lcd_stat_interrupt = true if oam_interrupt_enabled
+            self.ly = 0        # reset ly
           end
         end
       else
         raise "Invalid mode #{self.mode_flag}"
       end
+      handle_stat_interrupt
     else                 # lcd is disabled
       @counter = 0       # reset cycle counter
       self.mode_flag = 2 # reset to oam search mode
-      @ly = 0            # reset ly
-    end
-  end
-
-  def check_lyc : Nil
-    if @ly == @lyc
-      @coincidence_flag = true
-      if coincidence_interrupt_enabled
-        @interrupts.lcd_stat_interrupt = true
-      end
-    else
-      @coincidence_flag = false
+      self.ly = 0        # reset ly
     end
   end
 
@@ -234,7 +244,7 @@ class PPU
     when 0xFF41               then @lcd_status
     when 0xFF42               then @scy
     when 0xFF43               then @scx
-    when 0xFF44               then @ly
+    when 0xFF44               then self.ly
     when 0xFF45               then @lyc
     when 0xFF46               then @dma
     when 0xFF47               then @bgp
@@ -257,7 +267,7 @@ class PPU
     when 0xFF41               then @lcd_status = (@lcd_status & 0b10000111) | (value & 0b01111000)
     when 0xFF42               then @scy = value
     when 0xFF43               then @scx = value
-    when 0xFF44               then @ly = value
+    when 0xFF44               then nil # read only
     when 0xFF45               then @lyc = value
     when 0xFF46               then @dma = value
     when 0xFF47               then @bgp = value
