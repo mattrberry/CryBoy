@@ -209,7 +209,7 @@ class PPU
       end
     else                 # lcd is disabled
       @counter = 0       # reset cycle counter
-      self.mode_flag = 0 # default mode that allows reading all vram
+      self.mode_flag = 2 # reset to oam search mode
       @ly = 0            # reset ly
     end
   end
