@@ -33,15 +33,17 @@ class Motherboard
   def handle_events : Nil
     while event = SDL::Event.poll
       case event
-      when SDL::Event::Quit                                                then exit 0
-      when SDL::Event::Keyboard, SDL::Event::JoyHat, SDL::Event::JoyButton then @joypad.handle_joypad_event event
-      else                                                                      nil
+      when SDL::Event::Quit then exit 0
+      when SDL::Event::Keyboard,
+           SDL::Event::JoyHat,
+           SDL::Event::JoyButton then @joypad.handle_joypad_event event
+      else nil
       end
     end
   end
 
   def run : Nil
-    repeat hz: 60 do
+    loop do
       handle_events
       @cpu.tick 70224
     end

@@ -59,3 +59,25 @@ def array_to_uint16(array : Array(Bool | Int)) : UInt16
   end
   value
 end
+
+# Crystal's StaticArray is incredibly slow to compile with LLVM.
+# This is a workaround solution proposed by Julien Reichardt (@j8r) on the
+# Crystal gitter.im channel. Jonne Haß (jhass) confirmed that this will result
+# in a (marginally) larger binary and slower instantiation at runtime. This is
+# 100% worth the tradeoff in this case, since I'm only ever instantiation a
+# StaticArray a few times, and this actually allows the APU to work properly.
+# On second thought, Jonne noticed that compiling a StaticArray for release
+# turns into this IR: https://p.jhass.eu/8r.txt
+# Maybe this workaround will produce a smaller binary in the end anyway ;)
+# GitHub issue: https://github.com/crystal-lang/crystal/issues/2485
+# GitHub PR: https://github.com/crystal-lang/crystal/pull/9486
+struct StaticArray(T, N)
+  def self.new!(& : Int32 -> T)
+    array = uninitialized self
+    buf = array.to_unsafe
+    {% for i in 0...N %}
+    buf[{{i.id}}] = yield {{i.id}}
+    {% end %}
+    array
+  end
+end
