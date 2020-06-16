@@ -25,40 +25,42 @@ abstract class Tone < SoundChannel
   @volume : UInt8 = 0x00
   @increasing : Bool = false
   @envelope_sweep_number : UInt8 = 0x00
-  @current_envelope_sweep : UInt8 = 0x00
+  @env_sweep_counter : UInt8 = 0x00
 
   @frequency : UInt16 = 0x0000
   @period : Int32 = 0x0000
-  @trigger : Bool = false
-  getter counter_selection : Bool = false
+  @enabled : Bool = false
+  @counter_selection : Bool = true
 
-  @amp_count = 0
-
-  def length_step : Nil
-    if @trigger
-      @remaining_length = 64 if @remaining_length == 0
-      @remaining_length -= 1 if @remaining_length > 0
-      @trigger = false if @remaining_length == 0
+  def step : Nil
+    @period -= 1
+    if @period == 0
+      @period = (2048 - @frequency) * 4
+      @wave_duty_pos = (@wave_duty_pos + 1) % 8
     end
   end
 
-  def volume_step : Nil # todo
-    if @current_envelope_sweep > 0 && ((@volume < 0xF && @increasing) || (@volume > 0x0 && !@increasing))
-      @volume += (@increasing ? 1 : -1)
-      @current_envelope_sweep -= 1
+  def length_step : Nil
+    if @enabled && @remaining_length > 0 && @counter_selection
+      @remaining_length -= 1
+      @enabled = false if @remaining_length == 0
+    end
+  end
+
+  def volume_step : Nil
+    if @enabled && @envelope_sweep_number != 0
+      if @env_sweep_counter == 0
+        @env_sweep_counter = @envelope_sweep_number
+        @volume += (@increasing ? 1 : -1) if (@volume < 0xF && @increasing) || (@volume > 0x0 && !@increasing)
+      end
+      @env_sweep_counter -= 1
     end
   end
 
   def get_amplitude : Float32
-    if @trigger
-      @amp_count += 1
-      if @amp_count >= @period // 8
-        @amp_count -= @period // 8
-        @wave_duty_pos = (@wave_duty_pos + 1) % 8
-      end
+    if @enabled
       @wave_duty[@wave_pattern_duty][@wave_duty_pos].to_f32 * @volume / 15
     else
-      @amp_count = 0
       0_f32
     end
   end
@@ -73,12 +75,12 @@ abstract class Tone < SoundChannel
   end
 
   def volume_envelope : UInt8
-    (@initial_volume << 4) | (@increasing ? 0x1 << 3 : 0) | @envelope_sweep_number
+    (@initial_volume << 4) | (@increasing ? 0x08 : 0) | @envelope_sweep_number
   end
 
   def volume_envelope=(value : UInt8) : Nil
     @initial_volume = value >> 4
-    @increasing = value & (0x1 << 3) != 0
+    @increasing = value & 0x08 != 0
     @envelope_sweep_number = value & 0x07
   end
 
@@ -87,9 +89,7 @@ abstract class Tone < SoundChannel
   end
 
   def frequency_lo=(value : UInt8) : Nil
-    @frequency = (@frequency & 0x700) | value
-    # clock on every APU sample
-    @period = APU::SAMPLE_RATE // (CPU::CLOCK_SPEED // (8 * (2048 - @frequency)))
+    @frequency = (@frequency & 0x0700) | value
   end
 
   def frequency_hi : UInt8
@@ -97,14 +97,14 @@ abstract class Tone < SoundChannel
   end
 
   def frequency_hi=(value : UInt8) : Nil
-    @trigger = value & (0x1 << 7) != 0
-    if @trigger
-      @volume = @initial_volume
-      @current_envelope_sweep = @envelope_sweep_number
-    end
-    @counter_selection = value & (0x1 << 6) != 0
+    @counter_selection = value & 0x40 != 0
     @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x3) << 8)
-    # clock on every APU sample
-    @period = APU::SAMPLE_RATE // (CPU::CLOCK_SPEED // (8 * (2048 - @frequency)))
+    @enabled = value & (0x1 << 7) != 0
+    if @enabled
+      @remaining_length = 64 if @remaining_length == 0
+      @period = (2048 - @frequency) * 4
+      @volume = @initial_volume
+      @env_sweep_counter = @envelope_sweep_number
+    end
   end
 end

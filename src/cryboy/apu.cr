@@ -20,7 +20,7 @@ class APU
 
   @buffer : StaticArray(Float32, 4096) = StaticArray(Float32, 4096).new! { 0_f32 }
   @buffer_pos = 0
-  @cycles = 0_u64
+  @cycles = 0_u32
   @frame_sequencer_stage = 0
 
   @left_enable = false
@@ -46,9 +46,12 @@ class APU
   def tick(cycles : Int) : Nil
     (0...cycles).each do
       @cycles &+= 1
+      @channel1.step
+      @channel2.step
 
       # tick frame sequencer
       if @cycles % (CPU::CLOCK_SPEED // FRAME_SEQUENCER_RATE) == 0
+        @cycles = 0 # this is also an even divisor of the sample rate
         case @frame_sequencer_stage
         when 0
           @channel1.length_step
