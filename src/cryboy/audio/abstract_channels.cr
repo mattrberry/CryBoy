@@ -98,7 +98,7 @@ abstract class Tone < SoundChannel
 
   def frequency_hi=(value : UInt8) : Nil
     @counter_selection = value & 0x40 != 0
-    @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x3) << 8)
+    @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x7) << 8)
     @enabled = value & (0x1 << 7) != 0
     if @enabled
       @remaining_length = 64 if @remaining_length == 0
