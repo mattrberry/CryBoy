@@ -1,9 +1,9 @@
 abstract class SoundChannel
-  # used for mapping memory
-  # inheriting classes must define @RANGE
-  def ===(value) : Bool
-    @RANGE.includes? value
-  end
+  # allow channels to define the memory they map to
+  # this works because Crystal's case..when syntax uses ===
+  abstract def ===(value) : Bool
+
+  abstract def get_amplitude : Float32
 
   abstract def [](index : Int) : UInt8
   abstract def []=(index : Int, value : UInt8) : Nil

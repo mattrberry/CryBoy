@@ -16,6 +16,7 @@ class APU
 
   @channel1 = Channel1.new
   @channel2 = Channel2.new
+  @channel3 = Channel3.new
   @sound_enabled : Bool = false
 
   @buffer : StaticArray(Float32, 4096) = StaticArray(Float32, 4096).new! { 0_f32 }
@@ -48,6 +49,7 @@ class APU
       @cycles &+= 1
       @channel1.step
       @channel2.step
+      @channel3.step
 
       # tick frame sequencer
       if @cycles % (CPU::CLOCK_SPEED // FRAME_SEQUENCER_RATE) == 0
@@ -56,19 +58,23 @@ class APU
         when 0
           @channel1.length_step
           @channel2.length_step
+          @channel3.length_step
         when 1 then nil
         when 2
           @channel1.length_step
           @channel2.length_step
+          @channel3.length_step
           @channel1.sweep_step
         when 3 then nil
         when 4
           @channel1.length_step
           @channel2.length_step
+          @channel3.length_step
         when 5 then nil
         when 6
           @channel1.length_step
           @channel2.length_step
+          @channel3.length_step
           @channel1.sweep_step
         when 7
           @channel1.volume_step
@@ -80,7 +86,7 @@ class APU
 
       # put 1 frame in buffer
       if @cycles % (CPU::CLOCK_SPEED // SAMPLE_RATE) == 0
-        amplitude = (@channel1.get_amplitude + @channel2.get_amplitude) / 2
+        amplitude = (@channel1.get_amplitude + @channel2.get_amplitude + @channel3.get_amplitude) / 3
         @buffer[@buffer_pos] = amplitude     # left
         @buffer[@buffer_pos + 1] = amplitude # right
         @buffer_pos += 2
@@ -103,6 +109,7 @@ class APU
     case index
     when @channel1 then @channel1[index]
     when @channel2 then @channel2[index]
+    when @channel3 then @channel3[index]
     when 0xFF24
       ((@left_enable ? 0b10000000 : 0) | (@left_volume << 4) |
         (@right_enable ? 0b00001000 : 0) | @right_volume).to_u8
@@ -121,6 +128,7 @@ class APU
     case index
     when @channel1 then @channel1[index] = value
     when @channel2 then @channel2[index] = value
+    when @channel3 then @channel3[index] = value
     when 0xFF24
       @left_enable = value & 0b10000000 != 0
       @left_volume = (value & 0b01110000) >> 4
