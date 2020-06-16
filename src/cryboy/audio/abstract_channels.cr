@@ -62,4 +62,49 @@ abstract class Tone < SoundChannel
       0_f32
     end
   end
+
+  def wavepattern_soundlength : UInt8
+    0x3F_u8 | (@wave_pattern_duty << 6) # rest is write-only
+  end
+
+  def wavepattern_soundlength=(value : UInt8) : Nil
+    @wave_pattern_duty = value >> 6
+    @remaining_length = 64_u8 - (value & 0x3F)
+  end
+
+  def volume_envelope : UInt8
+    (@initial_volume << 4) | (@increasing ? 0x1 << 3 : 0) | @envelope_sweep_number
+  end
+
+  def volume_envelope=(value : UInt8) : Nil
+    @initial_volume = value >> 4
+    @increasing = value & (0x1 << 3) != 0
+    @envelope_sweep_number = value & 0x07
+  end
+
+  def frequency_lo : UInt8
+    0xFF_u8 # write-only
+  end
+
+  def frequency_lo=(value : UInt8) : Nil
+    @frequency = (@frequency & 0x700) | value
+    # clock on every APU sample
+    @period = APU::SAMPLE_RATE // (CPU::CLOCK_SPEED // (8 * (2048 - @frequency)))
+  end
+
+  def frequency_hi : UInt8
+    0xBF_u8 | ((@counter_selection ? 1 : 0) << 6) # rest is write-only
+  end
+
+  def frequency_hi=(value : UInt8) : Nil
+    @trigger = value & (0x1 << 7) != 0
+    if @trigger
+      @volume = @initial_volume
+      @current_envelope_sweep = @envelope_sweep_number
+    end
+    @counter_selection = value & (0x1 << 6) != 0
+    @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x3) << 8)
+    # clock on every APU sample
+    @period = APU::SAMPLE_RATE // (CPU::CLOCK_SPEED // (8 * (2048 - @frequency)))
+  end
 end
