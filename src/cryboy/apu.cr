@@ -8,7 +8,7 @@ lib LibSDL
 end
 
 class APU
-  BUFFER_SIZE =  4096
+  BUFFER_SIZE =  1024
   SAMPLE_RATE = 65536 # Hz
   CHANNELS    =     2 # Left / Right
 
@@ -94,7 +94,7 @@ class APU
 
       # push to SDL if buffer is full
       if @buffer_pos >= BUFFER_SIZE
-        while LibSDL.get_queued_audio_size(1) > BUFFER_SIZE * sizeof(Float32)
+        while LibSDL.get_queued_audio_size(1) > BUFFER_SIZE * sizeof(Float32) * 2
           LibSDL.delay(1)
         end
         LibSDL.queue_audio 1, @buffer, BUFFER_SIZE * sizeof(Float32)
