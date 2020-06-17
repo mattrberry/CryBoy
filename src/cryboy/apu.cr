@@ -17,6 +17,7 @@ class APU
   @channel1 = Channel1.new
   @channel2 = Channel2.new
   @channel3 = Channel3.new
+  @channel4 = Channel4.new
   @sound_enabled : Bool = false
 
   @buffer = Slice(Float32).new 4096
@@ -50,6 +51,7 @@ class APU
       @channel1.step
       @channel2.step
       @channel3.step
+      @channel4.step
 
       # tick frame sequencer
       if @cycles % (CPU::CLOCK_SPEED // FRAME_SEQUENCER_RATE) == 0
@@ -59,26 +61,31 @@ class APU
           @channel1.length_step
           @channel2.length_step
           @channel3.length_step
+          @channel4.length_step
         when 1 then nil
         when 2
           @channel1.length_step
           @channel2.length_step
           @channel3.length_step
+          @channel4.length_step
           @channel1.sweep_step
         when 3 then nil
         when 4
           @channel1.length_step
           @channel2.length_step
           @channel3.length_step
+          @channel4.length_step
         when 5 then nil
         when 6
           @channel1.length_step
           @channel2.length_step
           @channel3.length_step
+          @channel4.length_step
           @channel1.sweep_step
         when 7
           @channel1.volume_step
           @channel2.volume_step
+          @channel4.volume_step
         else nil
         end
         @frame_sequencer_stage = 0 if (@frame_sequencer_stage += 1) > 7
@@ -86,7 +93,8 @@ class APU
 
       # put 1 frame in buffer
       if @cycles % (CPU::CLOCK_SPEED // SAMPLE_RATE) == 0
-        amplitude = (@channel1.get_amplitude + @channel2.get_amplitude + @channel3.get_amplitude) / 3
+        amplitude = (@channel1.get_amplitude + @channel2.get_amplitude +
+                     @channel3.get_amplitude + @channel4.get_amplitude) / 4
         @buffer[@buffer_pos] = amplitude     # left
         @buffer[@buffer_pos + 1] = amplitude # right
         @buffer_pos += 2
@@ -110,6 +118,7 @@ class APU
     when @channel1 then @channel1[index]
     when @channel2 then @channel2[index]
     when @channel3 then @channel3[index]
+    when @channel4 then @channel4[index]
     when 0xFF24
       ((@left_enable ? 0b10000000 : 0) | (@left_volume << 4) |
         (@right_enable ? 0b00001000 : 0) | @right_volume).to_u8
@@ -129,6 +138,7 @@ class APU
     when @channel1 then @channel1[index] = value
     when @channel2 then @channel2[index] = value
     when @channel3 then @channel3[index] = value
+    when @channel4 then @channel4[index] = value
     when 0xFF24
       @left_enable = value & 0b10000000 != 0
       @left_volume = (value & 0b01110000) >> 4
