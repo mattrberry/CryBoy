@@ -5,6 +5,7 @@ class Channel3 < SoundChannel
 
   @enabled = false
   property remaining_length = 0
+  @output_level_raw = 0_u8
   @volume = 0_f32
   @counter_selection : Bool = true
   @frequency : UInt16 = 0x0000
@@ -38,14 +39,14 @@ class Channel3 < SoundChannel
   def [](index : Int) : UInt8
     case index
     when 0xFF1A then @enabled ? 0x80_u8 : 0x00_u8
-    when 0xFF1B then 0xFF_u8
-    when 0xFF1C then 0xFF_u8
-    when 0xFF1D then 0xFF_u8
-    when 0xFF1E then 0xFF_u8
+    when 0xFF1B then 0xFF_u8 # I assume this is write-only like in the tone channels
+    when 0xFF1C then @output_level_raw
+    when 0xFF1D then 0xFF_u8 # write-only
+    when 0xFF1E then 0xBF_u8 | ((@counter_selection ? 1 : 0) << 6) # rest is write-only
     when 0xFF30..0xFF3F
       index = index - 0xFF30
       (@wave_pattern_ram[index * 2] << 4) | @wave_pattern_ram[index * 2 + 1]
-    else raise "Reading from invalid channel 2 register: #{hex_str index.to_u16!}"
+    else raise "Reading from invalid channel 3 register: #{hex_str index.to_u16!}"
     end
   end
 
@@ -56,6 +57,7 @@ class Channel3 < SoundChannel
     when 0xFF1B
       @remaining_length = 256 - (value & 0x3F)
     when 0xFF1C
+      @output_level_raw = value
       case (value >> 5) & 0x3
       when 0 then @volume = 0_f32
       when 1 then @volume = 1_f32
@@ -76,7 +78,7 @@ class Channel3 < SoundChannel
       index = index - 0xFF30
       @wave_pattern_ram[index * 2] = value >> 4
       @wave_pattern_ram[index * 2 + 1] = value & 0x0F
-    else raise "Writing to invalid channel 2 register: #{hex_str index.to_u16!}"
+    else raise "Writing to invalid channel 3 register: #{hex_str index.to_u16!}"
     end
   end
 end
