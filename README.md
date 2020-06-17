@@ -30,11 +30,14 @@ CryBoy is still a work in progress. As of right now, all of the following featur
 - MBC1 cartridges are supported (except for multicarts).
 - MBC3 cartridges are supported (except timers).
 - MBC5 cartridges are supported.
+- Controller support.
+- Audio channels 1-3 are working well enough that I don't notice issues in game.
 
 There is still a lot missing from CryBoy. Some of these missing pieces include
 
 - Audio processing
-  - I've attempted audio processing and have implemented a mostly functional audio Channel 1. This resides [here](src/cryboy/apu.cr) in the repo. However, the Crystal garbage collector seems to have some issues when passing values to C libraries that manage their own threads. This has lead to occasional random background noise playing that SDL doesn't seem to be aware of, and has prevented me fro adding more channels of audio. The APU is on hold until this is fixed in the Crystal language, or at least until I've cleaned up more important pieces of the emulator.
+  - Channel 4 has not yet been implemented.
+  - Failing all of blargg's audio tests.
 - Picture processing
   - Rendering with SDL Textures
     - The [SDL2 bindings](https://github.com/ysbaddaden/sdl.cr) that I'm using don't support many of the bindings needed to render using SDL's texture maps, which would likely improve rendering efficiency dramatically. Textures would also make it easier to apply colors down the road.
