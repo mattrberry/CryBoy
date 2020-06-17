@@ -39,10 +39,10 @@ There is still a lot missing from CryBoy. Some of these missing pieces include
   - Channel 4 has not yet been implemented.
   - Failing all of blargg's audio tests.
 - Picture processing
-  - Rendering with SDL Textures
-    - The [SDL2 bindings](https://github.com/ysbaddaden/sdl.cr) that I'm using don't support many of the bindings needed to render using SDL's texture maps, which would likely improve rendering efficiency dramatically. Textures would also make it easier to apply colors down the road.
   - Pixel FIFO
     - [Pixel FIFO](https://github.com/corybsa/pandocs/blob/develop/content/pixel_fifo.md) will likely only be relevant in 0.01% of games, so it's not a priority. It's a nice-to-have at some point down the road.
+- Game Boy Color support
+  - There is a sizable amount of work necessary to get CGB support. However, how that SDL Textures are working properly, adding color to the display shouldn't be challenging.
 
 ## Contributing
 
