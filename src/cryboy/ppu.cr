@@ -59,8 +59,14 @@ struct Sprite
   end
 end
 
+struct RGB
+  def initialize(@red : UInt8, @green : UInt8, @blue : UInt8)
+  end
+end
+
 class PPU
-  property framebuffer = Array(Array(UInt8)).new(Display::HEIGHT) { Array(UInt8).new Display::WIDTH, 0_u8 }
+  @framebuffer = Array(RGB).new Display::WIDTH * Display::HEIGHT, RGB.new(0, 0, 0)
+  @colors = [RGB.new(0xE0, 0xF8, 0xCF), RGB.new(0x86, 0xC0, 0x6C), RGB.new(0x30, 0x68, 0x50), RGB.new(0x07, 0x17, 0x20)]
 
   @counter : UInt32 = 0_u32
 
@@ -135,7 +141,7 @@ class PPU
         lsb = (byte_1 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         color = (msb << 1) | lsb
-        @framebuffer[self.ly][x] = bg_palette[color]
+        @framebuffer[Display::WIDTH * self.ly + x] = @colors[bg_palette[color]]
       elsif bg_display?
         tile_num = @vram[background_map + (((x + @scx) // 8) % 32) + ((((self.ly.to_u16 + @scy) // 8) * 32) % (32 * 32))]
         tile_num = tile_num.to_i8! if bg_window_tile_data == 0
@@ -145,7 +151,7 @@ class PPU
         lsb = (byte_1 >> (7 - ((x + @scx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + @scx) % 8))) & 0x1
         color = (msb << 1) | lsb
-        @framebuffer[self.ly][x] = bg_palette[color]
+        @framebuffer[Display::WIDTH * self.ly + x] = @colors[bg_palette[color]]
       end
     end
     @current_window_line += 1 if should_increment_window_line
@@ -166,7 +172,7 @@ class PPU
           end
           color = (msb << 1) | lsb
           if color > 0 # only render opaque colors, 0 is transparent
-            @framebuffer[self.ly][x] = sprite_palette[color] if sprite.priority == 0 || @framebuffer[self.ly][x] == bg_palette[0]
+            @framebuffer[Display::WIDTH * self.ly + x] = @colors[sprite_palette[color]] if sprite.priority == 0 || @framebuffer[Display::WIDTH * self.ly + x] == @colors[bg_palette[0]]
           end
         end
       end
@@ -210,7 +216,7 @@ class PPU
           if self.ly == Display::HEIGHT # final row of screen complete
             self.mode_flag = 1          # switch to vblank
             @interrupts.vblank_interrupt = true
-            @display.draw framebuffer, @bgp # render at vblank
+            @display.draw @framebuffer # render at vblank
           else
             self.mode_flag = 2 # switch to oam search
           end
