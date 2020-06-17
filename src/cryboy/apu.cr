@@ -19,7 +19,7 @@ class APU
   @channel3 = Channel3.new
   @sound_enabled : Bool = false
 
-  @buffer : StaticArray(Float32, 4096) = StaticArray(Float32, 4096).new! { 0_f32 }
+  @buffer = Slice(Float32).new 4096
   @buffer_pos = 0
   @cycles = 0_u32
   @frame_sequencer_stage = 0
@@ -97,7 +97,7 @@ class APU
         while LibSDL.get_queued_audio_size(1) > BUFFER_SIZE * sizeof(Float32)
           LibSDL.delay(1)
         end
-        LibSDL.queue_audio 1, pointerof(@buffer), BUFFER_SIZE * sizeof(Float32)
+        LibSDL.queue_audio 1, @buffer, BUFFER_SIZE * sizeof(Float32)
         @buffer_pos = 0
       end
     end
