@@ -55,7 +55,11 @@ class Channel4 < SoundChannel
   end
 
   def get_amplitude : Float32
-    (~@lfsr & 0x1).to_f32 * @volume / 15
+    if @dac_enabled
+      (~@lfsr & 0x1).to_f32 * @volume / 15
+    else
+      0_f32
+    end
   end
 
   def [](index : Int) : UInt8
