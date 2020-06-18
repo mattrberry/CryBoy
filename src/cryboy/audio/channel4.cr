@@ -6,7 +6,7 @@ class Channel4
   @lfsr : UInt16 = 0x0000
   @output = 0
 
-  property remaining_length : UInt8 = 0x00
+  @remaining_length : UInt8 = 0x00
 
   # envelope
   @initial_volume : UInt8 = 0x00
@@ -20,7 +20,7 @@ class Channel4
   @dividing_ratio : UInt8 = 0x00
   @period : Int32 = 0x0000
 
-  @enabled : Bool = false
+  getter enabled : Bool = false
   @counter_selection : Bool = true
 
   def step : Nil
@@ -41,6 +41,7 @@ class Channel4
   def length_step : Nil
     if @remaining_length > 0 && @counter_selection
       @remaining_length -= 1
+      @enabled = false if @remaining_length == 0
     end
   end
 
@@ -81,9 +82,9 @@ class Channel4
       @counter_step = (value >> 3) & 0x1
       @dividing_ratio = value & 0x7
     when 0xFF23
-      enabled = value & 0x80 != 0
       @counter_selection = value & 0x40 != 0
-      if enabled
+      @enabled = value & 0x80 != 0
+      if @enabled
         @remaining_length = 64 if @remaining_length == 0
         @period = (@dividing_ratio == 0 ? 8 : 16 * @dividing_ratio) << @shift_clock_frequency
         @volume = @initial_volume

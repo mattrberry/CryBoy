@@ -3,8 +3,9 @@ class Channel3 < SoundChannel
     value.is_a?(Int) && 0xFF1A <= value <= 0xFF1E || 0xFF30 <= value <= 0xFF3F
   end
 
-  @enabled = false
-  property remaining_length = 0
+  getter enabled = false
+  @dac_enabled = false
+  @remaining_length = 0
   @output_level_raw = 0_u8
   @volume = 0_f32
   @counter_selection : Bool = true
@@ -22,14 +23,14 @@ class Channel3 < SoundChannel
   end
 
   def length_step : Nil
-    if @enabled && @remaining_length > 0 && @counter_selection
+    if @remaining_length > 0 && @counter_selection
       @remaining_length -= 1
       @enabled = false if @remaining_length == 0
     end
   end
 
   def get_amplitude : Float32
-    if @enabled
+    if @dac_enabled
       @volume * @wave_pattern_ram[@position] / 15
     else
       0_f32
@@ -38,10 +39,10 @@ class Channel3 < SoundChannel
 
   def [](index : Int) : UInt8
     case index
-    when 0xFF1A then @enabled ? 0x80_u8 : 0x00_u8
+    when 0xFF1A then @dac_enabled ? 0x80_u8 : 0x00_u8
     when 0xFF1B then 0xFF_u8 # I assume this is write-only like in the tone channels
     when 0xFF1C then @output_level_raw
-    when 0xFF1D then 0xFF_u8 # write-only
+    when 0xFF1D then 0xFF_u8                                       # write-only
     when 0xFF1E then 0xBF_u8 | ((@counter_selection ? 1 : 0) << 6) # rest is write-only
     when 0xFF30..0xFF3F
       index = index - 0xFF30
@@ -53,7 +54,7 @@ class Channel3 < SoundChannel
   def []=(index : Int, value : UInt8) : Nil
     case index
     when 0xFF1A
-      @enabled = value & 0x80 != 0
+      @dac_enabled = value & 0x80 != 0
     when 0xFF1B
       @remaining_length = 256 - (value & 0x3F)
     when 0xFF1C
@@ -70,6 +71,7 @@ class Channel3 < SoundChannel
       @counter_selection = value & 0x40 != 0
       @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x7) << 8)
       trigger = value & (0x1 << 7) != 0
+      @enabled = true if trigger
       if trigger
         @remaining_length = 256 if @remaining_length == 0
         @period = (2048 - @frequency) * 2

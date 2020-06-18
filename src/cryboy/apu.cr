@@ -124,9 +124,11 @@ class APU
         (@right_enable ? 0b00001000 : 0) | @right_volume).to_u8
     when 0xFF26
       0x70_u8 |
-        (@sound_enabled ? 0x1 << 7 : 0x0) |
-        (@channel2.remaining_length > 0 ? 0b0010 : 0) |
-        (@channel1.remaining_length > 0 ? 0x0001 : 0)
+        (@sound_enabled ? 0x80 : 0) |
+        (@channel4.enabled ? 0b1000 : 0) |
+        (@channel3.enabled ? 0b0100 : 0) |
+        (@channel2.enabled ? 0b0010 : 0) |
+        (@channel1.enabled ? 0b0001 : 0)
     else 0xFF_u8
     end
   end
@@ -143,7 +145,7 @@ class APU
       @left_enable = value & 0b10000000 != 0
       @left_volume = (value & 0b01110000) >> 4
       @right_enable = value & 0b00001000 != 0
-      @right_volume = (value & 0b00000111)
+      @right_volume = value & 0b00000111
     when 0xFF25
     when 0xFF26 then @sound_enabled = value & 0x80 == 0x80
     end

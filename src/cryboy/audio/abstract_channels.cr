@@ -3,6 +3,13 @@ abstract class SoundChannel
   # this works because Crystal's case..when syntax uses ===
   abstract def ===(value) : Bool
 
+  @dac_enabled = true
+  @enabled = false
+
+  def enabled : Bool
+    @dac_enabled && @enabled
+  end
+
   abstract def get_amplitude : Float32
 
   abstract def [](index : Int) : UInt8
@@ -18,7 +25,7 @@ abstract class Tone < SoundChannel
     [1, 0, 0, 0, 0, 1, 1, 1], # 50%
     [0, 1, 1, 1, 1, 1, 1, 0], # 75%
   ]
-  property remaining_length : UInt8 = 0x00
+  @remaining_length : UInt8 = 0x00
 
   # envelope
   @initial_volume : UInt8 = 0x00
@@ -29,7 +36,6 @@ abstract class Tone < SoundChannel
 
   @frequency : UInt16 = 0x0000
   @period : Int32 = 0x0000
-  @enabled : Bool = false
   @counter_selection : Bool = true
 
   def step : Nil
@@ -43,6 +49,7 @@ abstract class Tone < SoundChannel
   def length_step : Nil
     if @remaining_length > 0 && @counter_selection
       @remaining_length -= 1
+      @enabled = false if @remaining_length == 0
     end
   end
 
@@ -57,7 +64,11 @@ abstract class Tone < SoundChannel
   end
 
   def get_amplitude : Float32
-    @wave_duty[@wave_pattern_duty][@wave_duty_pos].to_f32 * @volume / 15
+    if @dac_enabled
+      @wave_duty[@wave_pattern_duty][@wave_duty_pos].to_f32 * @volume / 15
+    else
+      0_f32
+    end
   end
 
   def wavepattern_soundlength : UInt8
@@ -74,6 +85,12 @@ abstract class Tone < SoundChannel
   end
 
   def volume_envelope=(value : UInt8) : Nil
+    if value & 0xF8 == 0
+      @dac_enabled = false
+      @enabled = false
+    elsif value & 0x10 > 0
+      @dac_enabled = true
+    end
     @initial_volume = value >> 4
     @increasing = value & 0x08 != 0
     @envelope_sweep_number = value & 0x07
@@ -94,8 +111,9 @@ abstract class Tone < SoundChannel
   def frequency_hi=(value : UInt8) : Nil
     @counter_selection = value & 0x40 != 0
     @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x7) << 8)
-    enabled = value & (0x1 << 7) != 0
-    if enabled
+    trigger = value & (0x1 << 7) != 0
+    @enabled = true if trigger
+    if trigger
       @remaining_length = 64 if @remaining_length == 0
       @period = (2048 - @frequency) * 4
       @volume = @initial_volume
