@@ -20,7 +20,7 @@ class APU
   @channel4 = Channel4.new
   @sound_enabled : Bool = false
 
-  @buffer = Slice(Float32).new 4096
+  @buffer = Slice(Float32).new BUFFER_SIZE
   @buffer_pos = 0
   @cycles = 0_u32
   @frame_sequencer_stage = 0
