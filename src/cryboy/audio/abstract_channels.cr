@@ -112,8 +112,8 @@ abstract class Tone < SoundChannel
     @counter_selection = value & 0x40 != 0
     @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x7) << 8)
     trigger = value & (0x1 << 7) != 0
-    @enabled = true if trigger
     if trigger
+      @enabled = true
       @remaining_length = 64 if @remaining_length == 0
       @period = (2048 - @frequency) * 4
       @volume = @initial_volume

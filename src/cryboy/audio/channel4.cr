@@ -1,4 +1,4 @@
-class Channel4
+class Channel4 < SoundChannel
   def ===(value) : Bool
     value.is_a?(Int) && 0xFF20 <= value <= 0xFF23
   end
@@ -20,7 +20,6 @@ class Channel4
   @dividing_ratio : UInt8 = 0x00
   @period : Int32 = 0x0000
 
-  getter enabled : Bool = false
   @counter_selection : Bool = true
 
   def step : Nil
@@ -74,6 +73,12 @@ class Channel4
     when 0xFF20
       @remaining_length = 64_u8 - (value & 0x3F)
     when 0xFF21
+      if value & 0xF8 == 0
+        @dac_enabled = false
+        @enabled = false
+      elsif value & 0x10 > 0
+        @dac_enabled = true
+      end
       @initial_volume = value >> 4
       @increasing = value & 0x08 != 0
       @envelope_sweep_number = value & 0x07
@@ -83,8 +88,9 @@ class Channel4
       @dividing_ratio = value & 0x7
     when 0xFF23
       @counter_selection = value & 0x40 != 0
-      @enabled = value & 0x80 != 0
-      if @enabled
+      trigger = value & (0x1 << 7) != 0
+      if trigger
+        @enabled = true
         @remaining_length = 64 if @remaining_length == 0
         @period = (@dividing_ratio == 0 ? 8 : 16 * @dividing_ratio) << @shift_clock_frequency
         @volume = @initial_volume

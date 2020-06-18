@@ -3,8 +3,6 @@ class Channel3 < SoundChannel
     value.is_a?(Int) && 0xFF1A <= value <= 0xFF1E || 0xFF30 <= value <= 0xFF3F
   end
 
-  getter enabled = false
-  @dac_enabled = false
   @remaining_length = 0
   @output_level_raw = 0_u8
   @volume = 0_f32
@@ -54,9 +52,14 @@ class Channel3 < SoundChannel
   def []=(index : Int, value : UInt8) : Nil
     case index
     when 0xFF1A
-      @dac_enabled = value & 0x80 != 0
+      if value & 0x80 == 0
+        @dac_enabled = false
+        @enabled = false
+      else
+        @dac_enabled = true
+      end
     when 0xFF1B
-      @remaining_length = 256 - (value & 0x3F)
+      @remaining_length = 256 - value
     when 0xFF1C
       @output_level_raw = value
       case (value >> 5) & 0x3
@@ -71,8 +74,8 @@ class Channel3 < SoundChannel
       @counter_selection = value & 0x40 != 0
       @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x7) << 8)
       trigger = value & (0x1 << 7) != 0
-      @enabled = true if trigger
       if trigger
+        @enabled = true
         @remaining_length = 256 if @remaining_length == 0
         @period = (2048 - @frequency) * 2
       end
