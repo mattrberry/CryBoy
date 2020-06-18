@@ -15,7 +15,7 @@ class Channel3 < SoundChannel
 
   def step : Nil
     @period -= 1
-    if @period == 0
+    if @period <= 0
       @period = (2048 - @frequency) * 2
       @position = (@position + 1) % 32
     end

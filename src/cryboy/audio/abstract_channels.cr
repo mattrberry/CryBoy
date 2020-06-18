@@ -34,21 +34,20 @@ abstract class Tone < SoundChannel
 
   def step : Nil
     @period -= 1
-    if @period == 0
+    if @period <= 0
       @period = (2048 - @frequency) * 4
       @wave_duty_pos = (@wave_duty_pos + 1) % 8
     end
   end
 
   def length_step : Nil
-    if @enabled && @remaining_length > 0 && @counter_selection
+    if @remaining_length > 0 && @counter_selection
       @remaining_length -= 1
-      @enabled = false if @remaining_length == 0
     end
   end
 
   def volume_step : Nil
-    if @enabled && @envelope_sweep_number != 0
+    if @envelope_sweep_number != 0
       if @env_sweep_counter == 0
         @env_sweep_counter = @envelope_sweep_number
         @volume += (@increasing ? 1 : -1) if (@volume < 0xF && @increasing) || (@volume > 0x0 && !@increasing)
@@ -58,11 +57,7 @@ abstract class Tone < SoundChannel
   end
 
   def get_amplitude : Float32
-    if @enabled
-      @wave_duty[@wave_pattern_duty][@wave_duty_pos].to_f32 * @volume / 15
-    else
-      0_f32
-    end
+    @wave_duty[@wave_pattern_duty][@wave_duty_pos].to_f32 * @volume / 15
   end
 
   def wavepattern_soundlength : UInt8
@@ -99,8 +94,8 @@ abstract class Tone < SoundChannel
   def frequency_hi=(value : UInt8) : Nil
     @counter_selection = value & 0x40 != 0
     @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x7) << 8)
-    @enabled = value & (0x1 << 7) != 0
-    if @enabled
+    enabled = value & (0x1 << 7) != 0
+    if enabled
       @remaining_length = 64 if @remaining_length == 0
       @period = (2048 - @frequency) * 4
       @volume = @initial_volume

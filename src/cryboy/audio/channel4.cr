@@ -25,7 +25,7 @@ class Channel4
 
   def step : Nil
     @period -= 1
-    if @period == 0
+    if @period <= 0
       @period = (@dividing_ratio == 0 ? 8 : 16 * @dividing_ratio) << @shift_clock_frequency
 
       new_bit = (@lfsr & 0b01) ^ ((@lfsr & 0b10) >> 1)
