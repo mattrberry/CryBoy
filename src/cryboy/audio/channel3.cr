@@ -11,7 +11,6 @@ class Channel3 < SoundChannel
   @volume = 0_f32
   @counter_selection : Bool = true
   @frequency : UInt16 = 0x0000
-  @period : Int32 = 0x0000
   @wave_pattern_ram = Bytes.new 32 # stores 32 4-bit values
   @position = 0
 
@@ -53,8 +52,7 @@ class Channel3 < SoundChannel
       else
         enable_dac
       end
-    when 0xFF1B
-      @remaining_length = 256 - value
+    when 0xFF1B then @remaining_length = 256 - value
     when 0xFF1C
       @output_level_raw = value
       case (value >> 5) & 0x3
@@ -63,8 +61,7 @@ class Channel3 < SoundChannel
       when 2 then @volume = 0.5_f32
       when 3 then @volume = 0.75_f32
       end
-    when 0xFF1D
-      @frequency = (@frequency & 0x0700) | value
+    when 0xFF1D then @frequency = (@frequency & 0x0700) | value
     when 0xFF1E
       @counter_selection = value & 0x40 != 0
       @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x7) << 8)
@@ -73,7 +70,7 @@ class Channel3 < SoundChannel
         puts "#{typeof(self)} -- trigger"
         @enabled = true
         @remaining_length = 256 if @remaining_length == 0
-        @period = (2048 - @frequency) * 2
+        reload_period
       end
     when 0xFF30..0xFF3F
       index = index - 0xFF30

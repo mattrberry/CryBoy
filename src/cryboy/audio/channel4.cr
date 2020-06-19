@@ -2,14 +2,12 @@ class Channel4 < VolumeEnvelopeChannel
   @@RANGE = 0xFF20..0xFF23
 
   @lfsr : UInt16 = 0x0000
-  @output = 0
 
   @remaining_length : UInt8 = 0x00
 
   @shift_clock_frequency : UInt8 = 0x00
   @counter_step : UInt8 = 0x00
   @dividing_ratio : UInt8 = 0x00
-  @period : Int32 = 0x0000
 
   @counter_selection : Bool = true
 
@@ -47,8 +45,7 @@ class Channel4 < VolumeEnvelopeChannel
 
   def []=(index : Int, value : UInt8) : Nil
     case index
-    when 0xFF20
-      @remaining_length = 64_u8 - (value & 0x3F)
+    when 0xFF20 then @remaining_length = 64_u8 - (value & 0x3F)
     when 0xFF21 then self.volume_envelope = value
     when 0xFF22
       @shift_clock_frequency = value >> 4

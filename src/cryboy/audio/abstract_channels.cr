@@ -5,8 +5,9 @@ abstract class SoundChannel
     value.is_a?(Int) && @@RANGE.includes?(value)
   end
 
-  @dac_enabled = true
-  @enabled = false
+  @dac_enabled : Bool = true
+  @enabled : Bool = false
+  @period : Int32 = 0
 
   # channels are enabled iff dac is enabled, channel is triggered, and length hasn't expired
   def enabled : Bool
@@ -120,7 +121,6 @@ abstract class ToneChannel < VolumeEnvelopeChannel
   @remaining_length : UInt8 = 0x00
 
   @frequency : UInt16 = 0x0000
-  @period : Int32 = 0x0000
   @counter_selection : Bool = true
 
   def reload_period : Nil
