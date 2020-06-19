@@ -1,4 +1,4 @@
-class Channel2 < Tone
+class Channel2 < ToneChannel
   @@RANGE = 0xFF16..0xFF19
 
   def [](index : Int) : UInt8

@@ -8,17 +8,20 @@ abstract class SoundChannel
   @dac_enabled = true
   @enabled = false
 
+  # channels are enabled iff dac is enabled, channel is triggered, and length hasn't expired
   def enabled : Bool
     puts "#{typeof(self)} -- enabled? #{@dac_enabled && @enabled} (#{@dac_enabled}, #{@enabled})"
     @dac_enabled && @enabled
   end
 
+  # disabling a channel disables the dac and stops the audio
   def disable_channel : Nil
     puts "#{typeof(self)} -- disable dac"
     @dac_enabled = false
     @enabled = false
   end
 
+  # powering a channel off writes 0x00 to all registers
   def power_off_channel : Nil
     puts "#{typeof(self)} -- power off channel"
     @@RANGE.each do |addr|
@@ -26,10 +29,35 @@ abstract class SoundChannel
     end
   end
 
+  # enable the dac
   def enable_dac : Nil
     puts "#{typeof(self)} -- enable dac"
     @dac_enabled = true
   end
+
+  # step the channel, calling helpers to reload the period and step the wave generation
+  def step : Nil
+    @period -= 1
+    if @period <= 0
+      reload_period
+      step_wave_generation
+    end
+  end
+
+  # step the length, disabling the channel if the length counter expires
+  def length_step : Nil
+    if @remaining_length > 0 && @counter_selection
+      @remaining_length -= 1
+      @enabled = false if @remaining_length == 0
+      puts "#{typeof(self)} -- length expired" if @remaining_length == 0
+    end
+  end
+
+  # called when @period reaches 0 and on trigger
+  abstract def reload_period : Nil
+
+  # called when @period reaches 0
+  abstract def step_wave_generation : Nil
 
   abstract def get_amplitude : Float32
 
@@ -37,7 +65,50 @@ abstract class SoundChannel
   abstract def []=(index : Int, value : UInt8) : Nil
 end
 
-abstract class Tone < SoundChannel
+abstract class VolumeEnvelopeChannel < SoundChannel
+  # envelope
+  @initial_volume : UInt8 = 0x00
+  @volume : UInt8 = 0x00
+  @increasing : Bool = false
+  @envelope_sweep_number : UInt8 = 0x00
+  @env_sweep_counter : UInt8 = 0x00
+
+  # step the volume envelope
+  def volume_step : Nil
+    if @envelope_sweep_number != 0
+      if @env_sweep_counter == 0
+        @env_sweep_counter = @envelope_sweep_number
+        @volume += (@increasing ? 1 : -1) if (@volume < 0xF && @increasing) || (@volume > 0x0 && !@increasing)
+      end
+      @env_sweep_counter -= 1
+    end
+  end
+
+  # reset the volume envelope
+  def reset_volume_envelope : Nil
+    @volume = @initial_volume
+    @env_sweep_counter = @envelope_sweep_number
+  end
+
+  # read the volume envelope register
+  def volume_envelope : UInt8
+    (@initial_volume << 4) | (@increasing ? 0x08 : 0) | @envelope_sweep_number
+  end
+
+  # set the volume envelope register (which also controls the dac)
+  def volume_envelope=(value : UInt8) : Nil
+    if value & 0xF8 == 0
+      disable_channel
+    else
+      enable_dac
+    end
+    @initial_volume = value >> 4
+    @increasing = value & 0x08 != 0
+    @envelope_sweep_number = value & 0x07
+  end
+end
+
+abstract class ToneChannel < VolumeEnvelopeChannel
   @wave_pattern_duty : UInt8 = 0x00
   @wave_duty_pos : UInt8 = 0
   @wave_duty = [
@@ -48,41 +119,16 @@ abstract class Tone < SoundChannel
   ]
   @remaining_length : UInt8 = 0x00
 
-  # envelope
-  @initial_volume : UInt8 = 0x00
-  @volume : UInt8 = 0x00
-  @increasing : Bool = false
-  @envelope_sweep_number : UInt8 = 0x00
-  @env_sweep_counter : UInt8 = 0x00
-
   @frequency : UInt16 = 0x0000
   @period : Int32 = 0x0000
   @counter_selection : Bool = true
 
-  def step : Nil
-    @period -= 1
-    if @period <= 0
-      @period = (2048 - @frequency) * 4
-      @wave_duty_pos = (@wave_duty_pos + 1) % 8
-    end
+  def reload_period : Nil
+    @period = (2048 - @frequency) * 4
   end
 
-  def length_step : Nil
-    if @remaining_length > 0 && @counter_selection
-      @remaining_length -= 1
-      @enabled = false if @remaining_length == 0
-      puts "#{typeof(self)} -- length expired" if @remaining_length == 0
-    end
-  end
-
-  def volume_step : Nil
-    if @envelope_sweep_number != 0
-      if @env_sweep_counter == 0
-        @env_sweep_counter = @envelope_sweep_number
-        @volume += (@increasing ? 1 : -1) if (@volume < 0xF && @increasing) || (@volume > 0x0 && !@increasing)
-      end
-      @env_sweep_counter -= 1
-    end
+  def step_wave_generation : Nil
+    @wave_duty_pos = (@wave_duty_pos + 1) % 8
   end
 
   def get_amplitude : Float32
@@ -100,21 +146,6 @@ abstract class Tone < SoundChannel
   def wavepattern_soundlength=(value : UInt8) : Nil
     @wave_pattern_duty = value >> 6
     @remaining_length = 64_u8 - (value & 0x3F)
-  end
-
-  def volume_envelope : UInt8
-    (@initial_volume << 4) | (@increasing ? 0x08 : 0) | @envelope_sweep_number
-  end
-
-  def volume_envelope=(value : UInt8) : Nil
-    if value & 0xF8 == 0
-      disable_channel
-    else
-      enable_dac
-    end
-    @initial_volume = value >> 4
-    @increasing = value & 0x08 != 0
-    @envelope_sweep_number = value & 0x07
   end
 
   def frequency_lo : UInt8
@@ -137,9 +168,8 @@ abstract class Tone < SoundChannel
       puts "#{typeof(self)} -- trigger"
       @enabled = true
       @remaining_length = 64 if @remaining_length == 0
-      @period = (2048 - @frequency) * 4
-      @volume = @initial_volume
-      @env_sweep_counter = @envelope_sweep_number
+      reload_period
+      reset_volume_envelope
     end
   end
 end

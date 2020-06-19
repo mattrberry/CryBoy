@@ -15,20 +15,12 @@ class Channel3 < SoundChannel
   @wave_pattern_ram = Bytes.new 32 # stores 32 4-bit values
   @position = 0
 
-  def step : Nil
-    @period -= 1
-    if @period <= 0
-      @period = (2048 - @frequency) * 2
-      @position = (@position + 1) % 32
-    end
+  def reload_period : Nil
+    @period = (2048 - @frequency) * 2
   end
 
-  def length_step : Nil
-    if @remaining_length > 0 && @counter_selection
-      @remaining_length -= 1
-      @enabled = false if @remaining_length == 0
-      puts "#{typeof(self)} -- length expired" if @remaining_length == 0
-    end
+  def step_wave_generation
+    @position = (@position + 1) % 32
   end
 
   def get_amplitude : Float32

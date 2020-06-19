@@ -1,4 +1,4 @@
-class Channel1 < Tone # todo: sweep
+class Channel1 < ToneChannel # todo: sweep
   @@RANGE = 0xFF10..0xFF14
 
   @sweep : UInt8 = 0x80
