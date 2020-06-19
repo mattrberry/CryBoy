@@ -30,6 +30,8 @@ class APU
   @right_enable = false
   @right_volume = 0_u8
 
+  @nr51 : UInt8 = 0x00
+
   def initialize
     @audiospec = LibSDL::AudioSpec.new
     @audiospec.freq = SAMPLE_RATE
@@ -114,7 +116,7 @@ class APU
   # read from apu memory
   def [](index : Int) : UInt8
     return 0xFF_u8 if !@sound_enabled && index != 0xFF26
-    case index
+    val = case index
     when @channel1 then @channel1[index]
     when @channel2 then @channel2[index]
     when @channel3 then @channel3[index]
@@ -122,6 +124,7 @@ class APU
     when 0xFF24
       ((@left_enable ? 0b10000000 : 0) | (@left_volume << 4) |
         (@right_enable ? 0b00001000 : 0) | @right_volume).to_u8
+    when 0xFF25 then @nr51
     when 0xFF26
       0x70_u8 |
         (@sound_enabled ? 0x80 : 0) |
@@ -131,6 +134,8 @@ class APU
         (@channel1.enabled ? 0b0001 : 0)
     else 0xFF_u8
     end
+    puts "READ -- index: #{hex_str index.to_u16}, value: #{hex_str val}"
+    val
   end
 
   # write to apu memory
@@ -146,8 +151,9 @@ class APU
       @left_volume = (value & 0b01110000) >> 4
       @right_enable = value & 0b00001000 != 0
       @right_volume = value & 0b00000111
-    when 0xFF25
+    when 0xFF25 then @nr51 = value
     when 0xFF26 then @sound_enabled = value & 0x80 == 0x80
     end
+    puts "WRITE - index: #{hex_str index.to_u16}, value: #{hex_str value}"
   end
 end

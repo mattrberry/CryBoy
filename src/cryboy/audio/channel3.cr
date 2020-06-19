@@ -37,9 +37,9 @@ class Channel3 < SoundChannel
 
   def [](index : Int) : UInt8
     case index
-    when 0xFF1A then @dac_enabled ? 0x80_u8 : 0x00_u8
+    when 0xFF1A then 0x7F_u8 | (@dac_enabled ? 0x80 : 0x00)
     when 0xFF1B then 0xFF_u8 # I assume this is write-only like in the tone channels
-    when 0xFF1C then @output_level_raw
+    when 0xFF1C then 0x9F_u8 | @output_level_raw
     when 0xFF1D then 0xFF_u8                                       # write-only
     when 0xFF1E then 0xBF_u8 | ((@counter_selection ? 1 : 0) << 6) # rest is write-only
     when 0xFF30..0xFF3F
