@@ -64,12 +64,7 @@ class Channel4 < SoundChannel
 
   def [](index : Int) : UInt8
     case index
-    when 0xFF20 # big todo: refactor how remaining_length works so that this logic can go away
-      if @remaining_length == 64
-        0xFF_u8
-      else
-        0xC0_u8 | (64_u8 - @remaining_length)
-      end
+    when 0xFF20 then 0xFF_u8 # I assume this is write-only like in the tone channels, although the pandocs say differently
     when 0xFF21 then (@initial_volume << 4) | (@increasing ? 0x08 : 0) | @envelope_sweep_number
     when 0xFF22 then (@shift_clock_frequency << 4) | (@counter_step << 3) | @dividing_ratio
     when 0xFF23 then 0xBF_u8 | (@counter_selection ? 0x40 : 0)
