@@ -1,8 +1,5 @@
 class Channel2 < Tone
   @@RANGE = 0xFF16..0xFF19
-  # def ===(value) : Bool
-  #   value.is_a?(Int) && 0xFF16 <= value <= 0xFF19
-  # end
 
   def [](index : Int) : UInt8
     case index

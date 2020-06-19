@@ -116,23 +116,23 @@ class APU
   # read from apu memory
   def [](index : Int) : UInt8
     val = case index
-    when @channel1 then @channel1[index]
-    when @channel2 then @channel2[index]
-    when @channel3 then @channel3[index]
-    when @channel4 then @channel4[index]
-    when 0xFF24
-      ((@left_enable ? 0b10000000 : 0) | (@left_volume << 4) |
-        (@right_enable ? 0b00001000 : 0) | @right_volume).to_u8
-    when 0xFF25 then @nr51
-    when 0xFF26
-      0x70_u8 |
-        (@sound_enabled ? 0x80 : 0) |
-        (@channel4.enabled ? 0b1000 : 0) |
-        (@channel3.enabled ? 0b0100 : 0) |
-        (@channel2.enabled ? 0b0010 : 0) |
-        (@channel1.enabled ? 0b0001 : 0)
-    else 0xFF_u8
-    end
+          when @channel1 then @channel1[index]
+          when @channel2 then @channel2[index]
+          when @channel3 then @channel3[index]
+          when @channel4 then @channel4[index]
+          when 0xFF24
+            ((@left_enable ? 0b10000000 : 0) | (@left_volume << 4) |
+              (@right_enable ? 0b00001000 : 0) | @right_volume).to_u8
+          when 0xFF25 then @nr51
+          when 0xFF26
+            0x70_u8 |
+              (@sound_enabled ? 0x80 : 0) |
+              (@channel4.enabled ? 0b1000 : 0) |
+              (@channel3.enabled ? 0b0100 : 0) |
+              (@channel2.enabled ? 0b0010 : 0) |
+              (@channel1.enabled ? 0b0001 : 0)
+          else 0xFF_u8
+          end
     puts "READ -- index: #{hex_str index.to_u16}, value: #{hex_str val}"
     val
   end
