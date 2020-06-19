@@ -1,13 +1,34 @@
 abstract class SoundChannel
   # allow channels to define the memory they map to
   # this works because Crystal's case..when syntax uses ===
-  abstract def ===(value) : Bool
+  def ===(value) : Bool
+    value.is_a?(Int) && @@RANGE.includes?(value)
+  end
 
   @dac_enabled = true
   @enabled = false
 
   def enabled : Bool
+    puts "#{typeof(self)} -- enabled? #{@dac_enabled && @enabled} (#{@dac_enabled}, #{@enabled})"
     @dac_enabled && @enabled
+  end
+
+  def disable_channel : Nil
+    puts "#{typeof(self)} -- disable dac"
+    @dac_enabled = false
+    @enabled = false
+  end
+
+  def power_off_channel : Nil
+    puts "#{typeof(self)} -- power off channel"
+    @@RANGE.each do |addr|
+      self[addr] = 0x00_u8
+    end
+  end
+
+  def enable_dac : Nil
+    puts "#{typeof(self)} -- enable dac"
+    @dac_enabled = true
   end
 
   abstract def get_amplitude : Float32
@@ -50,6 +71,7 @@ abstract class Tone < SoundChannel
     if @remaining_length > 0 && @counter_selection
       @remaining_length -= 1
       @enabled = false if @remaining_length == 0
+      puts "#{typeof(self)} -- length expired" if @remaining_length == 0
     end
   end
 
@@ -86,10 +108,9 @@ abstract class Tone < SoundChannel
 
   def volume_envelope=(value : UInt8) : Nil
     if value & 0xF8 == 0
-      @dac_enabled = false
-      @enabled = false
-    elsif value & 0x10 > 0
-      @dac_enabled = true
+      disable_channel
+    else
+      enable_dac
     end
     @initial_volume = value >> 4
     @increasing = value & 0x08 != 0
@@ -113,6 +134,7 @@ abstract class Tone < SoundChannel
     @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x7) << 8)
     trigger = value & (0x1 << 7) != 0
     if trigger
+      puts "#{typeof(self)} -- trigger"
       @enabled = true
       @remaining_length = 64 if @remaining_length == 0
       @period = (2048 - @frequency) * 4

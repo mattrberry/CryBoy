@@ -1,7 +1,8 @@
 class Channel4 < SoundChannel
-  def ===(value) : Bool
-    value.is_a?(Int) && 0xFF20 <= value <= 0xFF23
-  end
+  @@RANGE = 0xFF20..0xFF23
+  # def ===(value) : Bool
+  #   value.is_a?(Int) && 0xFF20 <= value <= 0xFF23
+  # end
 
   @lfsr : UInt16 = 0x0000
   @output = 0
@@ -41,6 +42,7 @@ class Channel4 < SoundChannel
     if @remaining_length > 0 && @counter_selection
       @remaining_length -= 1
       @enabled = false if @remaining_length == 0
+      puts "#{typeof(self)} -- length expired" if @remaining_length == 0
     end
   end
 
@@ -78,10 +80,9 @@ class Channel4 < SoundChannel
       @remaining_length = 64_u8 - (value & 0x3F)
     when 0xFF21
       if value & 0xF8 == 0
-        @dac_enabled = false
-        @enabled = false
-      elsif value & 0x10 > 0
-        @dac_enabled = true
+        disable_channel
+      else
+        enable_dac
       end
       @initial_volume = value >> 4
       @increasing = value & 0x08 != 0
@@ -94,6 +95,7 @@ class Channel4 < SoundChannel
       @counter_selection = value & 0x40 != 0
       trigger = value & (0x1 << 7) != 0
       if trigger
+        puts "#{typeof(self)} -- trigger"
         @enabled = true
         @remaining_length = 64 if @remaining_length == 0
         @period = (@dividing_ratio == 0 ? 8 : 16 * @dividing_ratio) << @shift_clock_frequency

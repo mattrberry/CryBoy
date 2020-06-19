@@ -1,7 +1,5 @@
 class Channel1 < Tone # todo: sweep
-  def ===(value) : Bool
-    value.is_a?(Int) && 0xFF10 <= value <= 0xFF14
-  end
+  @@RANGE = 0xFF10..0xFF14
 
   @sweep : UInt8 = 0x80
 

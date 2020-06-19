@@ -1,6 +1,9 @@
 class Channel3 < SoundChannel
+  @@RANGE = 0xFF1A..0xFF1E
+  class_getter wave_ram = 0xFF30..0xFF3F
+
   def ===(value) : Bool
-    value.is_a?(Int) && 0xFF1A <= value <= 0xFF1E || 0xFF30 <= value <= 0xFF3F
+    value.is_a?(Int) && @@RANGE.includes?(value) || @@wave_ram.includes?(value)
   end
 
   @remaining_length = 0
@@ -24,6 +27,7 @@ class Channel3 < SoundChannel
     if @remaining_length > 0 && @counter_selection
       @remaining_length -= 1
       @enabled = false if @remaining_length == 0
+      puts "#{typeof(self)} -- length expired" if @remaining_length == 0
     end
   end
 
@@ -53,10 +57,9 @@ class Channel3 < SoundChannel
     case index
     when 0xFF1A
       if value & 0x80 == 0
-        @dac_enabled = false
-        @enabled = false
+        disable_channel
       else
-        @dac_enabled = true
+        enable_dac
       end
     when 0xFF1B
       @remaining_length = 256 - value
@@ -75,6 +78,7 @@ class Channel3 < SoundChannel
       @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x7) << 8)
       trigger = value & (0x1 << 7) != 0
       if trigger
+        puts "#{typeof(self)} -- trigger"
         @enabled = true
         @remaining_length = 256 if @remaining_length == 0
         @period = (2048 - @frequency) * 2

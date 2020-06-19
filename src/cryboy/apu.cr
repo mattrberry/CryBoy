@@ -115,7 +115,6 @@ class APU
 
   # read from apu memory
   def [](index : Int) : UInt8
-    return 0xFF_u8 if !@sound_enabled && index != 0xFF26
     val = case index
     when @channel1 then @channel1[index]
     when @channel2 then @channel2[index]
@@ -140,7 +139,7 @@ class APU
 
   # write to apu memory
   def []=(index : Int, value : UInt8) : Nil
-    return if !@sound_enabled && index != 0xFF26
+    return if !@sound_enabled && index != 0xFF26 && !Channel3.wave_ram.includes?(index)
     case index
     when @channel1 then @channel1[index] = value
     when @channel2 then @channel2[index] = value
@@ -152,8 +151,17 @@ class APU
       @right_enable = value & 0b00001000 != 0
       @right_volume = value & 0b00000111
     when 0xFF25 then @nr51 = value
-    when 0xFF26 then @sound_enabled = value & 0x80 == 0x80
+    when 0xFF26
+      unless value & 0x80 == 0x80
+        @channel1.power_off_channel
+        @channel2.power_off_channel
+        @channel3.power_off_channel
+        @channel4.power_off_channel
+        self[0xFF24] = 0x00_u8
+        self[0xFF25] = 0x00_u8
+      end
+      @sound_enabled = value & 0x80 == 0x80
     end
-    puts "WRITE - index: #{hex_str index.to_u16}, value: #{hex_str value}"
+    puts "WROTE - index: #{hex_str index.to_u16}, value: #{hex_str value}"
   end
 end
