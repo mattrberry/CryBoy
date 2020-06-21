@@ -166,11 +166,18 @@ class CPU
     puts "AF:#{hex_str self.af} BC:#{hex_str self.bc} DE:#{hex_str self.de} HL:#{hex_str self.hl} | PC:#{hex_str @pc} | OP:#{hex_str @memory[@pc]} | IME:#{@ime ? 1 : 0}"
   end
 
+  def tick_components(cycles = 4) : Nil
+    @ppu.tick cycles
+    @apu.tick cycles
+    @timer.tick cycles
+  end
+
   # Runs for the specified number of machine cycles. If no argument provided,
   # runs only one instruction. Handles interrupts _after_ the instruction is
   # executed.
   def tick(cycles = 1) : Nil
     while cycles > 0
+      tick_components
       if @halted
         cycles_taken = 4
       else
@@ -180,9 +187,7 @@ class CPU
         @ime = true if @ime_enable == 1
         @ime_enable -= 1
       end
-      @ppu.tick cycles_taken
-      @apu.tick cycles_taken
-      @timer.tick cycles_taken
+      tick_components cycles_taken - 4
       cycles -= cycles_taken
       handle_interrupts
     end
