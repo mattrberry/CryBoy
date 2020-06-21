@@ -71,6 +71,7 @@ class Channel3 < SoundChannel
         @enabled = true
         @remaining_length = 256 if @remaining_length == 0
         reload_period
+        @position = 0
       end
     when 0xFF30..0xFF3F
       index = index - 0xFF30
