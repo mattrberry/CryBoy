@@ -36,7 +36,7 @@ class Timer
     if @enabled
       if (@div & (1 << @bit_for_tima)) != 0 && (new_div & (1 << @bit_for_tima)) == 0 # falling edge
         @tima &+= 1
-        @cycles_until_tima_update = 4 if @tima == 0 # initiate delay for interrupt and tma load
+        @cycles_until_tima_update = 5 if @tima == 0 # initiate delay for interrupt and tma load
       end
     end
     @div = new_div
@@ -63,8 +63,10 @@ class Timer
     case index
     when 0xFF04 then self.div = 0x0000_u16 # reset div on write
     when 0xFF05
-      @tima = value
-      @cycles_until_tima_update = -1 # prevent immediate load from tma
+      if @cycles_until_tima_update != 0
+        @tima = value
+        @cycles_until_tima_update = -1 # prevent immediate load from tma
+      end
     when 0xFF06 then @tma = value
     when 0xFF07
       disabled = value & (0b100) == 0
