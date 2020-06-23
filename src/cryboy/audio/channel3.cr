@@ -18,7 +18,7 @@ class Channel3 < SoundChannel
     @period = (2048 - @frequency) * 2
   end
 
-  def step_wave_generation
+  def step_wave_generation : Nil
     @position = (@position + 1) % 32
   end
 
