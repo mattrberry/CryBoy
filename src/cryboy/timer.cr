@@ -16,15 +16,17 @@ class Timer
   # tick timer forward by specified number of cycles
   def tick(cycles : Int) : Nil
     while cycles > 0
-      # puts "ticking div from #{hex_str @div}"
+      # puts "===== incrementing cycle. tima: #{@tima}"
+      # puts "ticking div from #{hex_str @div} to #{hex_str (@div &+ 1)}, countdown: #{@countdown}"
       cycles -= 1
 
+      @countdown -= 1 if @countdown > -1
+      # puts "decrementing countdown to #{@countdown - 1}" if @countdown > -1
       if @countdown == 0
         # puts "loading tma and setting interrupt flag"
         @interrupts.timer_interrupt = true
         @tima = @tma
       end
-      @countdown -= 1 if @countdown > -1
 
       @div &+= 1
       current = @enabled && (@div & (1 << @bit_for_tima) != 0)
@@ -34,6 +36,7 @@ class Timer
         @countdown = 4 if @tima == 0
       end
       @previous = current
+      # puts "----- done incrementing cycle. tima: #{@tima}"
     end
   end
 
