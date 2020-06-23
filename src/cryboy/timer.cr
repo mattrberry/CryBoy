@@ -55,8 +55,10 @@ class Timer
       @div = 0x0000_u16
     when 0xFF05
       # puts "TIMA: #{hex_str value}, countdown: #{@countdown}"
-      @tima = value
-      @countdown = -1 # abort interrupt and tma load
+      if @countdown != 0 # ignore writes on cycle that tma is loaded
+        @tima = value
+        @countdown = -1 # abort interrupt and tma load
+      end
     when 0xFF06
       # puts "TMA: #{hex_str value}, countdown: #{@countdown}"
       @tma = value
