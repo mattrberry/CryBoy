@@ -55,7 +55,6 @@ class Channel4 < VolumeEnvelopeChannel
       @counter_selection = value & 0x40 != 0
       trigger = value & (0x1 << 7) != 0
       if trigger
-        puts "#{typeof(self)} -- trigger"
         @enabled = true
         @remaining_length = 64 if @remaining_length == 0
         reload_period

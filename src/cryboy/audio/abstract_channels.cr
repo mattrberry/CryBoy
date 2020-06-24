@@ -11,20 +11,17 @@ abstract class SoundChannel
 
   # channels are enabled iff dac is enabled, channel is triggered, and length hasn't expired
   def enabled : Bool
-    puts "#{typeof(self)} -- enabled? #{@dac_enabled && @enabled} (#{@dac_enabled}, #{@enabled})"
     @dac_enabled && @enabled
   end
 
   # disabling a channel disables the dac and stops the audio
   def disable_channel : Nil
-    puts "#{typeof(self)} -- disable dac"
     @dac_enabled = false
     @enabled = false
   end
 
   # powering a channel off writes 0x00 to all registers
   def power_off_channel : Nil
-    puts "#{typeof(self)} -- power off channel"
     @@RANGE.each do |addr|
       self[addr] = 0x00_u8
     end
@@ -32,7 +29,6 @@ abstract class SoundChannel
 
   # enable the dac
   def enable_dac : Nil
-    puts "#{typeof(self)} -- enable dac"
     @dac_enabled = true
   end
 
@@ -50,7 +46,6 @@ abstract class SoundChannel
     if @remaining_length > 0 && @counter_selection
       @remaining_length -= 1
       @enabled = false if @remaining_length == 0
-      puts "#{typeof(self)} -- length expired" if @remaining_length == 0
     end
   end
 
@@ -165,7 +160,6 @@ abstract class ToneChannel < VolumeEnvelopeChannel
     @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x7) << 8)
     trigger = value & (0x1 << 7) != 0
     if trigger
-      puts "#{typeof(self)} -- trigger"
       @enabled = true
       @remaining_length = 64 if @remaining_length == 0
       reload_period
