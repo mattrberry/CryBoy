@@ -12,7 +12,7 @@ class Memory
   HRAM          = 0xFF80..0xFFFE
   INTERRUPT_REG = 0xFFFF
 
-  property memory = Bytes.new 0xFFFF + 1
+  @memory = Bytes.new 0xFFFF + 1
   @bootrom = Bytes.new 0
   @cycle_tick_count = 0
 
@@ -45,11 +45,42 @@ class Memory
     end
   end
 
-  # read 8 bits from memory
-  def [](index : Int) : UInt8
-    # todo: not all of these registers are used. unused registers _should_ return 0xFF
-    # - sound doesn't take all of 0xFF10..0xFF3F
-    tick_components
+  def skip_boot : Nil
+    write_byte 0xFF05, 0x00_u8 # TIMA
+    write_byte 0xFF06, 0x00_u8 # TMA
+    write_byte 0xFF07, 0x00_u8 # TAC
+    write_byte 0xFF10, 0x80_u8 # NR10
+    write_byte 0xFF11, 0xBF_u8 # NR11
+    write_byte 0xFF12, 0xF3_u8 # NR12
+    write_byte 0xFF14, 0xBF_u8 # NR14
+    write_byte 0xFF16, 0x3F_u8 # NR21
+    write_byte 0xFF17, 0x00_u8 # NR22
+    write_byte 0xFF19, 0xBF_u8 # NR24
+    write_byte 0xFF1A, 0x7F_u8 # NR30
+    write_byte 0xFF1B, 0xFF_u8 # NR31
+    write_byte 0xFF1C, 0x9F_u8 # NR32
+    write_byte 0xFF1E, 0xBF_u8 # NR33
+    write_byte 0xFF20, 0xFF_u8 # NR41
+    write_byte 0xFF21, 0x00_u8 # NR42
+    write_byte 0xFF22, 0x00_u8 # NR43
+    write_byte 0xFF23, 0xBF_u8 # NR44
+    write_byte 0xFF24, 0x77_u8 # NR50
+    write_byte 0xFF25, 0xF3_u8 # NR51
+    write_byte 0xFF26, 0xF1_u8 # NR52
+    write_byte 0xFF40, 0x91_u8 # LCDC
+    write_byte 0xFF42, 0x00_u8 # SCY
+    write_byte 0xFF43, 0x00_u8 # SCX
+    write_byte 0xFF45, 0x00_u8 # LYC
+    write_byte 0xFF47, 0xFC_u8 # BGP
+    write_byte 0xFF48, 0xFF_u8 # OBP0
+    write_byte 0xFF49, 0xFF_u8 # OBP1
+    write_byte 0xFF4A, 0x00_u8 # WY
+    write_byte 0xFF4B, 0x00_u8 # WX
+    write_byte 0xFFFF, 0x00_u8 # IE
+  end
+
+  # read 8 bits from memory (doesn't tick components)
+  def read_byte(index : Int) : UInt8
     case index
     when 0x0000...@bootrom.size then @bootrom.nil? ? @cartridge[index] : @bootrom[index]
     when ROM_BANK_0             then @cartridge[index]
@@ -78,11 +109,17 @@ class Memory
     end
   end
 
-  # write 8 bits to memory
-  def []=(index : Int, value : UInt8) : Nil
+  # read 8 bits from memory and tick other components
+  def [](index : Int) : UInt8
+    # todo: not all of these registers are used. unused registers _should_ return 0xFF
+    # - sound doesn't take all of 0xFF10..0xFF3F
     tick_components
+    read_byte index
+  end
+
+  # write a 8 bits to memory (doesn't tick components)
+  def write_byte(index : Int, value : UInt8) : Nil
     @bootrom = Bytes.new 0 if index == 0xFF50 && value == 0x01
-    # puts "writing at index #{hex_str index.to_u16!} : #{hex_str value}"
     # todo other dma stuff
     case index
     when ROM_BANK_0   then @cartridge[index] = value
@@ -113,6 +150,12 @@ class Memory
     end
   end
 
+  # write 8 bits to memory and tick other components
+  def []=(index : Int, value : UInt8) : Nil
+    tick_components
+    write_byte index, value
+  end
+
   # write 16 bits to memory
   def []=(index : Int, value : UInt16) : Nil
     self[index] = (value & 0xFF).to_u8
@@ -126,7 +169,6 @@ class Memory
 
   def dma_transfer(source : UInt16) : Nil
     # todo add delay
-    (0x00..0x9F).each { |i| self[0xFE00 + i] = self[source + i] }
-    reset_cycle_count
+    (0x00..0x9F).each { |i| write_byte 0xFE00 + i, read_byte source + i }
   end
 end
