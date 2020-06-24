@@ -127,5 +127,6 @@ class Memory
   def dma_transfer(source : UInt16) : Nil
     # todo add delay
     (0x00..0x9F).each { |i| self[0xFE00 + i] = self[source + i] }
+    reset_cycle_count
   end
 end
