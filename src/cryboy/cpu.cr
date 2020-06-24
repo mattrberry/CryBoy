@@ -177,9 +177,10 @@ class CPU
   # executed.
   def tick(cycles = 1) : Nil
     while cycles > 0
-      tick_components
+      @memory.count = 0
       if @halted
         cycles_taken = 4
+        @memory.tick_components
       else
         cycles_taken = Opcodes::UNPREFIXED[@memory[@pc]].call self
       end
@@ -187,7 +188,6 @@ class CPU
         @ime = true if @ime_enable == 1
         @ime_enable -= 1
       end
-      tick_components cycles_taken - 4
       cycles -= cycles_taken
       handle_interrupts
     end

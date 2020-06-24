@@ -15,6 +15,23 @@ class Memory
   @memory = Bytes.new 0xFFFF + 1
   @bootrom = Bytes.new 0
 
+  def tick_components(cycles = 4) : Nil
+    @ppu.tick cycles
+    @apu.tick cycles
+    @timer.tick cycles
+    @count += cycles
+  end
+
+  property count = 0
+
+  def assert_count(expected : Int, op : UInt8) : Nil
+    if expected != @count
+      puts "op: #{hex_str op}, expected: #{expected}, actual: #{@count}"
+      exit 1
+    end
+    @count = 0
+  end
+
   def initialize(@cartridge : Cartridge, @interrupts : Interrupts, @ppu : PPU, @apu : APU, @timer : Timer, @joypad : Joypad, bootrom : String? = nil)
     if !bootrom.nil?
       File.open bootrom do |file|
@@ -29,6 +46,7 @@ class Memory
   def [](index : Int) : UInt8
     # todo: not all of these registers are used. unused registers _should_ return 0xFF
     # - sound doesn't take all of 0xFF10..0xFF3F
+    tick_components
     case index
     when 0x0000...@bootrom.size then @bootrom.nil? ? @cartridge[index] : @bootrom[index]
     when ROM_BANK_0             then @cartridge[index]
@@ -59,6 +77,7 @@ class Memory
 
   # write 8 bits to memory
   def []=(index : Int, value : UInt8) : Nil
+    tick_components
     @bootrom = Bytes.new 0 if index == 0xFF50 && value == 0x01
     # puts "writing at index #{hex_str index.to_u16!} : #{hex_str value}"
     # todo other dma stuff
