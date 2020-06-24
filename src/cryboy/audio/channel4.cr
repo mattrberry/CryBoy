@@ -19,7 +19,7 @@ class Channel4 < VolumeEnvelopeChannel
     new_bit = (@lfsr & 0b01) ^ ((@lfsr & 0b10) >> 1)
     @lfsr >>= 1
     @lfsr |= new_bit << 14
-    if @counter_selection != 0
+    if @counter_step != 0
       @lfsr &= ~(1 << 6)
       @lfsr |= new_bit << 6
     end
