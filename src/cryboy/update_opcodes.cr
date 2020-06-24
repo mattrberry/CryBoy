@@ -134,6 +134,7 @@ module DmgOps
       operand = operand.sub /\be\b/, "cpu.e"
       operand = operand.sub /\bh\b/, "cpu.h"
       operand = operand.sub /\bl\b/, "cpu.l"
+      operand = operand.sub "cpu.memory[cpu.hl]", "cpu.memory_at_hl"
       operand
     end
 

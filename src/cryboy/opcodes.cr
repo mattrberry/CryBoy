@@ -21,7 +21,6 @@ class Opcodes
     # 0x03 INC BC
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.bc &+= 1
       return 8
     },
@@ -71,7 +70,6 @@ class Opcodes
     ->(cpu : CPU) {
       cpu.pc &+= 1
       cpu.f_h = (cpu.hl & 0x0FFF).to_u32 + (cpu.bc & 0x0FFF) > 0x0FFF
-      cpu.memory.tick_components
       cpu.hl &+= cpu.bc
       cpu.f_c = cpu.hl < cpu.bc
       cpu.f_n = false
@@ -86,7 +84,6 @@ class Opcodes
     # 0x0B DEC BC
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.bc &-= 1
       return 8
     },
@@ -147,7 +144,6 @@ class Opcodes
     # 0x13 INC DE
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.de &+= 1
       return 8
     },
@@ -192,14 +188,12 @@ class Opcodes
       i8 = cpu.memory[cpu.pc + 1].to_i8!
       cpu.pc &+= 2
       cpu.pc &+= i8
-      cpu.memory.tick_components
       return 12
     },
     # 0x19 ADD HL,DE
     ->(cpu : CPU) {
       cpu.pc &+= 1
       cpu.f_h = (cpu.hl & 0x0FFF).to_u32 + (cpu.de & 0x0FFF) > 0x0FFF
-      cpu.memory.tick_components
       cpu.hl &+= cpu.de
       cpu.f_c = cpu.hl < cpu.de
       cpu.f_n = false
@@ -214,7 +208,6 @@ class Opcodes
     # 0x1B DEC DE
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.de &-= 1
       return 8
     },
@@ -259,7 +252,6 @@ class Opcodes
       i8 = cpu.memory[cpu.pc + 1].to_i8!
       cpu.pc &+= 2
       if cpu.f_nz
-        cpu.memory.tick_components
         cpu.pc &+= i8
         return 12
       end
@@ -281,7 +273,6 @@ class Opcodes
     # 0x23 INC HL
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.hl &+= 1
       return 8
     },
@@ -334,7 +325,6 @@ class Opcodes
       i8 = cpu.memory[cpu.pc + 1].to_i8!
       cpu.pc &+= 2
       if cpu.f_z
-        cpu.memory.tick_components
         cpu.pc &+= i8
         return 12
       end
@@ -345,7 +335,6 @@ class Opcodes
       cpu.pc &+= 1
       cpu.f_h = (cpu.hl & 0x0FFF).to_u32 + (cpu.hl & 0x0FFF) > 0x0FFF
       cpu.f_c = cpu.hl > 0x7FFF
-      cpu.memory.tick_components
       cpu.hl &+= cpu.hl
       cpu.f_n = false
       return 8
@@ -359,7 +348,6 @@ class Opcodes
     # 0x2B DEC HL
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.hl &-= 1
       return 8
     },
@@ -401,7 +389,6 @@ class Opcodes
       i8 = cpu.memory[cpu.pc + 1].to_i8!
       cpu.pc &+= 2
       if cpu.f_nc
-        cpu.memory.tick_components
         cpu.pc &+= i8
         return 12
       end
@@ -423,28 +410,24 @@ class Opcodes
     # 0x33 INC SP
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.sp &+= 1
       return 8
     },
     # 0x34 INC (HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      val = cpu.memory[cpu.hl]
-      cpu.f_h = val & 0x0F == 0x0F
-      val &+= 1
-      cpu.memory[cpu.hl] = val
-      cpu.f_z = val == 0
+      cpu.f_h = cpu.memory_at_hl & 0x0F == 0x0F
+      cpu.memory_at_hl &+= 1
+      cpu.f_z = cpu.memory_at_hl == 0
       cpu.f_n = false
       return 12
     },
     # 0x35 DEC (HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      val = cpu.memory[cpu.hl] &- 1
-      cpu.memory[cpu.hl] = val
-      cpu.f_z = val == 0
-      cpu.f_h = val & 0x0F == 0x0F
+      cpu.memory_at_hl &-= 1
+      cpu.f_z = cpu.memory_at_hl == 0
+      cpu.f_h = cpu.memory_at_hl & 0x0F == 0x0F
       cpu.f_n = true
       return 12
     },
@@ -452,7 +435,7 @@ class Opcodes
     ->(cpu : CPU) {
       u8 = cpu.memory[cpu.pc + 1]
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] = u8
+      cpu.memory_at_hl = u8
       return 12
     },
     # 0x37 SCF
@@ -468,7 +451,6 @@ class Opcodes
       i8 = cpu.memory[cpu.pc + 1].to_i8!
       cpu.pc &+= 2
       if cpu.f_c
-        cpu.memory.tick_components
         cpu.pc &+= i8
         return 12
       end
@@ -478,7 +460,6 @@ class Opcodes
     ->(cpu : CPU) {
       cpu.pc &+= 1
       cpu.f_h = (cpu.hl & 0x0FFF).to_u32 + (cpu.sp & 0x0FFF) > 0x0FFF
-      cpu.memory.tick_components
       cpu.hl &+= cpu.sp
       cpu.f_c = cpu.hl < cpu.sp
       cpu.f_n = false
@@ -493,7 +474,6 @@ class Opcodes
     # 0x3B DEC SP
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.sp &-= 1
       return 8
     },
@@ -569,7 +549,7 @@ class Opcodes
     # 0x46 LD B,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.b = cpu.memory[cpu.hl]
+      cpu.b = cpu.memory_at_hl
       return 8
     },
     # 0x47 LD B,A
@@ -617,7 +597,7 @@ class Opcodes
     # 0x4E LD C,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.c = cpu.memory[cpu.hl]
+      cpu.c = cpu.memory_at_hl
       return 8
     },
     # 0x4F LD C,A
@@ -665,7 +645,7 @@ class Opcodes
     # 0x56 LD D,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.d = cpu.memory[cpu.hl]
+      cpu.d = cpu.memory_at_hl
       return 8
     },
     # 0x57 LD D,A
@@ -713,7 +693,7 @@ class Opcodes
     # 0x5E LD E,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.e = cpu.memory[cpu.hl]
+      cpu.e = cpu.memory_at_hl
       return 8
     },
     # 0x5F LD E,A
@@ -761,7 +741,7 @@ class Opcodes
     # 0x66 LD H,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.h = cpu.memory[cpu.hl]
+      cpu.h = cpu.memory_at_hl
       return 8
     },
     # 0x67 LD H,A
@@ -809,7 +789,7 @@ class Opcodes
     # 0x6E LD L,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.l = cpu.memory[cpu.hl]
+      cpu.l = cpu.memory_at_hl
       return 8
     },
     # 0x6F LD L,A
@@ -821,37 +801,37 @@ class Opcodes
     # 0x70 LD (HL),B
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory[cpu.hl] = cpu.b
+      cpu.memory_at_hl = cpu.b
       return 8
     },
     # 0x71 LD (HL),C
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory[cpu.hl] = cpu.c
+      cpu.memory_at_hl = cpu.c
       return 8
     },
     # 0x72 LD (HL),D
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory[cpu.hl] = cpu.d
+      cpu.memory_at_hl = cpu.d
       return 8
     },
     # 0x73 LD (HL),E
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory[cpu.hl] = cpu.e
+      cpu.memory_at_hl = cpu.e
       return 8
     },
     # 0x74 LD (HL),H
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory[cpu.hl] = cpu.h
+      cpu.memory_at_hl = cpu.h
       return 8
     },
     # 0x75 LD (HL),L
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory[cpu.hl] = cpu.l
+      cpu.memory_at_hl = cpu.l
       return 8
     },
     # 0x76 HALT
@@ -863,7 +843,7 @@ class Opcodes
     # 0x77 LD (HL),A
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory[cpu.hl] = cpu.a
+      cpu.memory_at_hl = cpu.a
       return 8
     },
     # 0x78 LD A,B
@@ -905,7 +885,7 @@ class Opcodes
     # 0x7E LD A,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.a = cpu.memory[cpu.hl]
+      cpu.a = cpu.memory_at_hl
       return 8
     },
     # 0x7F LD A,A
@@ -977,11 +957,10 @@ class Opcodes
     # 0x86 ADD A,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      val = cpu.memory[cpu.hl]
-      cpu.f_h = (cpu.a & 0x0F) + (val & 0x0F) > 0x0F
-      cpu.a &+= val
+      cpu.f_h = (cpu.a & 0x0F) + (cpu.memory_at_hl & 0x0F) > 0x0F
+      cpu.a &+= cpu.memory_at_hl
       cpu.f_z = cpu.a == 0
-      cpu.f_c = cpu.a < val
+      cpu.f_c = cpu.a < cpu.memory_at_hl
       cpu.f_n = false
       return 8
     },
@@ -1064,12 +1043,11 @@ class Opcodes
     # 0x8E ADC A,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      val = cpu.memory[cpu.hl]
       carry = cpu.f_c ? 0x01 : 0x00
-      cpu.f_h = (cpu.a & 0x0F) + (val & 0x0F) + carry > 0x0F
-      cpu.a &+= val &+ carry
+      cpu.f_h = (cpu.a & 0x0F) + (cpu.memory_at_hl & 0x0F) + carry > 0x0F
+      cpu.a &+= cpu.memory_at_hl &+ carry
       cpu.f_z = cpu.a == 0
-      cpu.f_c = cpu.a < val.to_u16 + carry
+      cpu.f_c = cpu.a < cpu.memory_at_hl.to_u16 + carry
       cpu.f_n = false
       return 8
     },
@@ -1147,10 +1125,9 @@ class Opcodes
     # 0x96 SUB A,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      val = cpu.memory[cpu.hl]
-      cpu.f_h = cpu.a & 0x0F < val & 0x0F
-      cpu.f_c = cpu.a < val
-      cpu.a &-= val
+      cpu.f_h = cpu.a & 0x0F < cpu.memory_at_hl & 0x0F
+      cpu.f_c = cpu.a < cpu.memory_at_hl
+      cpu.a &-= cpu.memory_at_hl
       cpu.f_z = cpu.a == 0
       cpu.f_n = true
       return 8
@@ -1234,9 +1211,8 @@ class Opcodes
     # 0x9E SBC A,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      val = cpu.memory[cpu.hl]
-      to_sub = val.to_u16 + (cpu.f_c ? 0x01 : 0x00)
-      cpu.f_h = (cpu.a & 0x0F) < (val & 0x0F) + (cpu.f_c ? 0x01 : 0x00)
+      to_sub = cpu.memory_at_hl.to_u16 + (cpu.f_c ? 0x01 : 0x00)
+      cpu.f_h = (cpu.a & 0x0F) < (cpu.memory_at_hl & 0x0F) + (cpu.f_c ? 0x01 : 0x00)
       cpu.f_c = cpu.a < to_sub
       cpu.a &-= to_sub
       cpu.f_z = cpu.a == 0
@@ -1317,7 +1293,7 @@ class Opcodes
     # 0xA6 AND A,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.a &= cpu.memory[cpu.hl]
+      cpu.a &= cpu.memory_at_hl
       cpu.f_z = cpu.a == 0
       cpu.f_n = false
       cpu.f_h = true
@@ -1397,7 +1373,7 @@ class Opcodes
     # 0xAE XOR A,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.a ^= cpu.memory[cpu.hl]
+      cpu.a ^= cpu.memory_at_hl
       cpu.f_z = cpu.a == 0
       cpu.f_n = false
       cpu.f_h = false
@@ -1477,7 +1453,7 @@ class Opcodes
     # 0xB6 OR A,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.a |= cpu.memory[cpu.hl]
+      cpu.a |= cpu.memory_at_hl
       cpu.f_z = cpu.a == 0
       cpu.f_n = false
       cpu.f_h = false
@@ -1551,10 +1527,9 @@ class Opcodes
     # 0xBE CP A,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      val = cpu.memory[cpu.hl]
-      cpu.f_z = cpu.a &- val == 0
-      cpu.f_h = cpu.a & 0xF < val & 0xF
-      cpu.f_c = cpu.a < val
+      cpu.f_z = cpu.a &- cpu.memory_at_hl == 0
+      cpu.f_h = cpu.a & 0xF < cpu.memory_at_hl & 0xF
+      cpu.f_c = cpu.a < cpu.memory_at_hl
       cpu.f_n = true
       return 8
     },
@@ -1570,10 +1545,8 @@ class Opcodes
     # 0xC0 RET NZ
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       if cpu.f_nz
         cpu.pc = cpu.memory.read_word cpu.sp
-        cpu.memory.tick_components
         cpu.sp += 2
         return 20
       end
@@ -1590,7 +1563,6 @@ class Opcodes
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
       if cpu.f_nz
-        cpu.memory.tick_components
         cpu.pc = u16
         return 16
       end
@@ -1601,7 +1573,6 @@ class Opcodes
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
       cpu.pc = u16
-      cpu.memory.tick_components
       return 16
     },
     # 0xC4 CALL NZ,u16
@@ -1611,7 +1582,6 @@ class Opcodes
       if cpu.f_nz
         cpu.sp -= 2
         cpu.memory[cpu.sp] = cpu.pc
-        cpu.memory.tick_components
         cpu.pc = u16
         return 24
       end
@@ -1620,7 +1590,6 @@ class Opcodes
     # 0xC5 PUSH BC
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.memory[cpu.sp -= 2] = cpu.bc
       return 16
     },
@@ -1638,7 +1607,6 @@ class Opcodes
     # 0xC7 RST 00h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.sp -= 2
       cpu.memory[cpu.sp] = cpu.pc
       cpu.pc = 0x00_u16
@@ -1646,11 +1614,9 @@ class Opcodes
     },
     # 0xC8 RET Z
     ->(cpu : CPU) {
-      cpu.memory.tick_components
       cpu.pc &+= 1
       if cpu.f_z
         cpu.pc = cpu.memory.read_word cpu.sp
-        cpu.memory.tick_components
         cpu.sp += 2
         return 20
       end
@@ -1661,7 +1627,6 @@ class Opcodes
       cpu.pc &+= 1
       cpu.pc = cpu.memory.read_word cpu.sp
       cpu.sp += 2
-      cpu.memory.tick_components
       return 16
     },
     # 0xCA JP Z,u16
@@ -1669,7 +1634,6 @@ class Opcodes
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
       if cpu.f_z
-        cpu.memory.tick_components
         cpu.pc = u16
         return 16
       end
@@ -1692,7 +1656,6 @@ class Opcodes
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
       if cpu.f_z
-        cpu.memory.tick_components
         cpu.sp -= 2
         cpu.memory[cpu.sp] = cpu.pc
         cpu.pc = u16
@@ -1707,7 +1670,6 @@ class Opcodes
       cpu.sp -= 2
       cpu.memory[cpu.sp] = cpu.pc
       cpu.pc = u16
-      cpu.memory.tick_components
       return 24
     },
     # 0xCE ADC A,u8
@@ -1725,7 +1687,6 @@ class Opcodes
     # 0xCF RST 08h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.sp -= 2
       cpu.memory[cpu.sp] = cpu.pc
       cpu.pc = 0x08_u16
@@ -1733,11 +1694,9 @@ class Opcodes
     },
     # 0xD0 RET NC
     ->(cpu : CPU) {
-      cpu.memory.tick_components
       cpu.pc &+= 1
       if cpu.f_nc
         cpu.pc = cpu.memory.read_word cpu.sp
-        cpu.memory.tick_components
         cpu.sp += 2
         return 20
       end
@@ -1754,7 +1713,6 @@ class Opcodes
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
       if cpu.f_nc
-        cpu.memory.tick_components
         cpu.pc = u16
         return 16
       end
@@ -1771,7 +1729,6 @@ class Opcodes
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
       if cpu.f_nc
-        cpu.memory.tick_components
         cpu.sp -= 2
         cpu.memory[cpu.sp] = cpu.pc
         cpu.pc = u16
@@ -1782,7 +1739,6 @@ class Opcodes
     # 0xD5 PUSH DE
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.memory[cpu.sp -= 2] = cpu.de
       return 16
     },
@@ -1800,7 +1756,6 @@ class Opcodes
     # 0xD7 RST 10h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.sp -= 2
       cpu.memory[cpu.sp] = cpu.pc
       cpu.pc = 0x10_u16
@@ -1809,10 +1764,8 @@ class Opcodes
     # 0xD8 RET C
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       if cpu.f_c
         cpu.pc = cpu.memory.read_word cpu.sp
-        cpu.memory.tick_components
         cpu.sp += 2
         return 20
       end
@@ -1823,7 +1776,6 @@ class Opcodes
       cpu.pc &+= 1
       cpu.set_ime true
       cpu.pc = cpu.memory.read_word cpu.sp
-      cpu.memory.tick_components
       cpu.sp += 0x02
       return 16
     },
@@ -1832,7 +1784,6 @@ class Opcodes
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
       if cpu.f_c
-        cpu.memory.tick_components
         cpu.pc = u16
         return 16
       end
@@ -1849,7 +1800,6 @@ class Opcodes
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
       if cpu.f_c
-        cpu.memory.tick_components
         cpu.sp -= 2
         cpu.memory[cpu.sp] = cpu.pc
         cpu.pc = u16
@@ -1878,7 +1828,6 @@ class Opcodes
     # 0xDF RST 18h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.sp -= 2
       cpu.memory[cpu.sp] = cpu.pc
       cpu.pc = 0x18_u16
@@ -1918,7 +1867,6 @@ class Opcodes
     # 0xE5 PUSH HL
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.memory[cpu.sp -= 2] = cpu.hl
       return 16
     },
@@ -1936,7 +1884,6 @@ class Opcodes
     # 0xE7 RST 20h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.sp -= 2
       cpu.memory[cpu.sp] = cpu.pc
       cpu.pc = 0x20_u16
@@ -1946,7 +1893,6 @@ class Opcodes
     ->(cpu : CPU) {
       i8 = cpu.memory[cpu.pc + 1].to_i8!
       cpu.pc &+= 2
-      cpu.memory.tick_components 8
       r = cpu.sp &+ i8
       cpu.f_h = (cpu.sp ^ i8 ^ r) & 0x0010 != 0
       cpu.f_c = (cpu.sp ^ i8 ^ r) & 0x0100 != 0
@@ -2000,7 +1946,6 @@ class Opcodes
     # 0xEF RST 28h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.sp -= 2
       cpu.memory[cpu.sp] = cpu.pc
       cpu.pc = 0x28_u16
@@ -2044,7 +1989,6 @@ class Opcodes
     # 0xF5 PUSH AF
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.memory[cpu.sp -= 2] = cpu.af
       return 16
     },
@@ -2062,7 +2006,6 @@ class Opcodes
     # 0xF7 RST 30h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.sp -= 2
       cpu.memory[cpu.sp] = cpu.pc
       cpu.pc = 0x30_u16
@@ -2072,7 +2015,6 @@ class Opcodes
     ->(cpu : CPU) {
       i8 = cpu.memory[cpu.pc + 1].to_i8!
       cpu.pc &+= 2
-      cpu.memory.tick_components
       cpu.hl = cpu.sp &+ i8
       cpu.f_h = (cpu.sp ^ i8 ^ cpu.hl) & 0x0010 != 0
       cpu.f_c = (cpu.sp ^ i8 ^ cpu.hl) & 0x0100 != 0
@@ -2084,7 +2026,6 @@ class Opcodes
     ->(cpu : CPU) {
       cpu.pc &+= 1
       cpu.sp = cpu.hl
-      cpu.memory.tick_components
       return 8
     },
     # 0xFA LD A,(u16)
@@ -2125,7 +2066,6 @@ class Opcodes
     # 0xFF RST 38h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.memory.tick_components
       cpu.sp -= 2
       cpu.memory[cpu.sp] = cpu.pc
       cpu.pc = 0x38_u16
@@ -2196,11 +2136,9 @@ class Opcodes
     # 0x06 RLC (HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      val = cpu.memory[cpu.hl]
-      val = (val << 1) + (val >> 7)
-      cpu.memory[cpu.hl] = val
-      cpu.f_z = val == 0
-      cpu.f_c = val & 0x01
+      cpu.memory_at_hl = (cpu.memory_at_hl << 1) + (cpu.memory_at_hl >> 7)
+      cpu.f_z = cpu.memory_at_hl == 0
+      cpu.f_c = cpu.memory_at_hl & 0x01
       cpu.f_n = false
       cpu.f_h = false
       return 16
@@ -2278,11 +2216,9 @@ class Opcodes
     # 0x0E RRC (HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      val = cpu.memory[cpu.hl]
-      val = (val >> 1) + (val << 7)
-      cpu.memory[cpu.hl] = val
-      cpu.f_z = val == 0
-      cpu.f_c = val & 0x80
+      cpu.memory_at_hl = (cpu.memory_at_hl >> 1) + (cpu.memory_at_hl << 7)
+      cpu.f_z = cpu.memory_at_hl == 0
+      cpu.f_c = cpu.memory_at_hl & 0x80
       cpu.f_n = false
       cpu.f_h = false
       return 16
@@ -2366,11 +2302,9 @@ class Opcodes
     # 0x16 RL (HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      val = cpu.memory[cpu.hl]
-      carry = val & 0x80
-      val = (val << 1) + (cpu.f_c ? 0x01 : 0x00)
-      cpu.memory[cpu.hl] = val
-      cpu.f_z = val == 0
+      carry = cpu.memory_at_hl & 0x80
+      cpu.memory_at_hl = (cpu.memory_at_hl << 1) + (cpu.f_c ? 0x01 : 0x00)
+      cpu.f_z = cpu.memory_at_hl == 0
       cpu.f_c = carry
       cpu.f_n = false
       cpu.f_h = false
@@ -2456,11 +2390,9 @@ class Opcodes
     # 0x1E RR (HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      val = cpu.memory[cpu.hl]
-      carry = val & 0x01
-      val = (val >> 1) + (cpu.f_c ? 0x80 : 0x00)
-      cpu.memory[cpu.hl] = val
-      cpu.f_z = val == 0
+      carry = cpu.memory_at_hl & 0x01
+      cpu.memory_at_hl = (cpu.memory_at_hl >> 1) + (cpu.f_c ? 0x80 : 0x00)
+      cpu.f_z = cpu.memory_at_hl == 0
       cpu.f_c = carry
       cpu.f_n = false
       cpu.f_h = false
@@ -2540,11 +2472,9 @@ class Opcodes
     # 0x26 SLA (HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      val = cpu.memory[cpu.hl]
-      cpu.f_c = val & 0x80
-      val <<= 1
-      cpu.memory[cpu.hl] = val
-      cpu.f_z = val == 0
+      cpu.f_c = cpu.memory_at_hl & 0x80
+      cpu.memory_at_hl <<= 1
+      cpu.f_z = cpu.memory_at_hl == 0
       cpu.f_n = false
       cpu.f_h = false
       return 16
@@ -2622,11 +2552,9 @@ class Opcodes
     # 0x2E SRA (HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      val = cpu.memory[cpu.hl]
-      cpu.f_c = val & 0x01
-      val = (val >> 1) + (val & 0x80)
-      cpu.memory[cpu.hl] = val
-      cpu.f_z = val == 0
+      cpu.f_c = cpu.memory_at_hl & 0x01
+      cpu.memory_at_hl = (cpu.memory_at_hl >> 1) + (cpu.memory_at_hl & 0x80)
+      cpu.f_z = cpu.memory_at_hl == 0
       cpu.f_n = false
       cpu.f_h = false
       return 16
@@ -2704,10 +2632,8 @@ class Opcodes
     # 0x36 SWAP (HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      val = cpu.memory[cpu.hl]
-      val = (val << 4) + (val >> 4)
-      cpu.memory[cpu.hl] = val
-      cpu.f_z = val == 0
+      cpu.memory_at_hl = (cpu.memory_at_hl << 4) + (cpu.memory_at_hl >> 4)
+      cpu.f_z = cpu.memory_at_hl == 0
       cpu.f_n = false
       cpu.f_h = false
       cpu.f_c = false
@@ -2786,11 +2712,9 @@ class Opcodes
     # 0x3E SRL (HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      val = cpu.memory[cpu.hl]
-      cpu.f_c = val & 0x1
-      val >>= 1
-      cpu.memory[cpu.hl] = val
-      cpu.f_z = val == 0
+      cpu.f_c = cpu.memory_at_hl & 0x1
+      cpu.memory_at_hl >>= 1
+      cpu.f_z = cpu.memory_at_hl == 0
       cpu.f_n = false
       cpu.f_h = false
       return 16
@@ -2856,7 +2780,7 @@ class Opcodes
     # 0x46 BIT 0,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.f_z = cpu.memory[cpu.hl] & (0x1 << 0) == 0
+      cpu.f_z = cpu.memory_at_hl & (0x1 << 0) == 0
       cpu.f_n = false
       cpu.f_h = true
       return 12
@@ -2920,7 +2844,7 @@ class Opcodes
     # 0x4E BIT 1,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.f_z = cpu.memory[cpu.hl] & (0x1 << 1) == 0
+      cpu.f_z = cpu.memory_at_hl & (0x1 << 1) == 0
       cpu.f_n = false
       cpu.f_h = true
       return 12
@@ -2984,7 +2908,7 @@ class Opcodes
     # 0x56 BIT 2,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.f_z = cpu.memory[cpu.hl] & (0x1 << 2) == 0
+      cpu.f_z = cpu.memory_at_hl & (0x1 << 2) == 0
       cpu.f_n = false
       cpu.f_h = true
       return 12
@@ -3048,7 +2972,7 @@ class Opcodes
     # 0x5E BIT 3,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.f_z = cpu.memory[cpu.hl] & (0x1 << 3) == 0
+      cpu.f_z = cpu.memory_at_hl & (0x1 << 3) == 0
       cpu.f_n = false
       cpu.f_h = true
       return 12
@@ -3112,7 +3036,7 @@ class Opcodes
     # 0x66 BIT 4,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.f_z = cpu.memory[cpu.hl] & (0x1 << 4) == 0
+      cpu.f_z = cpu.memory_at_hl & (0x1 << 4) == 0
       cpu.f_n = false
       cpu.f_h = true
       return 12
@@ -3176,7 +3100,7 @@ class Opcodes
     # 0x6E BIT 5,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.f_z = cpu.memory[cpu.hl] & (0x1 << 5) == 0
+      cpu.f_z = cpu.memory_at_hl & (0x1 << 5) == 0
       cpu.f_n = false
       cpu.f_h = true
       return 12
@@ -3240,7 +3164,7 @@ class Opcodes
     # 0x76 BIT 6,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.f_z = cpu.memory[cpu.hl] & (0x1 << 6) == 0
+      cpu.f_z = cpu.memory_at_hl & (0x1 << 6) == 0
       cpu.f_n = false
       cpu.f_h = true
       return 12
@@ -3304,7 +3228,7 @@ class Opcodes
     # 0x7E BIT 7,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.f_z = cpu.memory[cpu.hl] & (0x1 << 7) == 0
+      cpu.f_z = cpu.memory_at_hl & (0x1 << 7) == 0
       cpu.f_n = false
       cpu.f_h = true
       return 12
@@ -3356,7 +3280,7 @@ class Opcodes
     # 0x86 RES 0,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] &= ~(0x1 << 0)
+      cpu.memory_at_hl &= ~(0x1 << 0)
       return 16
     },
     # 0x87 RES 0,A
@@ -3404,7 +3328,7 @@ class Opcodes
     # 0x8E RES 1,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] &= ~(0x1 << 1)
+      cpu.memory_at_hl &= ~(0x1 << 1)
       return 16
     },
     # 0x8F RES 1,A
@@ -3452,7 +3376,7 @@ class Opcodes
     # 0x96 RES 2,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] &= ~(0x1 << 2)
+      cpu.memory_at_hl &= ~(0x1 << 2)
       return 16
     },
     # 0x97 RES 2,A
@@ -3500,7 +3424,7 @@ class Opcodes
     # 0x9E RES 3,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] &= ~(0x1 << 3)
+      cpu.memory_at_hl &= ~(0x1 << 3)
       return 16
     },
     # 0x9F RES 3,A
@@ -3548,7 +3472,7 @@ class Opcodes
     # 0xA6 RES 4,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] &= ~(0x1 << 4)
+      cpu.memory_at_hl &= ~(0x1 << 4)
       return 16
     },
     # 0xA7 RES 4,A
@@ -3596,7 +3520,7 @@ class Opcodes
     # 0xAE RES 5,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] &= ~(0x1 << 5)
+      cpu.memory_at_hl &= ~(0x1 << 5)
       return 16
     },
     # 0xAF RES 5,A
@@ -3644,7 +3568,7 @@ class Opcodes
     # 0xB6 RES 6,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] &= ~(0x1 << 6)
+      cpu.memory_at_hl &= ~(0x1 << 6)
       return 16
     },
     # 0xB7 RES 6,A
@@ -3692,7 +3616,7 @@ class Opcodes
     # 0xBE RES 7,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] &= ~(0x1 << 7)
+      cpu.memory_at_hl &= ~(0x1 << 7)
       return 16
     },
     # 0xBF RES 7,A
@@ -3740,7 +3664,7 @@ class Opcodes
     # 0xC6 SET 0,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] |= (0x1 << 0)
+      cpu.memory_at_hl |= (0x1 << 0)
       return 16
     },
     # 0xC7 SET 0,A
@@ -3788,7 +3712,7 @@ class Opcodes
     # 0xCE SET 1,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] |= (0x1 << 1)
+      cpu.memory_at_hl |= (0x1 << 1)
       return 16
     },
     # 0xCF SET 1,A
@@ -3836,7 +3760,7 @@ class Opcodes
     # 0xD6 SET 2,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] |= (0x1 << 2)
+      cpu.memory_at_hl |= (0x1 << 2)
       return 16
     },
     # 0xD7 SET 2,A
@@ -3884,7 +3808,7 @@ class Opcodes
     # 0xDE SET 3,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] |= (0x1 << 3)
+      cpu.memory_at_hl |= (0x1 << 3)
       return 16
     },
     # 0xDF SET 3,A
@@ -3932,7 +3856,7 @@ class Opcodes
     # 0xE6 SET 4,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] |= (0x1 << 4)
+      cpu.memory_at_hl |= (0x1 << 4)
       return 16
     },
     # 0xE7 SET 4,A
@@ -3980,7 +3904,7 @@ class Opcodes
     # 0xEE SET 5,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] |= (0x1 << 5)
+      cpu.memory_at_hl |= (0x1 << 5)
       return 16
     },
     # 0xEF SET 5,A
@@ -4028,7 +3952,7 @@ class Opcodes
     # 0xF6 SET 6,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] |= (0x1 << 6)
+      cpu.memory_at_hl |= (0x1 << 6)
       return 16
     },
     # 0xF7 SET 6,A
@@ -4076,7 +4000,7 @@ class Opcodes
     # 0xFE SET 7,(HL)
     ->(cpu : CPU) {
       cpu.pc &+= 2
-      cpu.memory[cpu.hl] |= (0x1 << 7)
+      cpu.memory_at_hl |= (0x1 << 7)
       return 16
     },
     # 0xFF SET 7,A

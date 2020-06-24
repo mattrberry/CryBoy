@@ -12,24 +12,27 @@ class Memory
   HRAM          = 0xFF80..0xFFFE
   INTERRUPT_REG = 0xFFFF
 
-  @memory = Bytes.new 0xFFFF + 1
+  property memory = Bytes.new 0xFFFF + 1
   @bootrom = Bytes.new 0
+  @cycle_tick_count = 0
 
+  # keep other components in sync with memory, usually before memory access
   def tick_components(cycles = 4) : Nil
+    @cycle_tick_count += cycles
     @ppu.tick cycles
     @apu.tick cycles
     @timer.tick cycles
-    @count += cycles
   end
 
-  property count = 0
+  def reset_cycle_count : Nil
+    @cycle_tick_count = 0
+  end
 
-  def assert_count(expected : Int, op : UInt8) : Nil
-    if expected != @count
-      puts "op: #{hex_str op}, expected: #{expected}, actual: #{@count}"
-      exit 1
-    end
-    @count = 0
+  # tick remainder of expected cycles, then reset counter
+  def tick_extra(total_expected_cycles : Int) : Nil
+    raise "Operation took #{@cycle_tick_count} cycles, but only expected #{total_expected_cycles}" if @cycle_tick_count > total_expected_cycles
+    tick_components total_expected_cycles - @cycle_tick_count
+    reset_cycle_count
   end
 
   def initialize(@cartridge : Cartridge, @interrupts : Interrupts, @ppu : PPU, @apu : APU, @timer : Timer, @joypad : Joypad, bootrom : String? = nil)
