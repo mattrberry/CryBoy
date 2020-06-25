@@ -23,7 +23,10 @@ After installing the dependencies, the project can be built with `shards build -
 
 CryBoy is still a work in progress. As of right now, all of the following features are supported
 
-- CPU passes all of [blargg's cpu tests](https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs).
+- Passing all of [blargg's cpu tests](https://github.com/retrio/gb-test-roms/tree/master/cpu_instrs).
+- Passing all of [blargg's instruction timing tests](https://github.com/retrio/gb-test-roms/tree/master/instr_timing).
+- Passing all of [blargg's memory timing tests](https://github.com/retrio/gb-test-roms/tree/master/mem_timing).
+- Passing all but one of the [mooneye-gb timer tests](https://github.com/Gekkio/mooneye-gb/tree/master/tests/acceptance/timer).
 - PPU renders on a scanline basis.
 - PPU draws background, window, and sprites.
 - Save files work as intended, and are compatible with other emulators like BGB.
@@ -31,18 +34,20 @@ CryBoy is still a work in progress. As of right now, all of the following featur
 - MBC3 cartridges are supported (except timers).
 - MBC5 cartridges are supported.
 - Controller support.
-- Audio channels 1-3 are working well enough that I don't notice issues in game.
+- Audio channels are working well enough that I don't notice issues in game.
 
 There is still a lot missing from CryBoy. Some of these missing pieces include
 
 - Audio processing
-  - Channel 4 has not yet been implemented.
-  - Failing all of blargg's audio tests.
+  - Failing many of blargg's audio tests.
+  - Sweep on Channel 1 really isn't implemented properly.
 - Picture processing
   - Pixel FIFO
     - [Pixel FIFO](https://github.com/corybsa/pandocs/blob/develop/content/pixel_fifo.md) will likely only be relevant in 0.01% of games, so it's not a priority. It's a nice-to-have at some point down the road.
 - Game Boy Color support
-  - There is a sizable amount of work necessary to get CGB support. However, how that SDL Textures are working properly, adding color to the display shouldn't be challenging.
+  - There is a sizable amount of work necessary to get CGB support. However, now that SDL Textures are working properly, adding color to the display shouldn't be challenging.
+- Misc
+  - Failing the mooneye-gb rapid_toggle timer test by 4 T-cycles. Needs to be debugged.
 
 ## Contributing
 
