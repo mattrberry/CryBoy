@@ -70,20 +70,21 @@ class PPU
 
   @counter : UInt32 = 0_u32
 
-  @vram = Bytes.new Memory::VRAM.size                 # 0x8000..0x9FFF
-  @sprite_table = Bytes.new Memory::SPRITE_TABLE.size # 0xFE00..0xFE9F
-  @lcd_control : UInt8 = 0x00_u8                      # 0xFF40
-  @lcd_status : UInt8 = 0x00_u8                       # 0xFF41
-  @scy : UInt8 = 0x00_u8                              # 0xFF42
-  @scx : UInt8 = 0x00_u8                              # 0xFF43
-  @ly : UInt8 = 0x00_u8                               # 0xFF44
-  @lyc : UInt8 = 0x00_u8                              # 0xFF45
-  @dma : UInt8 = 0x00_u8                              # 0xFF46
-  @bgp : UInt8 = 0x00_u8                              # 0xFF47
-  @obp0 : UInt8 = 0x00_u8                             # 0xFF48
-  @obp1 : UInt8 = 0x00_u8                             # 0xFF49
-  @wy : UInt8 = 0x00_u8                               # 0xFF4A
-  @wx : UInt8 = 0x00_u8                               # 0xFF4B
+  @vram = Array(Bytes).new 2 { Bytes.new Memory::VRAM.size } # 0x8000..0x9FFF
+  @vram_bank : UInt8 = 0                                     # track which bank is active
+  @sprite_table = Bytes.new Memory::SPRITE_TABLE.size        # 0xFE00..0xFE9F
+  @lcd_control : UInt8 = 0x00_u8                             # 0xFF40
+  @lcd_status : UInt8 = 0x00_u8                              # 0xFF41
+  @scy : UInt8 = 0x00_u8                                     # 0xFF42
+  @scx : UInt8 = 0x00_u8                                     # 0xFF43
+  @ly : UInt8 = 0x00_u8                                      # 0xFF44
+  @lyc : UInt8 = 0x00_u8                                     # 0xFF45
+  @dma : UInt8 = 0x00_u8                                     # 0xFF46
+  @bgp : UInt8 = 0x00_u8                                     # 0xFF47
+  @obp0 : UInt8 = 0x00_u8                                    # 0xFF48
+  @obp1 : UInt8 = 0x00_u8                                    # 0xFF49
+  @wy : UInt8 = 0x00_u8                                      # 0xFF4A
+  @wx : UInt8 = 0x00_u8                                      # 0xFF4B
 
   @current_window_line = 0
 
@@ -133,21 +134,21 @@ class PPU
       if window_enabled? && self.ly >= @wy && x + 7 >= @wx
         should_increment_window_line = true
         tile_num_addr = window_map + ((x + 7 - @wx) // 8) + ((@current_window_line // 8) * 32)
-        tile_num = @vram[tile_num_addr]
+        tile_num = @vram[0][tile_num_addr]
         tile_num = tile_num.to_i8! if bg_window_tile_data == 0
         tile_ptr = tile_data_table + 16 * tile_num
-        byte_1 = @vram[tile_ptr + tile_row_window * 2]
-        byte_2 = @vram[tile_ptr + tile_row_window * 2 + 1]
+        byte_1 = @vram[0][tile_ptr + tile_row_window * 2]
+        byte_2 = @vram[0][tile_ptr + tile_row_window * 2 + 1]
         lsb = (byte_1 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         color = (msb << 1) | lsb
         @framebuffer[Display::WIDTH * self.ly + x] = @colors[bg_palette[color]]
       elsif bg_display?
-        tile_num = @vram[background_map + (((x + @scx) // 8) % 32) + ((((self.ly.to_u16 + @scy) // 8) * 32) % (32 * 32))]
+        tile_num = @vram[0][background_map + (((x + @scx) // 8) % 32) + ((((self.ly.to_u16 + @scy) // 8) * 32) % (32 * 32))]
         tile_num = tile_num.to_i8! if bg_window_tile_data == 0
         tile_ptr = tile_data_table + 16 * tile_num
-        byte_1 = @vram[tile_ptr + tile_row * 2]
-        byte_2 = @vram[tile_ptr + tile_row * 2 + 1]
+        byte_1 = @vram[0][tile_ptr + tile_row * 2]
+        byte_2 = @vram[0][tile_ptr + tile_row * 2 + 1]
         lsb = (byte_1 >> (7 - ((x + @scx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + @scx) % 8))) & 0x1
         color = (msb << 1) | lsb
@@ -164,11 +165,11 @@ class PPU
           x = col + sprite.x - 8
           next unless 0 <= x < Display::WIDTH # only render sprites on screen
           if sprite.x_flip?
-            lsb = (@vram[bytes[0]] >> col) & 0x1
-            msb = (@vram[bytes[1]] >> col) & 0x1
+            lsb = (@vram[0][bytes[0]] >> col) & 0x1
+            msb = (@vram[0][bytes[1]] >> col) & 0x1
           else
-            lsb = (@vram[bytes[0]] >> (7 - col)) & 0x1
-            msb = (@vram[bytes[1]] >> (7 - col)) & 0x1
+            lsb = (@vram[0][bytes[0]] >> (7 - col)) & 0x1
+            msb = (@vram[0][bytes[1]] >> (7 - col)) & 0x1
           end
           color = (msb << 1) | lsb
           if color > 0 # only render opaque colors, 0 is transparent
@@ -244,7 +245,7 @@ class PPU
   # read from ppu memory
   def [](index : Int) : UInt8
     case index
-    when Memory::VRAM         then @vram[index - Memory::VRAM.begin]
+    when Memory::VRAM         then @vram[@vram_bank][index - Memory::VRAM.begin]
     when Memory::SPRITE_TABLE then @sprite_table[index - Memory::SPRITE_TABLE.begin]
     when 0xFF40               then @lcd_control
     when 0xFF41               then @lcd_status
@@ -258,7 +259,7 @@ class PPU
     when 0xFF49               then @obp1
     when 0xFF4A               then @wy
     when 0xFF4B               then @wx
-    when 0xFF4F               then 0xFF_u8 # VBK - CGB only
+    when 0xFF4F               then 0xFE_u8 | @vram_bank
     when 0xFF51..0xFF55       then 0xFF_u8 # DMA - CGB only
     else                           raise "Reading from invalid ppu register: #{hex_str index.to_u16!}"
     end
@@ -267,7 +268,7 @@ class PPU
   # write to ppu memory
   def []=(index : Int, value : UInt8) : Nil
     case index
-    when Memory::VRAM         then @vram[index - Memory::VRAM.begin] = value
+    when Memory::VRAM         then @vram[@vram_bank][index - Memory::VRAM.begin] = value
     when Memory::SPRITE_TABLE then @sprite_table[index - Memory::SPRITE_TABLE.begin] = value
     when 0xFF40               then @lcd_control = value
     when 0xFF41               then @lcd_status = (@lcd_status & 0b10000111) | (value & 0b01111000)
@@ -281,7 +282,7 @@ class PPU
     when 0xFF49               then @obp1 = value
     when 0xFF4A               then @wy = value
     when 0xFF4B               then @wx = value
-    when 0xFF4F               then nil # VBK - CGB only
+    when 0xFF4F               then @vram_bank = value & 1
     when 0xFF51..0xFF55       then nil # DMA - CGB only
     else                           raise "Writing to invalid ppu register: #{hex_str index.to_u16!}"
     end

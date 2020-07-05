@@ -13,6 +13,8 @@ class Memory
   INTERRUPT_REG = 0xFFFF
 
   @memory = Bytes.new 0xFFFF + 1
+  @wram = Array(Bytes).new 8 { Bytes.new 4096 }
+  @wram_bank : UInt8 = 1
   @bootrom = Bytes.new 0
   @cycle_tick_count = 0
 
@@ -38,7 +40,6 @@ class Memory
   def initialize(@cartridge : Cartridge, @interrupts : Interrupts, @ppu : PPU, @apu : APU, @timer : Timer, @joypad : Joypad, bootrom : String? = nil)
     if !bootrom.nil?
       File.open bootrom do |file|
-        raise "Bootrom too big: #{file.size}" if file.size > 256
         @bootrom = Bytes.new file.size
         file.read @bootrom
       end
@@ -81,17 +82,17 @@ class Memory
 
   # read 8 bits from memory (doesn't tick components)
   def read_byte(index : Int) : UInt8
+    return @bootrom[index] if @bootrom.size > 0 && (0x000 <= index < 0x100 || 0x200 <= index < 0x900)
     case index
-    when 0x0000...@bootrom.size then @bootrom.nil? ? @cartridge[index] : @bootrom[index]
-    when ROM_BANK_0             then @cartridge[index]
-    when ROM_BANK_N             then @cartridge[index]
-    when VRAM                   then @ppu[index]
-    when EXTERNAL_RAM           then @cartridge[index]
-    when WORK_RAM_0             then @memory[index]
-    when WORK_RAM_N             then @memory[index]
-    when ECHO                   then @memory[index - 0x2000]
-    when SPRITE_TABLE           then @ppu[index]
-    when NOT_USABLE             then 0_u8
+    when ROM_BANK_0   then @cartridge[index]
+    when ROM_BANK_N   then @cartridge[index]
+    when VRAM         then @ppu[index]
+    when EXTERNAL_RAM then @cartridge[index]
+    when WORK_RAM_0   then @wram[0][index - WORK_RAM_0.begin]
+    when WORK_RAM_N   then @wram[@wram_bank][index - WORK_RAM_N.begin]
+    when ECHO         then @memory[index - 0x2000]
+    when SPRITE_TABLE then @ppu[index]
+    when NOT_USABLE   then 0_u8
     when IO_PORTS
       case index
       when 0xFF00         then @joypad.read
@@ -101,6 +102,7 @@ class Memory
       when 0xFF40..0xFF4B then @ppu[index]
       when 0xFF4F         then @ppu[index]
       when 0xFF51..0xFF55 then @ppu[index]
+      when 0xFF70         then 0xF8_u8 | @wram_bank
       else                     @memory[index]
       end
     when HRAM          then @memory[index]
@@ -119,15 +121,16 @@ class Memory
 
   # write a 8 bits to memory (doesn't tick components)
   def write_byte(index : Int, value : UInt8) : Nil
-    @bootrom = Bytes.new 0 if index == 0xFF50 && value == 0x01
+    puts "disable #{hex_str value}" if index == 0xFF50
+    @bootrom = Bytes.new 0 if index == 0xFF50 && value == 0x11
     # todo other dma stuff
     case index
     when ROM_BANK_0   then @cartridge[index] = value
     when ROM_BANK_N   then @cartridge[index] = value
     when VRAM         then @ppu[index] = value
     when EXTERNAL_RAM then @cartridge[index] = value
-    when WORK_RAM_0   then @memory[index] = value
-    when WORK_RAM_N   then @memory[index] = value
+    when WORK_RAM_0   then @wram[0][index - WORK_RAM_0.begin] = value
+    when WORK_RAM_N   then @wram[@wram_bank][index - WORK_RAM_N.begin] = value
     when ECHO         then @memory[index - 0x2000] = value
     when SPRITE_TABLE then @ppu[index] = value
     when NOT_USABLE   then nil # todo: should I raise here?
@@ -142,6 +145,7 @@ class Memory
       when 0xFF40..0xFF4B then @ppu[index] = value
       when 0xFF4F         then @ppu[index] = value
       when 0xFF51..0xFF55 then @ppu[index] = value
+      when 0xFF70         then @wram_bank = value & 0x7; @wram_bank += 1 if @wram_bank == 0
       else                     @memory[index] = value
       end
     when HRAM          then @memory[index] = value

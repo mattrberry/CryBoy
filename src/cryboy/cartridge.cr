@@ -1,4 +1,10 @@
 abstract class Cartridge
+  enum CGB
+    EXCLUSIVE
+    SUPPORT
+    NONE
+  end
+
   @rom : Bytes = Bytes.new 0
   @ram : Bytes = Bytes.new 0
   property sav_file_path : String = ""
@@ -21,6 +27,14 @@ abstract class Cartridge
     when 0x04 then 0x2000_u32 * 16
     when 0x05 then 0x2000_u32 * 8
     else           0x0000_u32
+    end
+  }
+
+  getter cgb : CGB {
+    case @rom[0x0143]
+    when 0x80 then CGB::SUPPORT
+    when 0xC0 then CGB::EXCLUSIVE
+    else           CGB::NONE
     end
   }
 
