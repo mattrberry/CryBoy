@@ -121,7 +121,7 @@ class Memory
 
   # write a 8 bits to memory (doesn't tick components)
   def write_byte(index : Int, value : UInt8) : Nil
-    puts "disable #{hex_str value}" if index == 0xFF50
+    puts "speed switch -- #{hex_str index.to_u16}: #{hex_str value}" if index == 0xFF4D
     @bootrom = Bytes.new 0 if index == 0xFF50 && value == 0x11
     # todo other dma stuff
     case index

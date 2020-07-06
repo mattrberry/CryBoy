@@ -57,6 +57,14 @@ struct Sprite
   def palette_number : UInt8
     (@attributes >> 4) & 0x1
   end
+
+  def bank_num : UInt8
+    (@attributes >> 3) & 0x1
+  end
+
+  def palette_num : UInt8
+    @attributes & 0b111
+  end
 end
 
 struct RGB
@@ -137,18 +145,21 @@ class PPU
         tile_num = @vram[0][tile_num_addr]
         tile_num = tile_num.to_i8! if bg_window_tile_data == 0
         tile_ptr = tile_data_table + 16 * tile_num
-        byte_1 = @vram[0][tile_ptr + tile_row_window * 2]
-        byte_2 = @vram[0][tile_ptr + tile_row_window * 2 + 1]
+        bank_num = (@vram[1][tile_num_addr] & 0b00001000) >> 3
+        byte_1 = @vram[bank_num][tile_ptr + tile_row_window * 2]
+        byte_2 = @vram[bank_num][tile_ptr + tile_row_window * 2 + 1]
         lsb = (byte_1 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         color = (msb << 1) | lsb
         @framebuffer[Display::WIDTH * self.ly + x] = @colors[bg_palette[color]]
       elsif bg_display?
-        tile_num = @vram[0][background_map + (((x + @scx) // 8) % 32) + ((((self.ly.to_u16 + @scy) // 8) * 32) % (32 * 32))]
+        tile_num_addr = background_map + (((x + @scx) // 8) % 32) + ((((self.ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
+        tile_num = @vram[0][tile_num_addr]
         tile_num = tile_num.to_i8! if bg_window_tile_data == 0
         tile_ptr = tile_data_table + 16 * tile_num
-        byte_1 = @vram[0][tile_ptr + tile_row * 2]
-        byte_2 = @vram[0][tile_ptr + tile_row * 2 + 1]
+        bank_num = (@vram[1][tile_num_addr] & 0b00001000) >> 3
+        byte_1 = @vram[bank_num][tile_ptr + tile_row * 2]
+        byte_2 = @vram[bank_num][tile_ptr + tile_row * 2 + 1]
         lsb = (byte_1 >> (7 - ((x + @scx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + @scx) % 8))) & 0x1
         color = (msb << 1) | lsb
@@ -165,11 +176,11 @@ class PPU
           x = col + sprite.x - 8
           next unless 0 <= x < Display::WIDTH # only render sprites on screen
           if sprite.x_flip?
-            lsb = (@vram[0][bytes[0]] >> col) & 0x1
-            msb = (@vram[0][bytes[1]] >> col) & 0x1
+            lsb = (@vram[sprite.bank_num][bytes[0]] >> col) & 0x1
+            msb = (@vram[sprite.bank_num][bytes[1]] >> col) & 0x1
           else
-            lsb = (@vram[0][bytes[0]] >> (7 - col)) & 0x1
-            msb = (@vram[0][bytes[1]] >> (7 - col)) & 0x1
+            lsb = (@vram[sprite.bank_num][bytes[0]] >> (7 - col)) & 0x1
+            msb = (@vram[sprite.bank_num][bytes[1]] >> (7 - col)) & 0x1
           end
           color = (msb << 1) | lsb
           if color > 0 # only render opaque colors, 0 is transparent
