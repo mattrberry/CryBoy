@@ -102,6 +102,7 @@ class Memory
       when 0xFF40..0xFF4B then @ppu[index]
       when 0xFF4F         then @ppu[index]
       when 0xFF51..0xFF55 then @ppu[index]
+      when 0xFF68..0xFF6B then @ppu[index]
       when 0xFF70         then 0xF8_u8 | @wram_bank
       else                     @memory[index]
       end
@@ -145,6 +146,7 @@ class Memory
       when 0xFF40..0xFF4B then @ppu[index] = value
       when 0xFF4F         then @ppu[index] = value
       when 0xFF51..0xFF55 then @ppu[index] = value
+      when 0xFF68..0xFF6B then @ppu[index] = value
       when 0xFF70         then @wram_bank = value & 0x7; @wram_bank += 1 if @wram_bank == 0
       else                     @memory[index] = value
       end

@@ -16,7 +16,7 @@ class MBC3 < Cartridge
       if @ram_bank_number <= 3
         @ram[ram_bank_offset(@ram_bank_number) + ram_offset(index)]
       elsif @ram_bank_number <= 0x0C
-        puts "reading clock: #{hex_str @ram_bank_number}"
+        # puts "reading clock: #{hex_str @ram_bank_number}"
         0xFF_u8
       else
         raise "Invalid RAM/RTC bank register read: #{hex_str @ram_bank_number}"
@@ -37,12 +37,12 @@ class MBC3 < Cartridge
     when 0x4000..0x5FFF
       @ram_bank_number = value
     when 0x6000..0x7FFF
-      puts "latch clock: #{hex_str value}"
+      # puts "latch clock: #{hex_str value}"
     when Memory::EXTERNAL_RAM
       if @ram_bank_number <= 0x03
         @ram[ram_bank_offset(@ram_bank_number) + ram_offset(index)] = value
       elsif @ram_bank_number <= 0x0C
-        puts "writing to clock: #{hex_str @ram_bank_number} -> #{hex_str value}"
+        # puts "writing to clock: #{hex_str @ram_bank_number} -> #{hex_str value}"
       else
         raise "Invalid RAM/RTC bank register write: #{hex_str @ram_bank_number}"
       end

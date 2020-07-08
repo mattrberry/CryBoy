@@ -3,7 +3,7 @@ struct Sprite
   end
 
   def to_s(io : IO)
-    io << "Sprite(y:#{@y}, x:#{@x}, tile_num:#{@tile_num}, tile_ptr: #{hex_str tile_ptr}, visible:#{visible?}, priority:#{priority}, y_flip:#{y_flip?}, x_flip:#{x_flip?}, palette_number:#{palette_number}"
+    io << "Sprite(y:#{@y}, x:#{@x}, tile_num:#{@tile_num}, tile_ptr: #{hex_str tile_ptr}, visible:#{visible?}, priority:#{priority}, y_flip:#{y_flip?}, x_flip:#{x_flip?}, dmg_palette_number:#{dmg_palette_numpalette_number}"
   end
 
   def on_line(line : Int, sprite_height = 8) : Bool
@@ -54,7 +54,7 @@ struct Sprite
     (@attributes >> 5) & 0x1 == 1
   end
 
-  def palette_number : UInt8
+  def dmg_palette_number : UInt8
     (@attributes >> 4) & 0x1
   end
 
@@ -62,19 +62,33 @@ struct Sprite
     (@attributes >> 3) & 0x1
   end
 
-  def palette_num : UInt8
+  def cgb_palette_number : UInt8
     @attributes & 0b111
   end
 end
 
 struct RGB
+  property red, green, blue
+
   def initialize(@red : UInt8, @green : UInt8, @blue : UInt8)
+  end
+
+  def convert_from_cgb : RGB
+    RGB.new @red * 8, @green * 8, @blue * 8
   end
 end
 
 class PPU
   @framebuffer = Array(RGB).new Display::WIDTH * Display::HEIGHT, RGB.new(0, 0, 0)
   @colors = [RGB.new(0xE0, 0xF8, 0xCF), RGB.new(0x86, 0xC0, 0x6C), RGB.new(0x30, 0x68, 0x50), RGB.new(0x07, 0x17, 0x20)]
+
+  @palettes = Array(Array(RGB)).new 8 { Array(RGB).new 4 { RGB.new 0, 0, 0 } }
+  @palette_index : UInt8 = 0
+  @auto_increment = false
+
+  @obj_palettes = Array(Array(RGB)).new 8 { Array(RGB).new 4 { RGB.new 0, 0, 0 } }
+  @obj_palette_index : UInt8 = 0
+  @obj_auto_increment = false
 
   @counter : UInt32 = 0_u32
 
@@ -151,7 +165,8 @@ class PPU
         lsb = (byte_1 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         color = (msb << 1) | lsb
-        @framebuffer[Display::WIDTH * self.ly + x] = @colors[bg_palette[color]]
+        # @framebuffer[Display::WIDTH * self.ly + x] = @colors[bg_palette[color]]
+        @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb
       elsif bg_display?
         tile_num_addr = background_map + (((x + @scx) // 8) % 32) + ((((self.ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
         tile_num = @vram[0][tile_num_addr]
@@ -163,14 +178,15 @@ class PPU
         lsb = (byte_1 >> (7 - ((x + @scx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + @scx) % 8))) & 0x1
         color = (msb << 1) | lsb
-        @framebuffer[Display::WIDTH * self.ly + x] = @colors[bg_palette[color]]
+        # @framebuffer[Display::WIDTH * self.ly + x] = @colors[bg_palette[color]]
+        @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb
       end
     end
     @current_window_line += 1 if should_increment_window_line
 
     if sprite_enabled?
       get_sprites.each do |sprite|
-        sprite_palette = palette_to_array(sprite.palette_number == 0 ? @obp0 : @obp1)
+        sprite_palette = palette_to_array(sprite.dmg_palette_number == 0 ? @obp0 : @obp1)
         bytes = sprite.bytes self.ly, sprite_height
         (0...8).each do |col|
           x = col + sprite.x - 8
@@ -184,7 +200,8 @@ class PPU
           end
           color = (msb << 1) | lsb
           if color > 0 # only render opaque colors, 0 is transparent
-            @framebuffer[Display::WIDTH * self.ly + x] = @colors[sprite_palette[color]] if sprite.priority == 0 || @framebuffer[Display::WIDTH * self.ly + x] == @colors[bg_palette[0]]
+            # @framebuffer[Display::WIDTH * self.ly + x] = @colors[sprite_palette[color]] if sprite.priority == 0 || @framebuffer[Display::WIDTH * self.ly + x] == @colors[bg_palette[0]]
+            @framebuffer[Display::WIDTH * self.ly + x] = @obj_palettes[sprite.cgb_palette_number][color].convert_from_cgb
           end
         end
       end
@@ -295,7 +312,39 @@ class PPU
     when 0xFF4B               then @wx = value
     when 0xFF4F               then @vram_bank = value & 1
     when 0xFF51..0xFF55       then nil # DMA - CGB only
-    else                           raise "Writing to invalid ppu register: #{hex_str index.to_u16!}"
+    when 0xFF68
+      @palette_index = value & 0x1F
+      @auto_increment = value & 0x80 > 0
+    when 0xFF69
+      palette_number = @palette_index // 8
+      color_number = (@palette_index % 8) // 2
+      color = @palettes[palette_number][color_number]
+      if @palette_index % 2 == 0
+        color.red = value & 0b00011111
+        color.green = ((value & 0b11100000) >> 5) | (color.green & 0b11000)
+      else
+        color.green = ((value & 0b00000011) << 3) | (color.green & 0b00111)
+        color.blue = (value & 0b01111100) >> 2
+      end
+      @palettes[palette_number][color_number] = color
+      @palette_index += 1 if @auto_increment
+    when 0xFF6A
+      @obj_palette_index = value & 0x1F
+      @obj_auto_increment = value & 0x80 > 0
+    when 0xFF6B
+      palette_number = @obj_palette_index // 8
+      color_number = (@obj_palette_index % 8) // 2
+      color = @obj_palettes[palette_number][color_number]
+      if @obj_palette_index % 2 == 0
+        color.red = value & 0b00011111
+        color.green = ((value & 0b11100000) >> 5) | (color.green & 0b11000)
+      else
+        color.green = ((value & 0b00000011) << 3) | (color.green & 0b00111)
+        color.blue = (value & 0b01111100) >> 2
+      end
+      @obj_palettes[palette_number][color_number] = color
+      @obj_palette_index += 1 if @obj_auto_increment
+    else raise "Writing to invalid ppu register: #{hex_str index.to_u16!}"
     end
   end
 
