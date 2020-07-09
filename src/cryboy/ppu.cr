@@ -74,7 +74,12 @@ struct RGB
   end
 
   def convert_from_cgb : RGB
-    RGB.new @red * 8, @green * 8, @blue * 8
+    # correction algorithm from: https://byuu.net/video/color-emulation
+    RGB.new(
+      Math.min(240, (26_u32 * @red + 4_u32 * @green + 2_u32 * @blue) >> 2).to_u8,
+      Math.min(240, (24_u32 * @green + 8_u32 * @blue) >> 2).to_u8,
+      Math.min(240, (6_u32 * @red + 4_u32 * @green + 22_u32 * @blue) >> 2).to_u8
+    )
   end
 end
 
