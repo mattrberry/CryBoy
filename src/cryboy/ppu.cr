@@ -85,13 +85,12 @@ end
 
 class PPU
   @framebuffer = Array(RGB).new Display::WIDTH * Display::HEIGHT, RGB.new(0, 0, 0)
-  @colors = [RGB.new(0xE0, 0xF8, 0xCF), RGB.new(0x86, 0xC0, 0x6C), RGB.new(0x30, 0x68, 0x50), RGB.new(0x07, 0x17, 0x20)]
 
-  @palettes = Array(Array(RGB)).new 8 { Array(RGB).new 4 { RGB.new 0, 0, 0 } }
+  @palettes = Array(Array(RGB)).new 8 { Array(RGB).new 4, RGB.new(0, 0, 0) }
   @palette_index : UInt8 = 0
   @auto_increment = false
 
-  @obj_palettes = Array(Array(RGB)).new 8 { Array(RGB).new 4 { RGB.new 0, 0, 0 } }
+  @obj_palettes = Array(Array(RGB)).new 8 { Array(RGB).new 4, RGB.new(0, 0, 0) }
   @obj_palette_index : UInt8 = 0
   @obj_auto_increment = false
 
@@ -126,7 +125,7 @@ class PPU
     self.coincidence_flag = @ly == @lyc
   end
 
-  def initialize(@display : Display, @interrupts : Interrupts)
+  def initialize(@display : Display, @interrupts : Interrupts, @cgb : Proc(Bool))
   end
 
   # get first 10 sprites on scanline, ordered
@@ -164,27 +163,27 @@ class PPU
         tile_num = @vram[0][tile_num_addr]
         tile_num = tile_num.to_i8! if bg_window_tile_data == 0
         tile_ptr = tile_data_table + 16 * tile_num
-        bank_num = (@vram[1][tile_num_addr] & 0b00001000) >> 3
+        bank_num = @cgb.call ? (@vram[1][tile_num_addr] & 0b00001000) >> 3 : 0
         byte_1 = @vram[bank_num][tile_ptr + tile_row_window * 2]
         byte_2 = @vram[bank_num][tile_ptr + tile_row_window * 2 + 1]
         lsb = (byte_1 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         color = (msb << 1) | lsb
         # @framebuffer[Display::WIDTH * self.ly + x] = @colors[bg_palette[color]]
-        @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb
+        @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@cgb.call ? @vram[1][tile_num_addr] & 0b111 : 0][color].convert_from_cgb
       elsif bg_display?
         tile_num_addr = background_map + (((x + @scx) // 8) % 32) + ((((self.ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
         tile_num = @vram[0][tile_num_addr]
         tile_num = tile_num.to_i8! if bg_window_tile_data == 0
         tile_ptr = tile_data_table + 16 * tile_num
-        bank_num = (@vram[1][tile_num_addr] & 0b00001000) >> 3
+        bank_num = @cgb.call ? (@vram[1][tile_num_addr] & 0b00001000) >> 3 : 0
         byte_1 = @vram[bank_num][tile_ptr + tile_row * 2]
         byte_2 = @vram[bank_num][tile_ptr + tile_row * 2 + 1]
         lsb = (byte_1 >> (7 - ((x + @scx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + @scx) % 8))) & 0x1
         color = (msb << 1) | lsb
         # @framebuffer[Display::WIDTH * self.ly + x] = @colors[bg_palette[color]]
-        @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb
+        @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@cgb.call ? @vram[1][tile_num_addr] & 0b111 : 0][color].convert_from_cgb
       end
     end
     @current_window_line += 1 if should_increment_window_line
@@ -197,11 +196,11 @@ class PPU
           x = col + sprite.x - 8
           next unless 0 <= x < Display::WIDTH # only render sprites on screen
           if sprite.x_flip?
-            lsb = (@vram[sprite.bank_num][bytes[0]] >> col) & 0x1
-            msb = (@vram[sprite.bank_num][bytes[1]] >> col) & 0x1
+            lsb = (@vram[@cgb.call ? sprite.bank_num : 0][bytes[0]] >> col) & 0x1
+            msb = (@vram[@cgb.call ? sprite.bank_num : 0][bytes[1]] >> col) & 0x1
           else
-            lsb = (@vram[sprite.bank_num][bytes[0]] >> (7 - col)) & 0x1
-            msb = (@vram[sprite.bank_num][bytes[1]] >> (7 - col)) & 0x1
+            lsb = (@vram[@cgb.call ? sprite.bank_num : 0][bytes[0]] >> (7 - col)) & 0x1
+            msb = (@vram[@cgb.call ? sprite.bank_num : 0][bytes[1]] >> (7 - col)) & 0x1
           end
           color = (msb << 1) | lsb
           if color > 0 # only render opaque colors, 0 is transparent
@@ -292,7 +291,7 @@ class PPU
     when 0xFF49               then @obp1
     when 0xFF4A               then @wy
     when 0xFF4B               then @wx
-    when 0xFF4F               then 0xFE_u8 | @vram_bank
+    when 0xFF4F               then @cgb.call ? 0xFE_u8 | @vram_bank : 0xFF_u8
     when 0xFF51..0xFF55       then 0xFF_u8 # DMA - CGB only
     else                           raise "Reading from invalid ppu register: #{hex_str index.to_u16!}"
     end
@@ -315,7 +314,7 @@ class PPU
     when 0xFF49               then @obp1 = value
     when 0xFF4A               then @wy = value
     when 0xFF4B               then @wx = value
-    when 0xFF4F               then @vram_bank = value & 1
+    when 0xFF4F               then @vram_bank = value & 1 if @cgb.call
     when 0xFF51..0xFF55       then nil # DMA - CGB only
     when 0xFF68
       @palette_index = value & 0x1F
@@ -333,6 +332,7 @@ class PPU
       end
       @palettes[palette_number][color_number] = color
       @palette_index += 1 if @auto_increment
+      @palette_index &= 0x3F
     when 0xFF6A
       @obj_palette_index = value & 0x1F
       @obj_auto_increment = value & 0x80 > 0
@@ -349,6 +349,7 @@ class PPU
       end
       @obj_palettes[palette_number][color_number] = color
       @obj_palette_index += 1 if @obj_auto_increment
+      @obj_palette_index &= 0x3F
     else raise "Writing to invalid ppu register: #{hex_str index.to_u16!}"
     end
   end

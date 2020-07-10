@@ -124,6 +124,7 @@ class Opcodes
     },
     # 0x10 STOP
     ->(cpu : CPU) {
+      puts "stop"
       cpu.pc &+= 2
       # todo: see if something more needs to happen here...
       return 4

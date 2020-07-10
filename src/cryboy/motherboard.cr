@@ -22,12 +22,16 @@ class Motherboard
     @cartridge = Cartridge.new rom_path
     @interrupts = Interrupts.new
     @display = Display.new title: @cartridge.title
-    @ppu = PPU.new @display, @interrupts
+    @ppu = PPU.new @display, @interrupts, ->{ cgb }
     @apu = APU.new
     @timer = Timer.new @interrupts
     @joypad = Joypad.new
-    @memory = Memory.new @cartridge, @interrupts, @ppu, @apu, @timer, @joypad, bootrom
+    @memory = Memory.new @cartridge, @interrupts, @ppu, @apu, @timer, @joypad, ->{ cgb }, bootrom
     @cpu = CPU.new @memory, @interrupts, @ppu, @apu, @timer, boot: !bootrom.nil?
+  end
+
+  def cgb : Bool
+    @memory.bootrom.size > 0 || @cartridge.cgb != Cartridge::CGB::NONE
   end
 
   def handle_events : Nil

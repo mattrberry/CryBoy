@@ -15,7 +15,7 @@ class Memory
   @memory = Bytes.new 0xFFFF + 1
   @wram = Array(Bytes).new 8 { Bytes.new 4096 }
   @wram_bank : UInt8 = 1
-  @bootrom = Bytes.new 0
+  property bootrom = Bytes.new 0
   @cycle_tick_count = 0
 
   # keep other components in sync with memory, usually before memory access
@@ -37,7 +37,10 @@ class Memory
     reset_cycle_count
   end
 
-  def initialize(@cartridge : Cartridge, @interrupts : Interrupts, @ppu : PPU, @apu : APU, @timer : Timer, @joypad : Joypad, bootrom : String? = nil)
+  def initialize(@cartridge : Cartridge, @interrupts : Interrupts,
+                 @ppu : PPU, @apu : APU, @timer : Timer,
+                 @joypad : Joypad, @cgb : Proc(Bool),
+                 bootrom : String? = nil)
     if !bootrom.nil?
       File.open bootrom do |file|
         @bootrom = Bytes.new file.size
@@ -103,7 +106,7 @@ class Memory
       when 0xFF4F         then @ppu[index]
       when 0xFF51..0xFF55 then @ppu[index]
       when 0xFF68..0xFF6B then @ppu[index]
-      when 0xFF70         then 0xF8_u8 | @wram_bank
+      when 0xFF70         then @cgb.call ? 0xF8_u8 | @wram_bank : @memory[index]
       else                     @memory[index]
       end
     when HRAM          then @memory[index]
@@ -147,8 +150,14 @@ class Memory
       when 0xFF4F         then @ppu[index] = value
       when 0xFF51..0xFF55 then @ppu[index] = value
       when 0xFF68..0xFF6B then @ppu[index] = value
-      when 0xFF70         then @wram_bank = value & 0x7; @wram_bank += 1 if @wram_bank == 0
-      else                     @memory[index] = value
+      when 0xFF70
+        if @cgb.call
+          @wram_bank = value & 0x7
+          @wram_bank += 1 if @wram_bank == 0
+        else
+          @memory[index] = value
+        end
+      else @memory[index] = value
       end
     when HRAM          then @memory[index] = value
     when INTERRUPT_REG then @interrupts[index] = value
