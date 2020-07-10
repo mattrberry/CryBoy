@@ -148,6 +148,8 @@ class PPU
     sprites
   end
 
+  @scanline_color_vals = Bytes.new Display::WIDTH
+
   def scanline
     @current_window_line = 0 if self.ly == 0
     should_increment_window_line = false
@@ -170,8 +172,12 @@ class PPU
         lsb = (byte_1 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         color = (msb << 1) | lsb
-        # @framebuffer[Display::WIDTH * self.ly + x] = @colors[bg_palette[color]]
-        @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@cgb.call ? @vram[1][tile_num_addr] & 0b111 : 0][color].convert_from_cgb
+        @scanline_color_vals[x] = color
+        if @cgb.call
+          @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb
+        else
+          @framebuffer[Display::WIDTH * self.ly + x] = @palettes[0][bg_palette[color]].convert_from_cgb
+        end
       elsif bg_display?
         tile_num_addr = background_map + (((x + @scx) // 8) % 32) + ((((self.ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
         tile_num = @vram[0][tile_num_addr]
@@ -183,8 +189,12 @@ class PPU
         lsb = (byte_1 >> (7 - ((x + @scx) % 8))) & 0x1
         msb = (byte_2 >> (7 - ((x + @scx) % 8))) & 0x1
         color = (msb << 1) | lsb
-        # @framebuffer[Display::WIDTH * self.ly + x] = @colors[bg_palette[color]]
-        @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@cgb.call ? @vram[1][tile_num_addr] & 0b111 : 0][color].convert_from_cgb
+        @scanline_color_vals[x] = color
+        if @cgb.call
+          @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb
+        else
+          @framebuffer[Display::WIDTH * self.ly + x] = @palettes[0][bg_palette[color]].convert_from_cgb
+        end
       end
     end
     @current_window_line += 1 if should_increment_window_line
@@ -204,9 +214,12 @@ class PPU
             msb = (@vram[@cgb.call ? sprite.bank_num : 0][bytes[1]] >> (7 - col)) & 0x1
           end
           color = (msb << 1) | lsb
-          if color > 0 # only render opaque colors, 0 is transparent
-            # @framebuffer[Display::WIDTH * self.ly + x] = @colors[sprite_palette[color]] if sprite.priority == 0 || @framebuffer[Display::WIDTH * self.ly + x] == @colors[bg_palette[0]]
-            @framebuffer[Display::WIDTH * self.ly + x] = @obj_palettes[sprite.cgb_palette_number][color].convert_from_cgb
+          if color > 0 && (sprite.priority == 0 || @scanline_color_vals[x] == 0)
+            if @cgb.call
+              @framebuffer[Display::WIDTH * self.ly + x] = @obj_palettes[sprite.cgb_palette_number][color].convert_from_cgb
+            else
+              @framebuffer[Display::WIDTH * self.ly + x] = @obj_palettes[0][sprite_palette[color]].convert_from_cgb
+            end
           end
         end
       end
@@ -294,7 +307,27 @@ class PPU
     when 0xFF4B               then @wx
     when 0xFF4F               then @cgb.call ? 0xFE_u8 | @vram_bank : 0xFF_u8
     when 0xFF51..0xFF55       then 0xFF_u8 # DMA - CGB only
-    else                           raise "Reading from invalid ppu register: #{hex_str index.to_u16!}"
+    when 0xFF68               then @cgb.call ? 0x40_u8 | (@auto_increment ? 0x80 : 0) | @palette_index : 0xFF_u8
+    when 0xFF69
+      palette_number = @palette_index // 8
+      color_number = (@palette_index % 8) // 2
+      color = @palettes[palette_number][color_number]
+      if @palette_index % 2 == 0
+        color.red | (color.green << 5)
+      else
+        (color.green >> 3) | (color.blue << 2)
+      end
+    when 0xFF6A then @cgb.call ? 0x40_u8 | (@obj_auto_increment ? 0x80 : 0) | @obj_palette_index : 0xFF_u8
+    when 0xFF6B
+      palette_number = @obj_palette_index // 8
+      color_number = (@obj_palette_index % 8) // 2
+      color = @obj_palettes[palette_number][color_number]
+      if @palette_index % 2 == 0
+        color.red | (color.green << 5)
+      else
+        (color.green >> 3) | (color.blue << 2)
+      end
+    else raise "Reading from invalid ppu register: #{hex_str index.to_u16!}"
     end
   end
 
