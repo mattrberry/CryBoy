@@ -96,6 +96,7 @@ class PPU
   def ly=(value : UInt8) : Nil
     @ly = value
     self.coincidence_flag = @ly == @lyc
+    @old_stat_flag = false
   end
 
   def initialize(@display : Display, @interrupts : Interrupts)
