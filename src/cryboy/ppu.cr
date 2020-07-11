@@ -306,7 +306,6 @@ class PPU
     when 0xFF4A               then @wy
     when 0xFF4B               then @wx
     when 0xFF4F               then @cgb.call ? 0xFE_u8 | @vram_bank : 0xFF_u8
-    when 0xFF51..0xFF55       then 0xFF_u8 # DMA - CGB only
     when 0xFF68               then @cgb.call ? 0x40_u8 | (@auto_increment ? 0x80 : 0) | @palette_index : 0xFF_u8
     when 0xFF69
       palette_number = @palette_index // 8
@@ -349,7 +348,6 @@ class PPU
     when 0xFF4A               then @wy = value
     when 0xFF4B               then @wx = value
     when 0xFF4F               then @vram_bank = value & 1 if @cgb.call
-    when 0xFF51..0xFF55       then nil # DMA - CGB only
     when 0xFF68
       @palette_index = value & 0x1F
       @auto_increment = value & 0x80 > 0

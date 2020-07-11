@@ -18,6 +18,9 @@ class Memory
   property bootrom = Bytes.new 0
   @cycle_tick_count = 0
 
+  @hdma_src : UInt16 = 0x0000
+  @hdma_dst : UInt16 = 0x8000
+
   # keep other components in sync with memory, usually before memory access
   def tick_components(cycles = 4) : Nil
     @cycle_tick_count += cycles
@@ -104,7 +107,11 @@ class Memory
       when 0xFF10..0xFF3F then @apu[index]
       when 0xFF40..0xFF4B then @ppu[index]
       when 0xFF4F         then @ppu[index]
-      when 0xFF51..0xFF55 then @ppu[index]
+      when 0xFF51         then (@hdma_src >> 8).to_u8
+      when 0xFF52         then @hdma_src.to_u8
+      when 0xFF53         then (@hdma_dst >> 8).to_u8
+      when 0xFF54         then @hdma_dst.to_u8
+      when 0xFF55         then 0xFF_u8 # todo
       when 0xFF68..0xFF6B then @ppu[index]
       when 0xFF70         then @cgb.call ? 0xF8_u8 | @wram_bank : @memory[index]
       else                     @memory[index]
@@ -148,7 +155,15 @@ class Memory
       when 0xFF46         then dma_transfer(value.to_u16 << 8)
       when 0xFF40..0xFF4B then @ppu[index] = value
       when 0xFF4F         then @ppu[index] = value
-      when 0xFF51..0xFF55 then @ppu[index] = value
+      when 0xFF51         then @hdma_src = (@hdma_src & 0x00FF) | (value.to_u16 << 8)
+      when 0xFF52         then @hdma_src = (@hdma_src & 0xFF00) | (value.to_u16 & 0xF0)
+      when 0xFF53         then @hdma_dst = (@hdma_dst & 0x80FF) | ((value.to_u16 & 0x1F) << 8)
+      when 0xFF54         then @hdma_dst = (@hdma_dst & 0xFF00) | (value.to_u16 & 0xF0)
+      when 0xFF55
+        length = ((0x7F & value) + 1) * 0x10
+        puts "hdma transfer: #{hex_str length.to_u16} bytes from #{hex_str @hdma_src} to #{hex_str @hdma_dst}"
+        # todo actually respect transfer modes
+        (0x00...length).each { |i| write_byte @hdma_dst + i, read_byte @hdma_src + i }
       when 0xFF68..0xFF6B then @ppu[index] = value
       when 0xFF70
         if @cgb.call
