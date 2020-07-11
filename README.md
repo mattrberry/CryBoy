@@ -8,6 +8,8 @@ This would not be possible without the [Pan Docs](https://gbdev.io/pandocs), [iz
 ![](README/tetris.gif)
 ![](README/linksawakening.gif)
 ![](README/pokemonyellow.gif)
+![](README/gbc_bios.gif)
+![](README/gbc_silver_rival_battle.gif)
 
 ## Installation
 
