@@ -42,7 +42,7 @@ class Memory
 
   def initialize(@cartridge : Cartridge, @interrupts : Interrupts,
                  @ppu : PPU, @apu : APU, @timer : Timer,
-                 @joypad : Joypad, @cgb : Proc(Bool),
+                 @joypad : Joypad, @cgb_ptr : Pointer(Bool),
                  bootrom : String? = nil)
     if !bootrom.nil?
       File.open bootrom do |file|
@@ -113,7 +113,7 @@ class Memory
       when 0xFF54         then @hdma_dst.to_u8
       when 0xFF55         then 0xFF_u8 # todo
       when 0xFF68..0xFF6B then @ppu[index]
-      when 0xFF70         then @cgb.call ? 0xF8_u8 | @wram_bank : @memory[index]
+      when 0xFF70         then @cgb_ptr.value ? 0xF8_u8 | @wram_bank : @memory[index]
       else                     @memory[index]
       end
     when HRAM          then @memory[index]
@@ -133,7 +133,10 @@ class Memory
   # write a 8 bits to memory (doesn't tick components)
   def write_byte(index : Int, value : UInt8) : Nil
     puts "speed switch -- #{hex_str index.to_u16}: #{hex_str value}" if index == 0xFF4D
-    @bootrom = Bytes.new 0 if index == 0xFF50 && value == 0x11
+    if index == 0xFF50 && value == 0x11
+      @bootrom = Bytes.new 0
+      @cgb_ptr.value = @cartridge.cgb != Cartridge::CGB::NONE
+    end
     # todo other dma stuff
     case index
     when ROM_BANK_0   then @cartridge[index] = value
@@ -166,7 +169,7 @@ class Memory
         (0x00...length).each { |i| write_byte @hdma_dst + i, read_byte @hdma_src + i }
       when 0xFF68..0xFF6B then @ppu[index] = value
       when 0xFF70
-        if @cgb.call
+        if @cgb_ptr.value
           @wram_bank = value & 0x7
           @wram_bank += 1 if @wram_bank == 0
         else

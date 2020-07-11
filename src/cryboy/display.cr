@@ -5,7 +5,7 @@ class Display
   PIXELFORMAT_RGB24       = (1 << 28) | (7 << 24) | (1 << 20) | (0 << 16) | (24 << 8) | (3 << 0)
   TEXTUREACCESS_STREAMING = 1
 
-  def initialize(scale = 2, title : String? = nil)
+  def initialize(scale = 4, title : String? = nil)
     @window = SDL::Window.new("CryBoy" + (title.nil? ? "" : " - #{title}"), WIDTH * scale, HEIGHT * scale)
     @renderer = SDL::Renderer.new @window
     @renderer.logical_size = {WIDTH, HEIGHT}
