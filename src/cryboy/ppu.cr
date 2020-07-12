@@ -137,9 +137,11 @@ class PPU
       sprite = Sprite.new @sprite_table[sprite_address], @sprite_table[sprite_address + 1], @sprite_table[sprite_address + 2], @sprite_table[sprite_address + 3]
       if sprite.on_line self.ly, sprite_height
         index = 0
-        sprites.each do |sprite_elm|
-          break if sprite.x >= sprite_elm.x
-          index += 1
+        if !@cgb_ptr.value
+          sprites.each do |sprite_elm|
+            break if sprite.x >= sprite_elm.x
+            index += 1
+          end
         end
         sprites.insert index, sprite
       end
