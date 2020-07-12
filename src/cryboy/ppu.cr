@@ -148,7 +148,8 @@ class PPU
     sprites
   end
 
-  @scanline_color_vals = Bytes.new Display::WIDTH
+  # color idx, BG-to-OAM priority bit
+  @scanline_color_vals = Array(Tuple(UInt8, Bool)).new Display::WIDTH, {0_u8, false}
 
   def scanline
     @current_window_line = 0 if self.ly == 0
@@ -182,13 +183,13 @@ class PPU
           msb = (byte_2 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
         end
         color = (msb << 1) | lsb
-        @scanline_color_vals[x] = color
+        @scanline_color_vals[x] = {color, @vram[1][tile_num_addr] & 0x80 > 0}
         if @cgb_ptr.value
           @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb
         else
           @framebuffer[Display::WIDTH * self.ly + x] = @palettes[0][bg_palette[color]].convert_from_cgb
         end
-      elsif bg_display?
+      elsif bg_display? || @cgb_ptr.value
         tile_num_addr = background_map + (((x + @scx) // 8) % 32) + ((((self.ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
         tile_num = @vram[0][tile_num_addr]
         tile_num = tile_num.to_i8! if bg_window_tile_data == 0
@@ -209,7 +210,7 @@ class PPU
           msb = (byte_2 >> (7 - ((x + @scx) % 8))) & 0x1
         end
         color = (msb << 1) | lsb
-        @scanline_color_vals[x] = color
+        @scanline_color_vals[x] = {color, @vram[1][tile_num_addr] & 0x80 > 0}
         if @cgb_ptr.value
           @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb
         else
@@ -234,11 +235,18 @@ class PPU
             msb = (@vram[@cgb_ptr.value ? sprite.bank_num : 0][bytes[1]] >> (7 - col)) & 0x1
           end
           color = (msb << 1) | lsb
-          if color > 0 && (sprite.priority == 0 || @scanline_color_vals[x] == 0)
+          if color > 0 # color 0 is transparent
             if @cgb_ptr.value
-              @framebuffer[Display::WIDTH * self.ly + x] = @obj_palettes[sprite.cgb_palette_number][color].convert_from_cgb
+              # if !bg_display, then objects are always on top in cgb mode
+              # objects are always on top of bg/window color 0
+              # objects are on top of bg/window colors 1-3 if bg_priority and object priority are both unset
+              if !bg_display? || @scanline_color_vals[x][0] == 0 || (!@scanline_color_vals[x][1] && sprite.priority == 0)
+                @framebuffer[Display::WIDTH * self.ly + x] = @obj_palettes[sprite.cgb_palette_number][color].convert_from_cgb
+              end
             else
-              @framebuffer[Display::WIDTH * self.ly + x] = @obj_palettes[0][sprite_palette[color]].convert_from_cgb
+              if sprite.priority == 0 || @scanline_color_vals[x][0] == 0
+                @framebuffer[Display::WIDTH * self.ly + x] = @obj_palettes[0][sprite_palette[color]].convert_from_cgb
+              end
             end
           end
         end
