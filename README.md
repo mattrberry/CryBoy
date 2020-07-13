@@ -1,6 +1,6 @@
 # <img height="46" src="README/cryboy.svg"/> ![](README/gameboy.png)
 
-CryBoy is a Gameboy emulator written in Crystal. The goal of this project is an efficient Gameboy emulator with highly readable code.
+CryBoy is a Game Boy (Color) emulator written in Crystal. The goal of this project is to create an efficient Game Boy emulator with highly readable code.
 
 This would not be possible without the [Pan Docs](https://gbdev.io/pandocs), [izik's opcode table](https://izik1.github.io/gbops), or the [gzb80 opcode reference](https://rednex.github.io/rgbds/gbz80.7.html). A thanks also goes out to [PyBoy](https://github.com/Baekalfen/PyBoy), which was a useful reference when I first started this project.
 
@@ -19,7 +19,9 @@ After cloning the respository, you can install the required shards with `shards 
 
 ## Usage
 
-After installing the dependencies, the project can be built with `shards build --release`. At this point, the binary lives in `bin/cryboy`. The binary takes a an optional boot rom path and a rom path as its arguments: `bin/cryboy /path/to/rom` or `bin/cryboy /path/to/bootrom /path/to/rom`.
+After installing the dependencies, the project can be built with `shards build --release`. At this point, the binary lives in `bin/cryboy`. The binary takes a an optional CGB bios path and a rom path as its arguments: `bin/cryboy /path/to/rom` or `bin/cryboy /path/to/bios /path/to/rom`.
+
+Note: The Game Boy Color bios initializes the color palettes in some old Game Boy games to give them an updated look. This is why Pokemon Blue (which was developed for the original Game Boy and only had 4 colors) has a handful more colors, including a blue primary color and a red color for the character sprites. If you choose to launch a game for the original Game Boy without the Game Boy Color bios, you'll only see the games in 4 colors as you would on an original Game Boy. Games with native support for the Game Boy Color, like Pokemon Silver, _should_ behave the same with or without the bios.
 
 ## Features and Remaining Work
 
@@ -37,19 +39,24 @@ CryBoy is still a work in progress. As of right now, all of the following featur
 - MBC5 cartridges are supported.
 - Controller support.
 - Audio channels are working well enough that I don't notice issues in game.
+- Basic Game Boy Color emulation.
 
 There is still a lot missing from CryBoy. Some of these missing pieces include
 
 - Audio processing
-  - Failing many of blargg's audio tests.
-  - Sweep on Channel 1 really isn't implemented properly.
+  - Failing many of blargg's audio tests
+  - Sweep on Channel 1 really isn't implemented properly
 - Picture processing
   - Pixel FIFO
-    - [Pixel FIFO](https://github.com/corybsa/pandocs/blob/develop/content/pixel_fifo.md) will likely only be relevant in 0.01% of games, so it's not a priority. It's a nice-to-have at some point down the road.
+    - [Pixel FIFO](https://github.com/corybsa/pandocs/blob/develop/content/pixel_fifo.md) will likely only be relevant in 0.01% of games, so it's not a priority. It's a nice-to-have at some point down the road
 - Game Boy Color support
-  - There is a sizable amount of work necessary to get CGB support. However, now that SDL Textures are working properly, adding color to the display shouldn't be challenging.
+  - Double-speed mode
+  - HDMA timing
+  - Pokemon Crystal is still _super_ borked
 - Misc
-  - Failing the mooneye-gb rapid_toggle timer test by 4 T-cycles. Needs to be debugged.
+  - Failing the mooneye-gb rapid_toggle timer test by 4 T-cycles. Needs to be debugged
+  - DMA timing
+  - Interrupt timing
 
 ## Contributing
 
