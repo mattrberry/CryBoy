@@ -19,9 +19,8 @@ class Motherboard
 
     LibSDL.joystick_open 0
 
-    @cgb_enabled = true
-
     @cartridge = Cartridge.new rom_path
+    @cgb_enabled = !(bootrom.nil? && @cartridge.cgb == Cartridge::CGB::NONE)
     @interrupts = Interrupts.new
     @display = Display.new title: @cartridge.title
     @ppu = PPU.new @display, @interrupts, pointerof(@cgb_enabled)

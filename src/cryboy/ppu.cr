@@ -73,6 +73,10 @@ struct RGB
   def initialize(@red : UInt8, @green : UInt8, @blue : UInt8)
   end
 
+  def initialize(grey : UInt8)
+    @red = @green = @blue = grey
+  end
+
   def convert_from_cgb : RGB
     # correction algorithm from: https://byuu.net/video/color-emulation
     RGB.new(
@@ -127,6 +131,10 @@ class PPU
   end
 
   def initialize(@display : Display, @interrupts : Interrupts, @cgb_ptr : Pointer(Bool))
+    @palettes[0] = @obj_palettes[0] = @obj_palettes[1] = [
+      RGB.new(0x1C, 0x1F, 0x1A), RGB.new(0x11, 0x18, 0x0E),
+      RGB.new(0x06, 0x0D, 0x0A), RGB.new(0x01, 0x03, 0x04)
+    ] if !@cgb_ptr.value
   end
 
   # get first 10 sprites on scanline, ordered
