@@ -18,6 +18,11 @@ class Memory
   property bootrom = Bytes.new 0
   @cycle_tick_count = 0
 
+  @dma : UInt8 = 0x00
+  @dma_position : UInt8 = 0x00
+  @next_dma_source : UInt16? = nil
+  @current_dma_source : UInt16? = nil
+
   @hdma_src : UInt16 = 0x0000
   @hdma_dst : UInt16 = 0x8000
 
@@ -27,6 +32,7 @@ class Memory
     @ppu.tick cycles
     @apu.tick cycles
     @timer.tick cycles
+    dma_tick cycles
   end
 
   def reset_cycle_count : Nil
@@ -36,7 +42,8 @@ class Memory
   # tick remainder of expected cycles, then reset counter
   def tick_extra(total_expected_cycles : Int) : Nil
     raise "Operation took #{@cycle_tick_count} cycles, but only expected #{total_expected_cycles}" if @cycle_tick_count > total_expected_cycles
-    tick_components total_expected_cycles - @cycle_tick_count
+    remaining = total_expected_cycles - @cycle_tick_count
+    tick_components remaining if remaining > 0
     reset_cycle_count
   end
 
@@ -105,6 +112,7 @@ class Memory
       when 0xFF04..0xFF07 then @timer[index]
       when 0xFF0F         then @interrupts[index]
       when 0xFF10..0xFF3F then @apu[index]
+      when 0xFF46         then @dma
       when 0xFF40..0xFF4B then @ppu[index]
       when 0xFF4F         then @ppu[index]
       when 0xFF51         then (@hdma_src >> 8).to_u8
@@ -127,6 +135,7 @@ class Memory
     # todo: not all of these registers are used. unused registers _should_ return 0xFF
     # - sound doesn't take all of 0xFF10..0xFF3F
     tick_components
+    return 0xFF_u8 if (!@current_dma_source.nil? || @dma_position <= 0xA0) && SPRITE_TABLE.includes?(index)
     read_byte index
   end
 
@@ -155,7 +164,7 @@ class Memory
       when 0xFF04..0xFF07 then @timer[index] = value
       when 0xFF0F         then @interrupts[index] = value
       when 0xFF10..0xFF3F then @apu[index] = value
-      when 0xFF46         then dma_transfer(value.to_u16 << 8)
+      when 0xFF46         then dma_transfer value
       when 0xFF40..0xFF4B then @ppu[index] = value
       when 0xFF4F         then @ppu[index] = value
       when 0xFF51         then @hdma_src = (@hdma_src & 0x00FF) | (value.to_u16 << 8)
@@ -186,6 +195,7 @@ class Memory
   # write 8 bits to memory and tick other components
   def []=(index : Int, value : UInt8) : Nil
     tick_components
+    return if (!@current_dma_source.nil? || @dma_position <= 0xA0) && SPRITE_TABLE.includes?(index)
     write_byte index, value
   end
 
@@ -200,8 +210,24 @@ class Memory
     self[index].to_u16 | (self[index + 1].to_u16 << 8)
   end
 
-  def dma_transfer(source : UInt16) : Nil
-    # todo add delay
-    (0x00..0x9F).each { |i| write_byte 0xFE00 + i, read_byte source + i }
+  def dma_transfer(source : UInt8) : Nil
+    @dma = source
+    @next_dma_source = @dma.to_u16 << 8
+  end
+
+  def dma_tick(cycles : Int) : Nil
+    (cycles // 4).times do
+      @dma_position += 1 if @dma_position == 0xA0
+      unless @current_dma_source.nil?
+        write_byte 0xFE00 + @dma_position, read_byte @current_dma_source.not_nil! + @dma_position
+        @dma_position += 1
+        @current_dma_source = nil if @dma_position > 0x9F
+      end
+      unless @next_dma_source.nil?
+        @current_dma_source = @next_dma_source
+        @next_dma_source = nil
+        @dma_position = 0x00
+      end
+    end
   end
 end
