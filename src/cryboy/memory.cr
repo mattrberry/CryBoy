@@ -18,6 +18,20 @@ class Memory
   property bootrom = Bytes.new 0
   @cycle_tick_count = 0
 
+  # From I conversation I had with gekkio on the EmuDev Discord: (todo)
+  #
+  # the DMA controller takes over the source bus, which is either the external bus or the video ram bus
+  # and obviously the OAM itself since it's the target
+  # nothing else is affected by DMA
+  # in other words:
+  # * if the external bus is the source bus, accessing these lead to conflict situations: work RAM, anything on the cartridge. Everything else (including video RAM) doesn't lead to conflicts
+  # * if the video RAM is the source bus, accessing it leads to a conflict situation. Everything else (including work RAM, and the cartridge) doesn't lead to conflicts
+  #
+  # if the DMA source bus is read, you always get the current byte read by the DMA controller
+  # accessing the target bus (= OAM) works differently, and returning 0xff is probably reasonable until more information is gathered...I haven't yet studied OAM very much so I don't yet know the right answers
+
+  # As of right now, all my DMA implementation strives to do is get the timing
+  # correct, as well as block access to OAM during DMA. That much is complete.
   @dma : UInt8 = 0x00
   @dma_position : UInt8 = 0x00
   @next_dma_source : UInt16? = nil
@@ -146,7 +160,6 @@ class Memory
       @bootrom = Bytes.new 0
       @cgb_ptr.value = @cartridge.cgb != Cartridge::CGB::NONE
     end
-    # todo other dma stuff
     case index
     when ROM_BANK_0   then @cartridge[index] = value
     when ROM_BANK_N   then @cartridge[index] = value
@@ -156,7 +169,7 @@ class Memory
     when WORK_RAM_N   then @wram[@wram_bank][index - WORK_RAM_N.begin] = value
     when ECHO         then @memory[index - 0x2000] = value
     when SPRITE_TABLE then @ppu[index] = value
-    when NOT_USABLE   then nil # todo: should I raise here?
+    when NOT_USABLE   then nil
     when IO_PORTS
       case index
       when 0xFF00         then @joypad.write value
