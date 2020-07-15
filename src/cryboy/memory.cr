@@ -19,7 +19,7 @@ class Memory
   @cycle_tick_count = 0
 
   # From I conversation I had with gekkio on the EmuDev Discord: (todo)
-  #
+
   # the DMA controller takes over the source bus, which is either the external bus or the video ram bus
   # and obviously the OAM itself since it's the target
   # nothing else is affected by DMA
@@ -30,12 +30,15 @@ class Memory
   # if the DMA source bus is read, you always get the current byte read by the DMA controller
   # accessing the target bus (= OAM) works differently, and returning 0xff is probably reasonable until more information is gathered...I haven't yet studied OAM very much so I don't yet know the right answers
 
-  # As of right now, all my DMA implementation strives to do is get the timing
-  # correct, as well as block access to OAM during DMA. That much is complete.
+  # As of right now, my DMA implementation gets the timing correct and block
+  # access to OAM during DMA. It does not properly emulate collisions in the
+  # DMA source, as described above.
   @dma : UInt8 = 0x00
-  @dma_position : UInt8 = 0x00
-  @next_dma_source : UInt16? = nil
-  @current_dma_source : UInt16? = nil
+  @current_dma_source : UInt16 = 0x0000
+  @internal_dma_timer = 0
+  @dma_position : UInt8 = 0xA0
+  @requested_oam_dma_transfer : Bool = false
+  @next_dma_counter : UInt8 = 0x00
 
   @hdma_src : UInt16 = 0x0000
   @hdma_dst : UInt16 = 0x8000
@@ -49,7 +52,6 @@ class Memory
 
   def stop_instr : Nil
     if @requested_speed_switch && @cgb_ptr.value
-      puts "switching speeds"
       @requested_speed_switch = false
       @current_speed = (@current_speed % 2) + 1 # toggle between 1 and 2
     end
@@ -166,7 +168,7 @@ class Memory
     # todo: not all of these registers are used. unused registers _should_ return 0xFF
     # - sound doesn't take all of 0xFF10..0xFF3F
     tick_components
-    return 0xFF_u8 if (!@current_dma_source.nil? || @dma_position <= 0xA0) && SPRITE_TABLE.includes?(index)
+    return 0xFF_u8 if (0 < @dma_position <= 0xA0) && SPRITE_TABLE.includes?(index)
     read_byte index
   end
 
@@ -221,7 +223,7 @@ class Memory
   # write 8 bits to memory and tick other components
   def []=(index : Int, value : UInt8) : Nil
     tick_components
-    return if (!@current_dma_source.nil? || @dma_position <= 0xA0) && SPRITE_TABLE.includes?(index)
+    return if (0 < @dma_position <= 0xA0) && SPRITE_TABLE.includes?(index)
     write_byte index, value
   end
 
@@ -238,21 +240,35 @@ class Memory
 
   def dma_transfer(source : UInt8) : Nil
     @dma = source
-    @next_dma_source = @dma.to_u16 << 8
+    @requested_oam_dma_transfer = true
+    @next_dma_counter = 0
   end
 
+  # DMA should start 8 T-cycles after a write to 0xFF46. That's what
+  # `@requested_oam_dma_transfer` and `@next_dma_counter` are for. After that,
+  # memory is still blocked for an additional 4 T-cycles, which is why I
+  # increment `@dma_position` past 0xA0, even though it only transfers 0xA0
+  # bytes. I just use it as an indicator of when memory should unlock again.
+  # Note: According to a comment in gekkio's oam_dma_start test, if DMA is
+  #       restarted while it has not yet completed, the 8 T-cycles should
+  #       be spent continuing the first DMA rather than jumping to the new one.
   def dma_tick(cycles : Int) : Nil
-    (cycles // 4).times do
-      @dma_position += 1 if @dma_position == 0xA0
-      unless @current_dma_source.nil?
-        write_byte 0xFE00 + @dma_position, read_byte @current_dma_source.not_nil! + @dma_position
-        @dma_position += 1
-        @current_dma_source = nil if @dma_position > 0x9F
+    cycles.times do
+      if @requested_oam_dma_transfer
+        @next_dma_counter += 1
+        if @next_dma_counter == 8
+          @requested_oam_dma_transfer = false
+          @current_dma_source = @dma.to_u16 << 8
+          @dma_position = 0
+          @internal_dma_timer = 0
+        end
       end
-      unless @next_dma_source.nil?
-        @current_dma_source = @next_dma_source
-        @next_dma_source = nil
-        @dma_position = 0x00
+      if @dma_position <= 0xA0
+        if @internal_dma_timer % 4 == 0
+          write_byte 0xFE00 + @dma_position, read_byte @current_dma_source + @dma_position if @dma_position < 0xA0
+          @dma_position += 1
+        end
+        @internal_dma_timer += 1
       end
     end
   end
