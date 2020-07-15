@@ -435,7 +435,7 @@ module DmgOps
           ["#{reg} >>= 1"] +
           set_flag_z("#{reg} == 0")
       when "STOP"
-        ["# todo: see if something more needs to happen here..."]
+        ["# todo: see if something more needs to happen here...", "cpu.memory.stop_instr"]
       when "SUB"
         to, from = operands
         set_flag_h("#{to} & 0x0F < #{from} & 0x0F") +

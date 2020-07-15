@@ -40,11 +40,22 @@ class Memory
   @hdma_src : UInt16 = 0x0000
   @hdma_dst : UInt16 = 0x8000
 
+  @requested_speed_switch : Bool = false
+  @current_speed : UInt8 = 1
+
+  def stop_instr : Nil
+    if @requested_speed_switch
+      puts "switching speeds"
+      @requested_speed_switch = false
+      @current_speed = (@current_speed % 2) + 1 # toggle between 1 and 2
+    end
+  end
+
   # keep other components in sync with memory, usually before memory access
   def tick_components(cycles = 4) : Nil
     @cycle_tick_count += cycles
-    @ppu.tick cycles
-    @apu.tick cycles
+    @ppu.tick cycles // @current_speed
+    @apu.tick cycles // @current_speed
     @timer.tick cycles
     dma_tick cycles
   end
@@ -128,6 +139,7 @@ class Memory
       when 0xFF10..0xFF3F then @apu[index]
       when 0xFF46         then @dma
       when 0xFF40..0xFF4B then @ppu[index]
+      when 0xFF4D         then 0x7E_u8 | ((@current_speed - 1) << 7) | (@requested_speed_switch ? 1 : 0)
       when 0xFF4F         then @ppu[index]
       when 0xFF51         then (@hdma_src >> 8).to_u8
       when 0xFF52         then @hdma_src.to_u8
@@ -155,7 +167,6 @@ class Memory
 
   # write a 8 bits to memory (doesn't tick components)
   def write_byte(index : Int, value : UInt8) : Nil
-    puts "speed switch -- #{hex_str index.to_u16}: #{hex_str value}" if index == 0xFF4D
     if index == 0xFF50 && value == 0x11
       @bootrom = Bytes.new 0
       @cgb_ptr.value = @cartridge.cgb != Cartridge::CGB::NONE
@@ -179,6 +190,7 @@ class Memory
       when 0xFF10..0xFF3F then @apu[index] = value
       when 0xFF46         then dma_transfer value
       when 0xFF40..0xFF4B then @ppu[index] = value
+      when 0xFF4D         then @requested_speed_switch = value & 0x1 > 0
       when 0xFF4F         then @ppu[index] = value
       when 0xFF51         then @hdma_src = (@hdma_src & 0x00FF) | (value.to_u16 << 8)
       when 0xFF52         then @hdma_src = (@hdma_src & 0xFF00) | (value.to_u16 & 0xF0)
