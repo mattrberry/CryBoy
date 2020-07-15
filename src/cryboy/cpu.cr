@@ -99,6 +99,7 @@ class CPU
     @memory[@sp] = @pc
     @pc = vector
     @halted = false
+    @memory.tick_extra 20
   end
 
   # service all interrupts
@@ -166,9 +167,8 @@ class CPU
       end
       @cached_hl_read = nil           # clear hl read cache
       @memory.tick_extra cycles_taken # tell memory component to tick extra cycles
-      handle_interrupts
-      @memory.reset_cycle_count
       cycles -= cycles_taken
+      handle_interrupts
     end
   end
 end
