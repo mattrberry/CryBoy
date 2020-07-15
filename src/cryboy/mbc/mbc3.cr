@@ -2,7 +2,7 @@ class MBC3 < Cartridge
   def initialize(@rom : Bytes)
     @ram = Bytes.new ram_size
     @ram_enabled = false
-    @rom_bank_number = 0_u8 # 7-bit register
+    @rom_bank_number = 1_u8 # 7-bit register
     @ram_bank_number = 0_u8 # 4-bit register
   end
 
@@ -14,7 +14,7 @@ class MBC3 < Cartridge
       @rom[rom_bank_offset(@rom_bank_number) + rom_offset(index)]
     when Memory::EXTERNAL_RAM
       if @ram_bank_number <= 3
-        @ram[ram_bank_offset(@ram_bank_number) + ram_offset(index)]
+        @ram_enabled ? @ram[ram_bank_offset(@ram_bank_number) + ram_offset(index)] : 0xFF_u8
       elsif @ram_bank_number <= 0x0C
         # puts "reading clock: #{hex_str @ram_bank_number}"
         0xFF_u8
@@ -40,7 +40,7 @@ class MBC3 < Cartridge
       # puts "latch clock: #{hex_str value}"
     when Memory::EXTERNAL_RAM
       if @ram_bank_number <= 0x03
-        @ram[ram_bank_offset(@ram_bank_number) + ram_offset(index)] = value
+        @ram[ram_bank_offset(@ram_bank_number) + ram_offset(index)] = value if @ram_enabled
       elsif @ram_bank_number <= 0x0C
         # puts "writing to clock: #{hex_str @ram_bank_number} -> #{hex_str value}"
       else

@@ -2,7 +2,7 @@ class MBC5 < Cartridge
   def initialize(@rom : Bytes)
     @ram = Bytes.new ram_size
     @ram_enabled = false
-    @rom_bank_number = 0_u16 # 9-bit register
+    @rom_bank_number = 1_u16 # 9-bit register
     @ram_bank_number = 0_u8  # 4-bit register
   end
 
@@ -13,7 +13,7 @@ class MBC5 < Cartridge
     when Memory::ROM_BANK_N
       @rom[rom_bank_offset(@rom_bank_number) + rom_offset(index)]
     when Memory::EXTERNAL_RAM
-      @ram[ram_bank_offset(@ram_bank_number) + ram_offset(index)]
+      @ram_enabled ? @ram[ram_bank_offset(@ram_bank_number) + ram_offset(index)] : 0xFF_u8
     else raise "Reading from invalid cartridge register #{hex_str index.to_u16!}"
     end
   end
@@ -33,7 +33,7 @@ class MBC5 < Cartridge
     when 0x6000..0x7FFF
       # unmapped write
     when Memory::EXTERNAL_RAM
-      @ram[ram_bank_offset(@ram_bank_number) + ram_offset(index)] = value
+      @ram[ram_bank_offset(@ram_bank_number) + ram_offset(index)] = value if @ram_enabled
     else raise "Writing to invalid cartridge register: #{hex_str index.to_u16!}"
     end
   end

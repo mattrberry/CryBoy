@@ -38,7 +38,7 @@ def repeat(hz : Int, in_fiber : Bool, &block)
   end
 end
 
-def hex_str(n : UInt8 | UInt16) : String
+def hex_str(n : UInt8 | UInt16 | UInt32 | UInt64) : String
   "0x#{n.to_s(16).rjust(sizeof(typeof(n)) * 2, '0').upcase}"
 end
 
