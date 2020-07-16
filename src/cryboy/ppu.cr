@@ -133,7 +133,7 @@ class PPU
   def initialize(@display : Display, @interrupts : Interrupts, @cgb_ptr : Pointer(Bool))
     @palettes[0] = @obj_palettes[0] = @obj_palettes[1] = [
       RGB.new(0x1C, 0x1F, 0x1A), RGB.new(0x11, 0x18, 0x0E),
-      RGB.new(0x06, 0x0D, 0x0A), RGB.new(0x01, 0x03, 0x04)
+      RGB.new(0x06, 0x0D, 0x0A), RGB.new(0x01, 0x03, 0x04),
     ] if !@cgb_ptr.value
   end
 
@@ -309,19 +309,19 @@ class PPU
       elsif self.mode_flag == 1 # vblank
         if @counter >= 456      # end of line reached
           @counter -= 456       # reset counter, saving extra cycles
-          self.ly += 1
-          if self.ly == 154    # end of vblank reached
+          self.ly += 1 if self.ly != 0
+          if self.ly == 0      # end of vblank reached (ly has already shortcut to 0)
             self.mode_flag = 2 # switch to oam search
-            self.ly = 0        # reset ly
           end
         end
+        self.ly = 0 if self.ly == 153 && @counter > 4 # shortcut ly to from 153 to 0 after 4 cycles
       else
         raise "Invalid mode #{self.mode_flag}"
       end
       handle_stat_interrupt
     else                 # lcd is disabled
       @counter = 0       # reset cycle counter
-      self.mode_flag = 2 # reset to oam search mode
+      self.mode_flag = 0 # reset to mode 0
       self.ly = 0        # reset ly
     end
   end
