@@ -373,19 +373,24 @@ class PPU
     case index
     when Memory::VRAM         then @vram[@vram_bank][index - Memory::VRAM.begin] = value
     when Memory::SPRITE_TABLE then @sprite_table[index - Memory::SPRITE_TABLE.begin] = value
-    when 0xFF40               then @lcd_control = value
-    when 0xFF41               then @lcd_status = (@lcd_status & 0b10000111) | (value & 0b01111000)
-    when 0xFF42               then @scy = value
-    when 0xFF43               then @scx = value
-    when 0xFF44               then nil # read only
-    when 0xFF45               then @lyc = value
-    when 0xFF46               then @dma = value
-    when 0xFF47               then @bgp = value
-    when 0xFF48               then @obp0 = value
-    when 0xFF49               then @obp1 = value
-    when 0xFF4A               then @wy = value
-    when 0xFF4B               then @wx = value
-    when 0xFF4F               then @vram_bank = value & 1 if @cgb_ptr.value
+    when 0xFF40
+      if value & 0x80 > 0 && !lcd_enabled?
+        self.ly = 0
+        self.mode_flag = 2
+      end
+      @lcd_control = value
+    when 0xFF41 then @lcd_status = (@lcd_status & 0b10000111) | (value & 0b01111000)
+    when 0xFF42 then @scy = value
+    when 0xFF43 then @scx = value
+    when 0xFF44 then nil # read only
+    when 0xFF45 then @lyc = value
+    when 0xFF46 then @dma = value
+    when 0xFF47 then @bgp = value
+    when 0xFF48 then @obp0 = value
+    when 0xFF49 then @obp1 = value
+    when 0xFF4A then @wy = value
+    when 0xFF4B then @wx = value
+    when 0xFF4F then @vram_bank = value & 1 if @cgb_ptr.value
     when 0xFF68
       @palette_index = value & 0x1F
       @auto_increment = value & 0x80 > 0
