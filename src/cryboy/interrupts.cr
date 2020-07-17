@@ -1,4 +1,6 @@
 class Interrupts
+  @top_3_ie_bits : UInt8 = 0x00 # they're writable for some reason
+
   property vblank_interrupt = false
   property lcd_stat_interrupt = false
   property timer_interrupt = false
@@ -22,7 +24,7 @@ class Interrupts
         (@lcd_stat_interrupt ? (0x1 << 1) : 0) |
         (@vblank_interrupt ? (0x1 << 0) : 0)
     when 0xFFFF
-      0xE0_u8 |
+      @top_3_ie_bits |
         (@joypad_enabled ? (0x1 << 4) : 0) |
         (@serial_enabled ? (0x1 << 3) : 0) |
         (@timer_enabled ? (0x1 << 2) : 0) |
@@ -42,6 +44,7 @@ class Interrupts
       @serial_interrupt = value & (0x1 << 3) > 0
       @joypad_interrupt = value & (0x1 << 4) > 0
     when 0xFFFF
+      @top_3_ie_bits = value & 0xE0
       @vblank_enabled = value & (0x1 << 0) > 0
       @lcd_stat_enabled = value & (0x1 << 1) > 0
       @timer_enabled = value & (0x1 << 2) > 0

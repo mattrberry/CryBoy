@@ -104,7 +104,7 @@ class CPU
 
   # service all interrupts
   def handle_interrupts
-    @halted = false if @interrupts[0xFF0F] & @interrupts[0xFFFF] != 0xE0_u8
+    @halted = false if @interrupts[0xFF0F] & @interrupts[0xFFFF] & 0x1F > 0
     if @ime
       if @interrupts.vblank_interrupt && @interrupts.vblank_enabled
         @interrupts.vblank_interrupt = false

@@ -104,7 +104,7 @@ class PPU
   @vram_bank : UInt8 = 0                                     # track which bank is active
   @sprite_table = Bytes.new Memory::SPRITE_TABLE.size        # 0xFE00..0xFE9F
   @lcd_control : UInt8 = 0x00_u8                             # 0xFF40
-  @lcd_status : UInt8 = 0x00_u8                              # 0xFF41
+  @lcd_status : UInt8 = 0x80_u8                              # 0xFF41
   @scy : UInt8 = 0x00_u8                                     # 0xFF42
   @scx : UInt8 = 0x00_u8                                     # 0xFF43
   @ly : UInt8 = 0x00_u8                                      # 0xFF44

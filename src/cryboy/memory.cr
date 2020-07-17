@@ -141,6 +141,7 @@ class Memory
     when IO_PORTS
       case index
       when 0xFF00         then @joypad.read
+      when 0xFF02         then @memory[index] | 0x7E # todo actual serial
       when 0xFF04..0xFF07 then @timer[index]
       when 0xFF0F         then @interrupts[index]
       when 0xFF10..0xFF3F then @apu[index]
@@ -148,6 +149,7 @@ class Memory
       when 0xFF40..0xFF4B then @ppu[index]
       when 0xFF4D         then 0x7E_u8 | ((@current_speed - 1) << 7) | (@requested_speed_switch ? 1 : 0)
       when 0xFF4F         then @ppu[index]
+      when 0xFF50         then 0xFF_u8
       when 0xFF51         then (@hdma_src >> 8).to_u8
       when 0xFF52         then @hdma_src.to_u8
       when 0xFF53         then (@hdma_dst >> 8).to_u8
@@ -155,6 +157,9 @@ class Memory
       when 0xFF55         then @hdma5 # todo
       when 0xFF68..0xFF6B then @ppu[index]
       when 0xFF70         then @cgb_ptr.value ? 0xF8_u8 | @wram_bank : @memory[index]
+      when 0xFF75         then @memory[index] | 0x8F # (todo) undocumented cgb register
+      when 0xFF76         then 0x00_u8               # (todo) lower bits should have apu channel 1/2 PCM amp
+      when 0xFF77         then 0x00_u8               # (todo) lower bits should have apu channel 3/4 PCM amp
       else                     @memory[index]
       end
     when HRAM          then @memory[index]
