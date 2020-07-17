@@ -190,8 +190,11 @@ class Memory
     when NOT_USABLE   then nil
     when IO_PORTS
       case index
-      when 0xFF00         then @joypad.write value
-      when 0xFF01         then @memory[index] = value # ; print value.chr
+      when 0xFF00 then @joypad.write value
+      when 0xFF01
+        @memory[index] = value
+        print value
+        STDOUT.flush
       when 0xFF04..0xFF07 then @timer[index] = value
       when 0xFF0F         then @interrupts[index] = value
       when 0xFF10..0xFF3F then @apu[index] = value

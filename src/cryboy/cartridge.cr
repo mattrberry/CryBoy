@@ -31,7 +31,6 @@ abstract class Cartridge
   }
 
   getter cgb : CGB {
-    puts hex_str @rom[0x0143]
     case @rom[0x0143]
     when 0x80 then CGB::SUPPORT
     when 0xC0 then CGB::EXCLUSIVE
