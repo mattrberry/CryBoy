@@ -32,6 +32,7 @@ class Channel1
   @length_load : UInt8 = 0x00
 
   @length_counter : UInt8 = 0x00
+  @cycles_since_length_step : UInt16 = 0x0000
 
   # NR12
   @starting_volume : UInt8 = 0x00
@@ -48,18 +49,22 @@ class Channel1
   @frequency_timer : UInt16 = 0x0000
 
   def step : Nil
+    # Increment wave duty position
     if @frequency_timer == 0
       @frequency_timer = (2048_u16 - @frequency) * 4
       @wave_duty_position = (@wave_duty_position + 1) % 8
     end
     @frequency_timer -= 1
+    # Update frame sequencer counters
+    @cycles_since_length_step += 1
   end
 
   def length_step : Nil
-    if @length_enable # should the length counter be respected
-      @length_counter -= 1 if @length_counter > 0
+    if @length_enable && @length_counter > 0
+      @length_counter -= 1
       @enabled = false if @length_counter == 0
     end
+    @cycles_since_length_step = 0
   end
 
   def sweep_step : Nil
@@ -117,7 +122,6 @@ class Channel1
   end
 
   def []=(index : Int, value : UInt8) : Nil
-    puts "#{hex_str index.to_u16} -> #{hex_str value}"
     case index
     when 0xFF10
       @sweep_period = (value & 0x70) >> 4
@@ -139,7 +143,13 @@ class Channel1
       @frequency = (@frequency & 0x0700) | value
     when 0xFF14
       @frequency = (@frequency & 0x00FF) | (value.to_u16 & 0x07) << 8
-      @length_enable = value & 0x40 > 0
+      length_enable = value & 0x40 > 0
+      # Obscure length counter behavior #1
+      if @cycles_since_length_step < 2 ** 13 && !@length_enable && length_enable && @length_counter > 0
+        @length_counter -= 1
+        @enabled = false if @length_counter == 0
+      end
+      @length_enable = length_enable
       trigger = value & 0x80 > 0
       if trigger
         puts "triggered"
@@ -148,18 +158,22 @@ class Channel1
         puts "  NR12:      starting_volume:#{@starting_volume}, envelope_add_mode:#{@envelope_add_mode}, period:#{@period}"
         puts "  NR13/NR14: frequency:#{@frequency}, length_enable:#{@length_enable}"
         @enabled = true
-        # init length
-        @length_counter = 0x40 if @length_counter == 0
-        # init frequency
+        # Init length
+        if @length_counter == 0
+          @length_counter = 0x40
+          # Obscure length counter behavior #2
+          @length_counter -= 1 if @length_enable && @cycles_since_length_step < 2 ** 13
+        end
+        # Init frequency
         @frequency_timer = (2048_u16 - @frequency) * 4
-        # init volume envelope
+        # Init volume envelope
         @volume_envelope_timer = @period
         @current_volume = @starting_volume
-        # init sweep
+        # Init sweep
         @frequency_shadow = @frequency
         @sweep_timer = @sweep_period
         @sweep_enabled = @sweep_period > 0 || @shift > 0
-        if @shift > 0 # if sweep shift is non-zero, frequency calculation and overflow check are performed immediately
+        if @shift > 0 # If sweep shift is non-zero, frequency calculation and overflow check are performed immediately
           frequency_calculation
         end
       end
