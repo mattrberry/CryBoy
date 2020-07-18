@@ -64,6 +64,7 @@ class Channel1
 
   def sweep_step : Nil
     if @sweep_enabled && @sweep_period > 0
+      @sweep_timer -= 1 if @sweep_timer > 0
       if @sweep_timer == 0
         @sweep_timer = @sweep_period
         calculated = frequency_calculation
@@ -72,19 +73,18 @@ class Channel1
           frequency_calculation
         end
       end
-      @sweep_timer -= 1
     end
   end
 
   def volume_step : Nil
     if @period != 0
+      @volume_envelope_timer -= 1 if @volume_envelope_timer > 0
       if @volume_envelope_timer == 0
         @volume_envelope_timer = @period
         if (@current_volume < 0xF && @envelope_add_mode) || (@current_volume > 0 && !@envelope_add_mode)
           @current_volume += (@envelope_add_mode ? 1 : -1)
         end
       end
-      @volume_envelope_timer -= 1
     end
   end
 
