@@ -162,7 +162,7 @@ module DmgOps
 
     # set flag z to the given value
     def set_flag_z!(o : Object) : Array(String)
-      ["cpu.f_z = #{o.to_s}"]
+      ["cpu.f_z = #{o}"]
     end
 
     # set flag n to the given value if specified by this operation
@@ -172,7 +172,7 @@ module DmgOps
 
     # set flag n to the given value
     def set_flag_n!(o : Object) : Array(String)
-      ["cpu.f_n = #{o.to_s}"]
+      ["cpu.f_n = #{o}"]
     end
 
     # set flag h to the given value if specified by this operation
@@ -182,7 +182,7 @@ module DmgOps
 
     # set flag h to the given value
     def set_flag_h!(o : Object) : Array(String)
-      ["cpu.f_h = #{o.to_s}"]
+      ["cpu.f_h = #{o}"]
     end
 
     # set flag c to the given value if specified by this operation
@@ -192,7 +192,7 @@ module DmgOps
 
     # set flag c to the given value
     def set_flag_c!(o : Object) : Array(String)
-      ["cpu.f_c = #{o.to_s}"]
+      ["cpu.f_c = #{o}"]
     end
 
     # generate code to set/reset flags if necessary

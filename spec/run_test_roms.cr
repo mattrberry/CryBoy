@@ -34,8 +34,7 @@ unless acid_dir == ""
   Dir.glob "#{acid_dir}/*acid2.gb*" do |path|
     puts path
     Process.run "bin/cryboy", [path] do |process|
-      print "Does this look correct? (y/n) "
-      answer = STDIN.gets
+      print "Acknowledge: "
       process.terminate if process.exists?
     end
   end
