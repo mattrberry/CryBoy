@@ -64,11 +64,15 @@ class Channel1
 
   def sweep_step : Nil
     if @sweep_enabled && @sweep_period > 0
-      calculated = frequency_calculation
-      if calculated <= 0x07FF && @shift > 0
-        @frequency_shadow = @frequency = calculated
-        frequency_calculation
+      if @sweep_timer == 0
+        @sweep_timer = @sweep_period
+        calculated = frequency_calculation
+        if calculated <= 0x07FF && @shift > 0
+          @frequency_shadow = @frequency = calculated
+          frequency_calculation
+        end
       end
+      @sweep_timer -= 1
     end
   end
 
