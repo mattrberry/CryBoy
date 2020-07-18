@@ -125,6 +125,7 @@ class APU
         (@right_enable ? 0b00001000 : 0) | @right_volume).to_u8
     when 0xFF25 then @nr51
     when 0xFF26
+      puts "READING NR52 - sound enabled? #{@sound_enabled} - channel 1 enabled? #{@channel1.enabled}"
       0x70_u8 |
         (@sound_enabled ? 0x80 : 0) |
         (@channel4.enabled ? 0b1000 : 0) |
@@ -137,28 +138,26 @@ class APU
 
   # write to apu memory
   def []=(index : Int, value : UInt8) : Nil
-    return if !@sound_enabled && index != 0xFF26 && !Channel3.wave_ram.includes?(index)
+    return unless @sound_enabled || index == 0xFF26
     case index
     when @channel1 then @channel1[index] = value
     when @channel2 then @channel2[index] = value
     when @channel3 then @channel3[index] = value
     when @channel4 then @channel4[index] = value
     when 0xFF24
-      @left_enable = value & 0b10000000 != 0
+      @left_enable = value & 0b10000000 > 0
       @left_volume = (value & 0b01110000) >> 4
-      @right_enable = value & 0b00001000 != 0
+      @right_enable = value & 0b00001000 > 0
       @right_volume = value & 0b00000111
     when 0xFF25 then @nr51 = value
     when 0xFF26
-      unless value & 0x80 == 0x80
-        @channel1.power_off_channel
-        @channel2.power_off_channel
-        @channel3.power_off_channel
-        @channel4.power_off_channel
-        self[0xFF24] = 0x00_u8
-        self[0xFF25] = 0x00_u8
+      if value & 0x80 == 0 && @sound_enabled
+        (0xFF10..0xFF25).each { |addr| self[addr] = 0x00 }
+        @sound_enabled = false
+      else
+        @sound_enabled = true
+        @frame_sequencer_stage = 0
       end
-      @sound_enabled = value & 0x80 == 0x80
     end
   end
 end
