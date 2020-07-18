@@ -151,7 +151,7 @@ class Channel1
       end
       @length_enable = length_enable
       trigger = value & 0x80 > 0
-      if trigger
+      if trigger && @dac_enabled
         puts "triggered"
         puts "  NR10:      sweep_period:#{@sweep_period}, negate:#{@negate}, shift:#{@shift}"
         puts "  NR11:      duty:#{@duty}, length_load:#{@length_load}"
