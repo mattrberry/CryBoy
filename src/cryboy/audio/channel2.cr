@@ -16,7 +16,6 @@ class Channel2
   @dac_enabled : Bool = false
 
   @wave_duty_position = 0
-  @wave_duty_timer = 0
 
   # NR21
   @duty : UInt8 = 0x00

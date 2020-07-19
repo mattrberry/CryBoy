@@ -16,7 +16,6 @@ class Channel1
   @dac_enabled : Bool = false
 
   @wave_duty_position = 0
-  @wave_duty_timer = 0
 
   # NR10
   @sweep_period : UInt8 = 0x00
