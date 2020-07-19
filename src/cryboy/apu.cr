@@ -99,14 +99,16 @@ class APU
         channel2_amp = @channel2.get_amplitude
         channel3_amp = @channel3.get_amplitude
         channel4_amp = @channel4.get_amplitude
-        @buffer[@buffer_pos] = (((@nr51 & 0x80 > 0 ? channel4_amp : 0) +
-                                 (@nr51 & 0x40 > 0 ? channel3_amp : 0) +
-                                 (@nr51 & 0x20 > 0 ? channel2_amp : 0) +
-                                 (@nr51 & 0x10 > 0 ? channel1_amp : 0)) / 4).to_f32
-        @buffer[@buffer_pos + 1] = (((@nr51 & 0x08 > 0 ? channel4_amp : 0) +
-                                     (@nr51 & 0x04 > 0 ? channel3_amp : 0) +
-                                     (@nr51 & 0x02 > 0 ? channel2_amp : 0) +
-                                     (@nr51 & 0x01 > 0 ? channel1_amp : 0)) / 4).to_f32
+        @buffer[@buffer_pos] = (@left_volume / 7).to_f32 *
+                               ((@nr51 & 0x80 > 0 ? channel4_amp : 0) +
+                                (@nr51 & 0x40 > 0 ? channel3_amp : 0) +
+                                (@nr51 & 0x20 > 0 ? channel2_amp : 0) +
+                                (@nr51 & 0x10 > 0 ? channel1_amp : 0)) / 4
+        @buffer[@buffer_pos + 1] = (@right_volume / 7).to_f32 *
+                                   ((@nr51 & 0x08 > 0 ? channel4_amp : 0) +
+                                    (@nr51 & 0x04 > 0 ? channel3_amp : 0) +
+                                    (@nr51 & 0x02 > 0 ? channel2_amp : 0) +
+                                    (@nr51 & 0x01 > 0 ? channel1_amp : 0)) / 4
         @buffer_pos += 2
       end
 
