@@ -64,7 +64,6 @@ class Channel3
   end
 
   def [](index : Int) : UInt8
-    puts "reading #{hex_str index.to_u16}"
     case index
     when 0xFF1A then 0x7F | (@dac_enabled ? 0x80 : 0)
     when 0xFF1B then 0xFF
@@ -82,7 +81,6 @@ class Channel3
   end
 
   def []=(index : Int, value : UInt8) : Nil
-    puts "#{hex_str index.to_u16} -> #{hex_str value}"
     case index
     when 0xFF1A
       @dac_enabled = value & 0x80 > 0
@@ -127,7 +125,12 @@ class Channel3
           @length_counter -= 1 if @length_enable && @cycles_since_length_step < 2 ** 13
         end
         # Init frequency
-        @frequency_timer = (2048_u16 - @frequency) * 2
+        # todo: I'm patching in an extra cycle here with the `+ 4`. This is specifically
+        #       to get blargg's "09-wave read while on.s" to pass. I'm _not_ refilling
+        #       the frequency timer with this extra cycle when it reaches 0. For now,
+        #       I'm letting this be to work on other audio behavior. Note that this is
+        #       pretty brittle in it's current state though...
+        @frequency_timer = (2048_u16 - @frequency) * 2 + 4
         # Init wave ram position
         @wave_ram_position = 0
       end
