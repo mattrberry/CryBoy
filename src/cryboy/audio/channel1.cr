@@ -95,7 +95,9 @@ class Channel1
 
   def get_amplitude : Float32
     if @enabled && @dac_enabled
-      WAVE_DUTY[@duty][@wave_duty_position] * @current_volume / 0xF
+      dac_input = WAVE_DUTY[@duty][@wave_duty_position] * @current_volume
+      dac_output = (dac_input / 7.5) - 1
+      dac_output
     else
       0
     end.to_f32

@@ -95,10 +95,18 @@ class APU
 
       # put 1 frame in buffer
       if @cycles % (CPU::CLOCK_SPEED // SAMPLE_RATE) == 0
-        amplitude = (@channel1.get_amplitude + @channel2.get_amplitude +
-                     @channel3.get_amplitude + @channel4.get_amplitude) / 4
-        @buffer[@buffer_pos] = amplitude     # left
-        @buffer[@buffer_pos + 1] = amplitude # right
+        channel1_amp = @channel1.get_amplitude
+        channel2_amp = @channel2.get_amplitude
+        channel3_amp = @channel3.get_amplitude
+        channel4_amp = @channel4.get_amplitude
+        @buffer[@buffer_pos] = (((@nr51 & 0x80 > 0 ? channel4_amp : 0) +
+                                 (@nr51 & 0x40 > 0 ? channel3_amp : 0) +
+                                 (@nr51 & 0x20 > 0 ? channel2_amp : 0) +
+                                 (@nr51 & 0x10 > 0 ? channel1_amp : 0)) / 4).to_f32
+        @buffer[@buffer_pos + 1] = (((@nr51 & 0x08 > 0 ? channel4_amp : 0) +
+                                     (@nr51 & 0x04 > 0 ? channel3_amp : 0) +
+                                     (@nr51 & 0x02 > 0 ? channel2_amp : 0) +
+                                     (@nr51 & 0x01 > 0 ? channel1_amp : 0)) / 4).to_f32
         @buffer_pos += 2
       end
 
