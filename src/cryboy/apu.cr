@@ -146,7 +146,7 @@ class APU
 
   # write to apu memory
   def []=(index : Int, value : UInt8) : Nil
-    return unless @sound_enabled || index == 0xFF26
+    return unless @sound_enabled || index == 0xFF26 || Channel3::WAVE_RAM_RANGE.includes?(index)
     case index
     when @channel1 then @channel1[index] = value
     when @channel2 then @channel2[index] = value

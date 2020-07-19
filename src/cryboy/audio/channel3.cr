@@ -1,82 +1,143 @@
-class Channel3 < SoundChannel
-  @@RANGE = 0xFF1A..0xFF1E
-  class_getter wave_ram = 0xFF30..0xFF3F
+class Channel3
+  RANGE          = 0xFF1A..0xFF1E
+  WAVE_RAM_RANGE = 0xFF30..0xFF3F
 
   def ===(value) : Bool
-    value.is_a?(Int) && @@RANGE.includes?(value) || @@wave_ram.includes?(value)
+    value.is_a?(Int) && RANGE.includes?(value) || WAVE_RAM_RANGE.includes?(value)
   end
 
-  @remaining_length = 0
-  @output_level_raw = 0_u8
-  @volume = 0_f32
-  @counter_selection : Bool = true
-  @frequency : UInt16 = 0x0000
-  @wave_pattern_ram = Bytes.new 32 # stores 32 4-bit values
-  @position = 0
+  property enabled : Bool = false
+  @dac_enabled : Bool = false
 
-  def reload_period : Nil
-    @period = (2048 - @frequency) * 2
+  @wave_ram = Bytes.new(WAVE_RAM_RANGE.size) # { |idx| idx % 2 == 0 ? 0x00 : 0xFF }
+  @wave_ram_position : UInt8 = 0
+  @wave_ram_sample_buffer : UInt8 = 0x00
+
+  # NR30
+  @dac_enabled = false
+
+  # NR31
+  @length_load : UInt8 = 0x00
+
+  @length_counter : UInt16 = 0x0000
+  @cycles_since_length_step : UInt16 = 0x0000
+
+  # NR32
+  @volume_code : UInt8 = 0x00
+
+  @volume_code_shift : UInt8 = 0
+
+  # NR33 / NR34
+  @frequency : UInt16 = 0x00
+  @length_enable : Bool = false
+
+  @frequency_timer : UInt16 = 0x0000
+
+  def step : Nil
+    # Increment wave duty position
+    if @frequency_timer == 0
+      @frequency_timer = (2048_u16 - @frequency) * 2
+      @wave_ram_position = (@wave_ram_position + 1) % (WAVE_RAM_RANGE.size * 2)
+      @wave_ram_sample_buffer = @wave_ram[@wave_ram_position // 2]
+    end
+    @frequency_timer -= 1
+    # Update frame sequencer counters
+    @cycles_since_length_step += 1
   end
 
-  def step_wave_generation : Nil
-    @position = (@position + 1) % 32
+  def length_step : Nil
+    if @length_enable && @length_counter > 0
+      @length_counter -= 1
+      @enabled = false if @length_counter == 0
+    end
+    @cycles_since_length_step = 0
   end
 
   def get_amplitude : Float32
-    if @dac_enabled
-      @volume * @wave_pattern_ram[@position] / 15
+    if @enabled && @dac_enabled
+      dac_input = ((@wave_ram_sample_buffer >> (@wave_ram_position % 2 == 0 ? 0 : 4)) & 0x0F) >> @volume_code
+      dac_output = (dac_input / 7.5) - 1
+      dac_output
     else
-      0_f32
-    end
+      0
+    end.to_f32
   end
 
   def [](index : Int) : UInt8
+    puts "reading #{hex_str index.to_u16}"
     case index
-    when 0xFF1A then 0x7F_u8 | (@dac_enabled ? 0x80 : 0x00)
-    when 0xFF1B then 0xFF_u8 # I assume this is write-only like in the tone channels
-    when 0xFF1C then 0x9F_u8 | @output_level_raw
-    when 0xFF1D then 0xFF_u8                                       # write-only
-    when 0xFF1E then 0xBF_u8 | ((@counter_selection ? 1 : 0) << 6) # rest is write-only
-    when 0xFF30..0xFF3F
-      index = index - 0xFF30
-      (@wave_pattern_ram[index * 2] << 4) | @wave_pattern_ram[index * 2 + 1]
-    else raise "Reading from invalid channel 3 register: #{hex_str index.to_u16!}"
-    end
+    when 0xFF1A then 0x7F | (@dac_enabled ? 0x80 : 0)
+    when 0xFF1B then 0xFF
+    when 0xFF1C then 0x9F | @volume_code << 5
+    when 0xFF1D then 0xFF
+    when 0xFF1E then 0xBF | (@length_enable ? 0x40 : 0)
+    when WAVE_RAM_RANGE
+      if @enabled
+        @wave_ram[@wave_ram_position // 2]
+      else
+        @wave_ram[index - WAVE_RAM_RANGE.begin]
+      end
+    else raise "Reading from invalid Channel3 register: #{hex_str index.to_u16}"
+    end.to_u8
   end
 
   def []=(index : Int, value : UInt8) : Nil
+    puts "#{hex_str index.to_u16} -> #{hex_str value}"
     case index
     when 0xFF1A
-      if value & 0x80 == 0
-        disable_channel
-      else
-        enable_dac
-      end
-    when 0xFF1B then @remaining_length = 256 - value
+      @dac_enabled = value & 0x80 > 0
+      @enabled = false if !@dac_enabled
+    when 0xFF1B
+      @length_load = value
+      # Internal values
+      @length_counter = 0x100_u16 - @length_load
     when 0xFF1C
-      @output_level_raw = value
-      case (value >> 5) & 0x3
-      when 0 then @volume = 0_f32
-      when 1 then @volume = 1_f32
-      when 2 then @volume = 0.5_f32
-      when 3 then @volume = 0.75_f32
-      end
-    when 0xFF1D then @frequency = (@frequency & 0x0700) | value
+      @volume_code = (value & 0x60) >> 5
+      # Internal values
+      @volume_code_shift = case @volume_code
+                           when 0b00 then 4
+                           when 0b01 then 0
+                           when 0b10 then 1
+                           when 0b11 then 2
+                           else           raise "Impossible volume code #{@volume_code}"
+                           end.to_u8
+    when 0xFF1D
+      @frequency = (@frequency & 0x0700) | value
     when 0xFF1E
-      @counter_selection = value & 0x40 != 0
-      @frequency = (@frequency & 0x00FF) | ((value.to_u16 & 0x7) << 8)
-      trigger = value & (0x1 << 7) != 0
-      if trigger
-        @enabled = true
-        @remaining_length = 256 if @remaining_length == 0
-        reload_period
-        @position = 0
+      @frequency = (@frequency & 0x00FF) | (value.to_u16 & 0x07) << 8
+      length_enable = value & 0x40 > 0
+      # Obscure length counter behavior #1
+      if @cycles_since_length_step < 2 ** 13 && !@length_enable && length_enable && @length_counter > 0
+        @length_counter -= 1
+        @enabled = false if @length_counter == 0
       end
-    when 0xFF30..0xFF3F
-      index = index - 0xFF30
-      @wave_pattern_ram[index * 2] = value >> 4
-      @wave_pattern_ram[index * 2 + 1] = value & 0x0F
-    else raise "Writing to invalid channel 3 register: #{hex_str index.to_u16!}"
+      @length_enable = length_enable
+      trigger = value & 0x80 > 0
+      if trigger
+        puts "triggered"
+        puts "  NR30:      dac_enabled:#{@dac_enabled}"
+        puts "  NR31:      length_load:#{@length_load}"
+        puts "  NR32:      volume_code:#{@volume_code}"
+        puts "  NR33/NR34: frequency:#{@frequency}, length_enable:#{@length_enable}"
+        @enabled = true if @dac_enabled
+        # Init length
+        if @length_counter == 0
+          @length_counter = 0x100
+          # Obscure length counter behavior #2
+          @length_counter -= 1 if @length_enable && @cycles_since_length_step < 2 ** 13
+        end
+        # Init frequency
+        @frequency_timer = (2048_u16 - @frequency) * 2
+        # Init wave ram position
+        @wave_ram_position = 0
+      end
+    when WAVE_RAM_RANGE
+      if @enabled
+        @wave_ram[@wave_ram_position // 2] = value
+      else
+        @wave_ram[index - WAVE_RAM_RANGE.begin] = value
+      end
+    else raise "Writing to invalid Channel3 register: #{hex_str index.to_u16}"
     end
   end
 end
