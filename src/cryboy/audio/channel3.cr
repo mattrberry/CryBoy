@@ -19,7 +19,7 @@ class Channel3
   # NR31
   @length_load : UInt8 = 0x00
 
-  @length_counter : UInt16 = 0x0000
+  property length_counter : UInt16 = 0x0000
   @cycles_since_length_step : UInt16 = 0x0000
 
   # NR32

@@ -21,7 +21,7 @@ class Channel2
   @duty : UInt8 = 0x00
   @length_load : UInt8 = 0x00
 
-  @length_counter : UInt8 = 0x00
+  property length_counter : UInt8 = 0x00
   @cycles_since_length_step : UInt16 = 0x0000
 
   # NR22

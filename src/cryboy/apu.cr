@@ -135,15 +135,14 @@ class APU
         (@right_enable ? 0b00001000 : 0) | @right_volume).to_u8
     when 0xFF25 then @nr51
     when 0xFF26
-      puts "READING NR52 - sound enabled? #{@sound_enabled} - channel 1 enabled? #{@channel1.enabled}"
-      0x70_u8 |
+      0x70 |
         (@sound_enabled ? 0x80 : 0) |
         (@channel4.enabled ? 0b1000 : 0) |
         (@channel3.enabled ? 0b0100 : 0) |
         (@channel2.enabled ? 0b0010 : 0) |
         (@channel1.enabled ? 0b0001 : 0)
-    else 0xFF_u8
-    end
+    else 0xFF
+    end.to_u8
   end
 
   # write to apu memory
@@ -164,9 +163,13 @@ class APU
       if value & 0x80 == 0 && @sound_enabled
         (0xFF10..0xFF25).each { |addr| self[addr] = 0x00 }
         @sound_enabled = false
-      elsif !@sound_enabled
+      elsif value & 0x80 > 0 && !@sound_enabled
         @sound_enabled = true
         @frame_sequencer_stage = 0
+        @channel1.length_counter = 0
+        @channel2.length_counter = 0
+        @channel3.length_counter = 0
+        @channel4.length_counter = 0
       end
     end
   end
