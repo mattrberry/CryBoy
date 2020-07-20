@@ -164,7 +164,7 @@ class APU
       if value & 0x80 == 0 && @sound_enabled
         (0xFF10..0xFF25).each { |addr| self[addr] = 0x00 }
         @sound_enabled = false
-      else
+      elsif !@sound_enabled
         @sound_enabled = true
         @frame_sequencer_stage = 0
       end
