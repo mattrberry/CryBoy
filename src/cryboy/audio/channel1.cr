@@ -67,10 +67,10 @@ class Channel1
   end
 
   def sweep_step : Nil
-    if @sweep_enabled && @sweep_period > 0
-      @sweep_timer -= 1 if @sweep_timer > 0
-      if @sweep_timer == 0
-        @sweep_timer = @sweep_period
+    @sweep_timer -= 1 if @sweep_timer > 0
+    if @sweep_timer == 0
+      @sweep_timer = @sweep_period > 0 ? @sweep_period : 8_u8
+      if @sweep_enabled && @sweep_period > 0
         calculated = frequency_calculation
         if calculated <= 0x07FF && @shift > 0
           @frequency_shadow = @frequency = calculated
@@ -172,7 +172,7 @@ class Channel1
         @current_volume = @starting_volume
         # Init sweep
         @frequency_shadow = @frequency
-        @sweep_timer = @sweep_period
+        @sweep_timer = @sweep_period > 0 ? @sweep_period : 8_u8
         @sweep_enabled = @sweep_period > 0 || @shift > 0
         if @shift > 0 # If sweep shift is non-zero, frequency calculation and overflow check are performed immediately
           frequency_calculation
