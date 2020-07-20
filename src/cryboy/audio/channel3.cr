@@ -9,7 +9,7 @@ class Channel3
   property enabled : Bool = false
   @dac_enabled : Bool = false
 
-  @wave_ram = Bytes.new(WAVE_RAM_RANGE.size) # { |idx| idx % 2 == 0 ? 0x00 : 0xFF }
+  @wave_ram = Bytes.new(WAVE_RAM_RANGE.size) { |idx| idx % 2 == 0 ? 0x00_u8 : 0xFF_u8 }
   @wave_ram_position : UInt8 = 0
   @wave_ram_sample_buffer : UInt8 = 0x00
 
