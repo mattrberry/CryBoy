@@ -25,6 +25,7 @@ class Channel1
   @sweep_timer : UInt8 = 0x00
   @frequency_shadow : UInt16 = 0x0000
   @sweep_enabled : Bool = false
+  @negate_has_been_used : Bool = false
 
   # NR11
   @duty : UInt8 = 0x00
@@ -107,6 +108,7 @@ class Channel1
   def frequency_calculation : UInt16
     calculated = @frequency_shadow >> @shift
     calculated = @frequency_shadow + (@negate ? -1 : 1) * calculated
+    @negate_has_been_used = true if @negate
     @enabled = false if calculated > 0x07FF
     calculated
   end
@@ -128,6 +130,8 @@ class Channel1
       @sweep_period = (value & 0x70) >> 4
       @negate = value & 0x08 > 0
       @shift = value & 0x07
+      # Internal values
+      @enabled = false if !@negate && @negate_has_been_used
     when 0xFF11
       @duty = (value & 0xC0) >> 6
       @length_load = value & 0x3F
@@ -174,6 +178,7 @@ class Channel1
         @frequency_shadow = @frequency
         @sweep_timer = @sweep_period > 0 ? @sweep_period : 8_u8
         @sweep_enabled = @sweep_period > 0 || @shift > 0
+        @negate_has_been_used = false
         if @shift > 0 # If sweep shift is non-zero, frequency calculation and overflow check are performed immediately
           frequency_calculation
         end
