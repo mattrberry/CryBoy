@@ -13,7 +13,7 @@ abstract class SoundChannel
   @length_enable : Bool = false
   @frequency_timer : UInt32 = 0x00000000
 
-  # step the channel, calling helpers to reload the period and step the wave generation
+  # Step the channel, calling helpers to reload the period and step the wave generation
   def step : Nil
     if @frequency_timer == 0
       reload_frequency_timer
@@ -24,7 +24,7 @@ abstract class SoundChannel
     @cycles_since_length_step += 1
   end
 
-  # step the length, disabling the channel if the length counter expires
+  # Step the length, disabling the channel if the length counter expires
   def length_step : Nil
     if @length_enable && @length_counter > 0
       @length_counter -= 1
@@ -33,10 +33,13 @@ abstract class SoundChannel
     @cycles_since_length_step = 0
   end
 
-  # called when @frequency_timer reaches 0 and on trigger
+  # Used so that channels can be matched with case..when statements
+  abstract def ===(value) : Bool
+
+  # Called when @frequency_timer reaches 0 and on trigger
   abstract def reload_frequency_timer : Nil
 
-  # called when @period reaches 0
+  # Called when @period reaches 0
   abstract def step_wave_generation : Nil
 
   abstract def get_amplitude : Float32
