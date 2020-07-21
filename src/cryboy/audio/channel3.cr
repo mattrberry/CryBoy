@@ -32,7 +32,7 @@ class Channel3 < SoundChannel
 
   def get_amplitude : Float32
     if @enabled && @dac_enabled
-      dac_input = ((@wave_ram_sample_buffer >> (@wave_ram_position % 2 == 0 ? 0 : 4)) & 0x0F) >> @volume_code
+      dac_input = ((@wave_ram_sample_buffer >> (@wave_ram_position % 2 == 0 ? 4 : 0)) & 0x0F) >> @volume_code_shift
       dac_output = (dac_input / 7.5) - 1
       dac_output
     else
