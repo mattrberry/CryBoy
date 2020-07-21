@@ -1,20 +1,14 @@
-class Channel4
+class Channel4 < SoundChannel
   RANGE = 0xFF20..0xFF23
 
   def ===(value) : Bool
     value.is_a?(Int) && RANGE.includes?(value)
   end
 
-  property enabled : Bool = false
-  @dac_enabled : Bool = false
-
   @lfsr : UInt16 = 0x0000
 
   # NR41
   @length_load : UInt8 = 0x00
-
-  property length_counter : UInt8 = 0x00
-  @cycles_since_length_step : UInt16 = 0x0000
 
   # NR42
   @starting_volume : UInt8 = 0x00
@@ -29,33 +23,18 @@ class Channel4
   @width_mode : UInt8 = 0x00
   @divisor_code : UInt8 = 0x00
 
-  @frequency_timer : UInt32 = 0x00000000
-
-  # NR44
-  @length_enable : Bool = false
-
-  def step : Nil
-    if @frequency_timer == 0
-      @frequency_timer = (@divisor_code == 0 ? 8_u32 : @divisor_code.to_u32 << 4) << @clock_shift
-      new_bit = (@lfsr & 0b01) ^ ((@lfsr & 0b10) >> 1)
-      @lfsr >>= 1
-      @lfsr |= new_bit << 14
-      if @width_mode != 0
-        @lfsr &= ~(1 << 6)
-        @lfsr |= new_bit << 6
-      end
+  def step_wave_generation : Nil
+    new_bit = (@lfsr & 0b01) ^ ((@lfsr & 0b10) >> 1)
+    @lfsr >>= 1
+    @lfsr |= new_bit << 14
+    if @width_mode != 0
+      @lfsr &= ~(1 << 6)
+      @lfsr |= new_bit << 6
     end
-    @frequency_timer -= 1
-    # Update frame sequencer counters
-    @cycles_since_length_step += 1
   end
 
-  def length_step : Nil
-    if @length_enable && @length_counter > 0
-      @length_counter -= 1
-      @enabled = false if @length_counter == 0
-    end
-    @cycles_since_length_step = 0
+  def reload_frequency_timer : Nil
+    @frequency_timer = (@divisor_code == 0 ? 8_u32 : @divisor_code.to_u32 << 4) << @clock_shift
   end
 
   def volume_step : Nil
@@ -95,7 +74,7 @@ class Channel4
     when 0xFF20
       @length_load = value & 0x3F
       # Internal values
-      @length_counter = 0x40_u8 - @length_load
+      @length_counter = 0x40 - @length_load
     when 0xFF21
       @starting_volume = value >> 4
       @envelope_add_mode = value & 0x08 > 0

@@ -1,4 +1,4 @@
-class Channel2
+class Channel2 < SoundChannel
   WAVE_DUTY = [
     [0, 0, 0, 0, 0, 0, 0, 1], # 12.5%
     [1, 0, 0, 0, 0, 0, 0, 1], # 25%
@@ -12,17 +12,11 @@ class Channel2
     value.is_a?(Int) && RANGE.includes?(value)
   end
 
-  property enabled : Bool = false
-  @dac_enabled : Bool = false
-
   @wave_duty_position = 0
 
   # NR21
   @duty : UInt8 = 0x00
   @length_load : UInt8 = 0x00
-
-  property length_counter : UInt8 = 0x00
-  @cycles_since_length_step : UInt16 = 0x0000
 
   # NR22
   @starting_volume : UInt8 = 0x00
@@ -34,27 +28,13 @@ class Channel2
 
   # NR23 / NR24
   @frequency : UInt16 = 0x00
-  @length_enable : Bool = false
 
-  @frequency_timer : UInt16 = 0x0000
-
-  def step : Nil
-    # Increment wave duty position
-    if @frequency_timer == 0
-      @frequency_timer = (2048_u16 - @frequency) * 4
-      @wave_duty_position = (@wave_duty_position + 1) % 8
-    end
-    @frequency_timer -= 1
-    # Update frame sequencer counters
-    @cycles_since_length_step += 1
+  def step_wave_generation : Nil
+    @wave_duty_position = (@wave_duty_position + 1) % 8
   end
 
-  def length_step : Nil
-    if @length_enable && @length_counter > 0
-      @length_counter -= 1
-      @enabled = false if @length_counter == 0
-    end
-    @cycles_since_length_step = 0
+  def reload_frequency_timer : Nil
+    @frequency_timer = (2048_u32 - @frequency) * 4
   end
 
   def volume_step : Nil
@@ -95,7 +75,7 @@ class Channel2
       @duty = (value & 0xC0) >> 6
       @length_load = value & 0x3F
       # Internal values
-      @length_counter = 0x40_u8 - @length_load
+      @length_counter = 0x40 - @length_load
     when 0xFF17
       @starting_volume = value >> 4
       @envelope_add_mode = value & 0x08 > 0
@@ -128,7 +108,7 @@ class Channel2
           @length_counter -= 1 if @length_enable && @cycles_since_length_step < 2 ** 13
         end
         # Init frequency
-        @frequency_timer = (2048_u16 - @frequency) * 4
+        @frequency_timer = (0x800_u32 - @frequency) * 4
         # Init volume envelope
         @volume_envelope_timer = @period
         @current_volume = @starting_volume

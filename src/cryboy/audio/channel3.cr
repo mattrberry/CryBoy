@@ -1,4 +1,4 @@
-class Channel3
+class Channel3 < SoundChannel
   RANGE          = 0xFF1A..0xFF1E
   WAVE_RAM_RANGE = 0xFF30..0xFF3F
 
@@ -6,21 +6,12 @@ class Channel3
     value.is_a?(Int) && RANGE.includes?(value) || WAVE_RAM_RANGE.includes?(value)
   end
 
-  property enabled : Bool = false
-  @dac_enabled : Bool = false
-
   @wave_ram = Bytes.new(WAVE_RAM_RANGE.size) { |idx| idx % 2 == 0 ? 0x00_u8 : 0xFF_u8 }
   @wave_ram_position : UInt8 = 0
   @wave_ram_sample_buffer : UInt8 = 0x00
 
-  # NR30
-  @dac_enabled = false
-
   # NR31
   @length_load : UInt8 = 0x00
-
-  property length_counter : UInt16 = 0x0000
-  @cycles_since_length_step : UInt16 = 0x0000
 
   # NR32
   @volume_code : UInt8 = 0x00
@@ -29,28 +20,14 @@ class Channel3
 
   # NR33 / NR34
   @frequency : UInt16 = 0x00
-  @length_enable : Bool = false
 
-  @frequency_timer : UInt16 = 0x0000
-
-  def step : Nil
-    # Increment wave duty position
-    if @frequency_timer == 0
-      @frequency_timer = (2048_u16 - @frequency) * 2
-      @wave_ram_position = (@wave_ram_position + 1) % (WAVE_RAM_RANGE.size * 2)
-      @wave_ram_sample_buffer = @wave_ram[@wave_ram_position // 2]
-    end
-    @frequency_timer -= 1
-    # Update frame sequencer counters
-    @cycles_since_length_step += 1
+  def step_wave_generation : Nil
+    @wave_ram_position = (@wave_ram_position + 1) % (WAVE_RAM_RANGE.size * 2)
+    @wave_ram_sample_buffer = @wave_ram[@wave_ram_position // 2]
   end
 
-  def length_step : Nil
-    if @length_enable && @length_counter > 0
-      @length_counter -= 1
-      @enabled = false if @length_counter == 0
-    end
-    @cycles_since_length_step = 0
+  def reload_frequency_timer : Nil
+    @frequency_timer = (2048_u32 - @frequency) * 2
   end
 
   def get_amplitude : Float32
@@ -88,7 +65,7 @@ class Channel3
     when 0xFF1B
       @length_load = value
       # Internal values
-      @length_counter = 0x100_u16 - @length_load
+      @length_counter = 0x100 - @length_load
     when 0xFF1C
       @volume_code = (value & 0x60) >> 5
       # Internal values
@@ -130,7 +107,7 @@ class Channel3
         #       the frequency timer with this extra cycle when it reaches 0. For now,
         #       I'm letting this be to work on other audio behavior. Note that this is
         #       pretty brittle in it's current state though...
-        @frequency_timer = (2048_u16 - @frequency) * 2 + 4
+        @frequency_timer = (0x800_u32 - @frequency) * 2 + 4
         # Init wave ram position
         @wave_ram_position = 0
       end
