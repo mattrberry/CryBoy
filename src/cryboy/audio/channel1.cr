@@ -1,4 +1,4 @@
-class Channel1 < SoundChannel
+class Channel1 < VolumeEnvelopeChannel
   WAVE_DUTY = [
     [0, 0, 0, 0, 0, 0, 0, 1], # 12.5%
     [1, 0, 0, 0, 0, 0, 0, 1], # 25%
@@ -28,14 +28,6 @@ class Channel1 < SoundChannel
   @duty : UInt8 = 0x00
   @length_load : UInt8 = 0x00
 
-  # NR12
-  @starting_volume : UInt8 = 0x00
-  @envelope_add_mode : Bool = false
-  @period : UInt8 = 0x00
-
-  @volume_envelope_timer : UInt8 = 0x00
-  @current_volume : UInt8 = 0x00
-
   # NR13 / NR14
   @frequency : UInt16 = 0x00
 
@@ -56,18 +48,6 @@ class Channel1 < SoundChannel
         if calculated <= 0x07FF && @shift > 0
           @frequency_shadow = @frequency = calculated
           frequency_calculation
-        end
-      end
-    end
-  end
-
-  def volume_step : Nil
-    if @period != 0
-      @volume_envelope_timer -= 1 if @volume_envelope_timer > 0
-      if @volume_envelope_timer == 0
-        @volume_envelope_timer = @period
-        if (@current_volume < 0xF && @envelope_add_mode) || (@current_volume > 0 && !@envelope_add_mode)
-          @current_volume += (@envelope_add_mode ? 1 : -1)
         end
       end
     end
@@ -97,7 +77,7 @@ class Channel1 < SoundChannel
     case index
     when 0xFF10 then 0x80 | @sweep_period << 4 | (@negate ? 0x08 : 0) | @shift
     when 0xFF11 then 0x3F | @duty << 6
-    when 0xFF12 then @starting_volume << 4 | (@envelope_add_mode ? 0x08 : 0) | @period
+    when 0xFF12 then read_NRx2
     when 0xFF13 then 0xFF # write-only
     when 0xFF14 then 0xBF | (@length_enable ? 0x40 : 0)
     else             raise "Reading from invalid Channel1 register: #{hex_str index.to_u16}"
@@ -118,12 +98,7 @@ class Channel1 < SoundChannel
       # Internal values
       @length_counter = 0x40 - @length_load
     when 0xFF12
-      @starting_volume = value >> 4
-      @envelope_add_mode = value & 0x08 > 0
-      @period = value & 0x07
-      # Internal values
-      @dac_enabled = value & 0xF8 > 0
-      @enabled = false if !@dac_enabled
+      write_NRx2 value
     when 0xFF13
       @frequency = (@frequency & 0x0700) | value
     when 0xFF14
@@ -152,8 +127,7 @@ class Channel1 < SoundChannel
         # Init frequency
         @frequency_timer = (0x800_u32 - @frequency) * 4
         # Init volume envelope
-        @volume_envelope_timer = @period
-        @current_volume = @starting_volume
+        init_volume_envelope
         # Init sweep
         @frequency_shadow = @frequency
         @sweep_timer = @sweep_period > 0 ? @sweep_period : 8_u8

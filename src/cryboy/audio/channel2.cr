@@ -1,4 +1,4 @@
-class Channel2 < SoundChannel
+class Channel2 < VolumeEnvelopeChannel
   WAVE_DUTY = [
     [0, 0, 0, 0, 0, 0, 0, 1], # 12.5%
     [1, 0, 0, 0, 0, 0, 0, 1], # 25%
@@ -18,14 +18,6 @@ class Channel2 < SoundChannel
   @duty : UInt8 = 0x00
   @length_load : UInt8 = 0x00
 
-  # NR22
-  @starting_volume : UInt8 = 0x00
-  @envelope_add_mode : Bool = false
-  @period : UInt8 = 0x00
-
-  @volume_envelope_timer : UInt8 = 0x00
-  @current_volume : UInt8 = 0x00
-
   # NR23 / NR24
   @frequency : UInt16 = 0x00
 
@@ -35,18 +27,6 @@ class Channel2 < SoundChannel
 
   def reload_frequency_timer : Nil
     @frequency_timer = (2048_u32 - @frequency) * 4
-  end
-
-  def volume_step : Nil
-    if @period != 0
-      @volume_envelope_timer -= 1 if @volume_envelope_timer > 0
-      if @volume_envelope_timer == 0
-        @volume_envelope_timer = @period
-        if (@current_volume < 0xF && @envelope_add_mode) || (@current_volume > 0 && !@envelope_add_mode)
-          @current_volume += (@envelope_add_mode ? 1 : -1)
-        end
-      end
-    end
   end
 
   def get_amplitude : Float32
@@ -62,7 +42,7 @@ class Channel2 < SoundChannel
   def [](index : Int) : UInt8
     case index
     when 0xFF16 then 0x3F | @duty << 6
-    when 0xFF17 then @starting_volume << 4 | (@envelope_add_mode ? 0x08 : 0) | @period
+    when 0xFF17 then read_NRx2
     when 0xFF18 then 0xFF # write-only
     when 0xFF19 then 0xBF | (@length_enable ? 0x40 : 0)
     else             raise "Reading from invalid Channel2 register: #{hex_str index.to_u16}"
@@ -77,12 +57,7 @@ class Channel2 < SoundChannel
       # Internal values
       @length_counter = 0x40 - @length_load
     when 0xFF17
-      @starting_volume = value >> 4
-      @envelope_add_mode = value & 0x08 > 0
-      @period = value & 0x07
-      # Internal values
-      @dac_enabled = value & 0xF8 > 0
-      @enabled = false if !@dac_enabled
+      write_NRx2 value
     when 0xFF18
       @frequency = (@frequency & 0x0700) | value
     when 0xFF19
@@ -110,8 +85,7 @@ class Channel2 < SoundChannel
         # Init frequency
         @frequency_timer = (0x800_u32 - @frequency) * 4
         # Init volume envelope
-        @volume_envelope_timer = @period
-        @current_volume = @starting_volume
+        init_volume_envelope
       end
     else raise "Writing to invalid Channel2 register: #{hex_str index.to_u16}"
     end

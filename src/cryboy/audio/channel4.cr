@@ -1,4 +1,4 @@
-class Channel4 < SoundChannel
+class Channel4 < VolumeEnvelopeChannel
   RANGE = 0xFF20..0xFF23
 
   def ===(value) : Bool
@@ -9,14 +9,6 @@ class Channel4 < SoundChannel
 
   # NR41
   @length_load : UInt8 = 0x00
-
-  # NR42
-  @starting_volume : UInt8 = 0x00
-  @envelope_add_mode : Bool = false
-  @period : UInt8 = 0x00
-
-  @volume_envelope_timer : UInt8 = 0x00
-  @current_volume : UInt8 = 0x00
 
   # NR43
   @clock_shift : UInt8 = 0x00
@@ -37,18 +29,6 @@ class Channel4 < SoundChannel
     @frequency_timer = (@divisor_code == 0 ? 8_u32 : @divisor_code.to_u32 << 4) << @clock_shift
   end
 
-  def volume_step : Nil
-    if @period != 0
-      @volume_envelope_timer -= 1 if @volume_envelope_timer > 0
-      if @volume_envelope_timer == 0
-        @volume_envelope_timer = @period
-        if (@current_volume < 0xF && @envelope_add_mode) || (@current_volume > 0 && !@envelope_add_mode)
-          @current_volume += (@envelope_add_mode ? 1 : -1)
-        end
-      end
-    end
-  end
-
   def get_amplitude : Float32
     if @enabled && @dac_enabled
       dac_input = (~@lfsr & 1) * @current_volume
@@ -62,7 +42,7 @@ class Channel4 < SoundChannel
   def [](index : Int) : UInt8
     case index
     when 0xFF20 then 0xFF
-    when 0xFF21 then @starting_volume << 4 | (@envelope_add_mode ? 0x08 : 0) | @period
+    when 0xFF21 then read_NRx2
     when 0xFF22 then @clock_shift << 4 | @width_mode << 3 | @divisor_code
     when 0xFF23 then 0xBF | (@length_enable ? 0x40 : 0)
     else             raise "Reading from invalid Channel4 register: #{hex_str index.to_u16}"
@@ -76,12 +56,7 @@ class Channel4 < SoundChannel
       # Internal values
       @length_counter = 0x40 - @length_load
     when 0xFF21
-      @starting_volume = value >> 4
-      @envelope_add_mode = value & 0x08 > 0
-      @period = value & 0x07
-      # Internal values
-      @dac_enabled = value & 0xF8 > 0
-      @enabled = false if !@dac_enabled
+      write_NRx2 value
     when 0xFF22
       @clock_shift = value >> 4
       @width_mode = (value & 0x08) >> 3
@@ -111,8 +86,7 @@ class Channel4 < SoundChannel
         # Init frequency
         @frequency_timer = (@divisor_code == 0 ? 8_u32 : @divisor_code.to_u32 << 4) << @clock_shift
         # Init volume envelope
-        @volume_envelope_timer = @period
-        @current_volume = @starting_volume
+        init_volume_envelope
         # Init lfsr
         @lfsr = 0x7FFF
       end

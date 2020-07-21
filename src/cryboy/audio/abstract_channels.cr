@@ -1,3 +1,6 @@
+# All of the channels were developed using the following guide on gbdev
+# https://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware
+
 abstract class SoundChannel
   property enabled : Bool = false
   @dac_enabled : Bool = false
@@ -40,4 +43,44 @@ abstract class SoundChannel
 
   abstract def [](index : Int) : UInt8
   abstract def []=(index : Int, value : UInt8) : Nil
+end
+
+abstract class VolumeEnvelopeChannel < SoundChannel
+  # NRx2
+  @starting_volume : UInt8 = 0x00
+  @envelope_add_mode : Bool = false
+  @period : UInt8 = 0x00
+
+  @volume_envelope_timer : UInt8 = 0x00
+  @current_volume : UInt8 = 0x00
+
+  def volume_step : Nil
+    if @period != 0
+      @volume_envelope_timer -= 1 if @volume_envelope_timer > 0
+      if @volume_envelope_timer == 0
+        @volume_envelope_timer = @period
+        if (@current_volume < 0xF && @envelope_add_mode) || (@current_volume > 0 && !@envelope_add_mode)
+          @current_volume += (@envelope_add_mode ? 1 : -1)
+        end
+      end
+    end
+  end
+
+  def init_volume_envelope : Nil
+    @volume_envelope_timer = @period
+    @current_volume = @starting_volume
+  end
+
+  def read_NRx2 : UInt8
+    @starting_volume << 4 | (@envelope_add_mode ? 0x08 : 0) | @period
+  end
+
+  def write_NRx2(value : UInt8) : Nil
+    @starting_volume = value >> 4
+    @envelope_add_mode = value & 0x08 > 0
+    @period = value & 0x07
+    # Internal values
+    @dac_enabled = value & 0xF8 > 0
+    @enabled = false if !@dac_enabled
+  end
 end
