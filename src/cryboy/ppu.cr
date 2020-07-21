@@ -182,13 +182,14 @@ class PPU
             self.mode_flag = 3
             @fifo.clear
             @x_pos = 0
+            @fetch_counter = 0
           end
         when 3 # drawing
           case @fetch_counter
           when 0, 1 # fetching tile number
             if @fetch_counter == 0
               background_map = bg_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
-              tile_num_offset = @x_pos // 8 + (@ly.to_u16 // 8) * 32
+              tile_num_offset = ((@x_pos + @scx) // 8 % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
               @tile_num = @vram[0][background_map + tile_num_offset]
             end
           when 2, 3 # fetching low tile data
@@ -219,7 +220,6 @@ class PPU
             end
           else # attempt pushing 8 pixels into fifo
             if @fifo.size == 0
-              # puts "low: #{hex_str @tile_data_low}, high: #{hex_str @tile_data_high}"
               8.times do |col|
                 lsb = (@tile_data_low >> (7 - col)) & 0x1
                 msb = (@tile_data_high >> (7 - col)) & 0x1
