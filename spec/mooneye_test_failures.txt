@@ -1,7 +1,6 @@
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_hwio-dmg0.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_regs-mgb.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_hwio-S.gb
-FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/reti_intr_timing.gb
 CRSH - /home/matt/Downloads/gb/mooneye-tests/acceptance/interrupts/ie_push.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/bits/unused_hwio-GS.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_div2-S.gb

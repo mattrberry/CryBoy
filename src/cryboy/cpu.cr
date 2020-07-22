@@ -125,15 +125,11 @@ class CPU
     end
   end
 
-  def set_ime(ime : Bool, do_now : Bool = false) : Nil
-    if do_now
+  def set_ime(ime : Bool, now : Bool = false) : Nil
+    if now || !ime
       @ime = ime
     else
-      if ime # enable _after_ next instruction
-        @ime_enable = 2 if @ime_enable == 0
-      else # disable immediately
-        @ime = false
-      end
+      @ime_enable = 2 if @ime_enable == 0
     end
   end
 

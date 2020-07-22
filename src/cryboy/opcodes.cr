@@ -1781,7 +1781,7 @@ class Opcodes
     # 0xD9 RETI
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.set_ime true
+      cpu.set_ime true, now: true
       cpu.pc = cpu.memory.read_word cpu.sp
       cpu.sp += 0x02
       return 16

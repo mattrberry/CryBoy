@@ -374,7 +374,7 @@ module DmgOps
           branch(cond, ["cpu.memory.tick_components"] + instr)
         end
       when "RETI"
-        ["cpu.set_ime true", "cpu.pc = cpu.memory.read_word cpu.sp", "cpu.sp += 0x02"]
+        ["cpu.set_ime true, now: true", "cpu.pc = cpu.memory.read_word cpu.sp", "cpu.sp += 0x02"]
       when "RL"
         reg = operands[0]
         ["carry = #{reg} & 0x80", "#{reg} = (#{reg} << 1) + (cpu.f_c ? 0x01 : 0x00)"] +
