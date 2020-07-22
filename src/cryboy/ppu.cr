@@ -203,7 +203,7 @@ class PPU
               end
               # tile_num = bg_window_tile_data > 0 ? @tile_num : @tile_num.to_i8!
               tile_ptr = tile_data_table + 16 * tile_num
-              @tile_data_low = @vram[0][tile_ptr + (@ly % 8) * 2]
+              @tile_data_low = @vram[0][tile_ptr + ((@ly + @scy) % 8) * 2]
             end
           when 4, 5 # fetching high tile data
             if @fetch_counter == 4
@@ -216,7 +216,7 @@ class PPU
               end
               # tile_num = bg_window_tile_data > 0 ? @tile_num : @tile_num.to_i8!
               tile_ptr = tile_data_table + 16 * tile_num
-              @tile_data_high = @vram[0][tile_ptr + (@ly % 8) * 2 + 1]
+              @tile_data_high = @vram[0][tile_ptr + ((@ly + @scy) % 8) * 2 + 1]
             end
           else # attempt pushing 8 pixels into fifo
             if @fifo.size == 0
