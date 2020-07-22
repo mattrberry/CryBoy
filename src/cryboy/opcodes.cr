@@ -1581,8 +1581,8 @@ class Opcodes
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
       if cpu.f_nz
-        cpu.sp -= 2
-        cpu.memory[cpu.sp] = cpu.pc
+        cpu.memory.tick_components
+        cpu.memory[cpu.sp -= 2] = cpu.pc
         cpu.pc = u16
         return 24
       end
@@ -1658,8 +1658,8 @@ class Opcodes
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
       if cpu.f_z
-        cpu.sp -= 2
-        cpu.memory[cpu.sp] = cpu.pc
+        cpu.memory.tick_components
+        cpu.memory[cpu.sp -= 2] = cpu.pc
         cpu.pc = u16
         return 24
       end
@@ -1669,8 +1669,8 @@ class Opcodes
     ->(cpu : CPU) {
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
-      cpu.sp -= 2
-      cpu.memory[cpu.sp] = cpu.pc
+      cpu.memory.tick_components
+      cpu.memory[cpu.sp -= 2] = cpu.pc
       cpu.pc = u16
       return 24
     },
@@ -1731,8 +1731,8 @@ class Opcodes
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
       if cpu.f_nc
-        cpu.sp -= 2
-        cpu.memory[cpu.sp] = cpu.pc
+        cpu.memory.tick_components
+        cpu.memory[cpu.sp -= 2] = cpu.pc
         cpu.pc = u16
         return 24
       end
@@ -1803,8 +1803,8 @@ class Opcodes
       u16 = cpu.memory.read_word cpu.pc + 1
       cpu.pc &+= 3
       if cpu.f_c
-        cpu.sp -= 2
-        cpu.memory[cpu.sp] = cpu.pc
+        cpu.memory.tick_components
+        cpu.memory[cpu.sp -= 2] = cpu.pc
         cpu.pc = u16
         return 24
       end

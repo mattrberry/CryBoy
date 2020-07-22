@@ -4,7 +4,6 @@ FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_regs-mgb.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_hwio-S.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/reti_intr_timing.gb
 CRSH - /home/matt/Downloads/gb/mooneye-tests/acceptance/interrupts/ie_push.gb
-FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/call_timing2.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/bits/unused_hwio-GS.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_div2-S.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_div-dmg0.gb
@@ -13,7 +12,6 @@ FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_div-S.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_regs-sgb2.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_regs-dmg0.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/serial/boot_sclk_align-dmgABCmgb.gb
-FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/call_cc_timing2.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/rst_timing.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/rapid_di_ei.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/oam_dma/sources-GS.gb

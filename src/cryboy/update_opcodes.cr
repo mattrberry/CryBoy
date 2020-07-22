@@ -265,7 +265,7 @@ module DmgOps
         bit, reg = operands
         set_flag_z("#{reg} & (0x1 << #{bit}) == 0")
       when "CALL"
-        instr = ["cpu.sp -= 2", "cpu.memory[cpu.sp] = cpu.pc", "cpu.pc = u16"]
+        instr = ["cpu.memory.tick_components", "cpu.memory[cpu.sp -= 2] = cpu.pc", "cpu.pc = u16"]
         if operands.size == 1
           instr
         else
