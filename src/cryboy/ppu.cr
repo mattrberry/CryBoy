@@ -167,6 +167,7 @@ class PPU
 
   @fetch_counter = 0
   @x_pos = 0
+  @shifted_pixels = 0
 
   @tile_num : UInt8 = 0x00
   @tile_data_low : UInt8 = 0x00
@@ -183,13 +184,15 @@ class PPU
             @fifo.clear
             @x_pos = 0
             @fetch_counter = 0
+            @shifted_pixels = 0
           end
         when 3 # drawing
           case @fetch_counter
           when 0, 1 # fetching tile number
             if @fetch_counter == 0
               background_map = bg_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
-              tile_num_offset = ((@x_pos + @scx) // 8 % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
+              tile_num_offset = (((@x_pos + @scx) // 8) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
+              @x_pos += 8
               @tile_num = @vram[0][background_map + tile_num_offset]
             end
           when 2, 3 # fetching low tile data
@@ -203,7 +206,7 @@ class PPU
               end
               # tile_num = bg_window_tile_data > 0 ? @tile_num : @tile_num.to_i8!
               tile_ptr = tile_data_table + 16 * tile_num
-              @tile_data_low = @vram[0][tile_ptr + ((@ly + @scy) % 8) * 2]
+              @tile_data_low = @vram[0][tile_ptr + ((@ly.to_u16 + @scy) % 8) * 2]
             end
           when 4, 5 # fetching high tile data
             if @fetch_counter == 4
@@ -216,7 +219,7 @@ class PPU
               end
               # tile_num = bg_window_tile_data > 0 ? @tile_num : @tile_num.to_i8!
               tile_ptr = tile_data_table + 16 * tile_num
-              @tile_data_high = @vram[0][tile_ptr + ((@ly + @scy) % 8) * 2 + 1]
+              @tile_data_high = @vram[0][tile_ptr + ((@ly.to_u16 + @scy) % 8) * 2 + 1]
             end
           else # attempt pushing 8 pixels into fifo
             if @fifo.size == 0
@@ -225,17 +228,20 @@ class PPU
                 msb = (@tile_data_high >> (7 - col)) & 0x1
                 color = (msb << 1) | lsb
                 @fifo.push Pixel.new(color, 0, 0, 0)
-                @x_pos += 1
               end
               @fetch_counter = -1
             end
             if @fifo.size > 0
               palette = palette_to_array @bgp
               pixel = @fifo.shift
-              @framebuffer[@framebuffer_pos] = @palettes[0][palette[pixel.color]].convert_from_cgb
-              @framebuffer_pos += 1
-              if @framebuffer_pos % Display::WIDTH == 0
-                self.mode_flag = 0
+              if @shifted_pixels >= @scx % 8
+                @framebuffer[@framebuffer_pos] = @palettes[0][palette[pixel.color]].convert_from_cgb
+                @framebuffer_pos += 1
+                if @framebuffer_pos % Display::WIDTH == 0
+                  self.mode_flag = 0
+                end
+              else
+                @shifted_pixels += 1
               end
             end
           end
