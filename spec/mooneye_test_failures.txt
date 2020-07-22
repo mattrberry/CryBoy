@@ -41,4 +41,3 @@ FAIL - /home/matt/Downloads/gb/mooneye-tests/misc/bits/unused_hwio-C.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/misc/boot_div-A.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/misc/boot_div-cgb0.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/misc/ppu/vblank_stat_intr-C.gb
-FAIL - /home/matt/Downloads/gb/mooneye-tests/misc/boot_regs-cgb.gb
