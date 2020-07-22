@@ -1547,6 +1547,7 @@ class Opcodes
     ->(cpu : CPU) {
       cpu.pc &+= 1
       if cpu.f_nz
+        cpu.memory.tick_components
         cpu.pc = cpu.memory.read_word cpu.sp
         cpu.sp += 2
         return 20
@@ -1618,6 +1619,7 @@ class Opcodes
     ->(cpu : CPU) {
       cpu.pc &+= 1
       if cpu.f_z
+        cpu.memory.tick_components
         cpu.pc = cpu.memory.read_word cpu.sp
         cpu.sp += 2
         return 20
@@ -1698,6 +1700,7 @@ class Opcodes
     ->(cpu : CPU) {
       cpu.pc &+= 1
       if cpu.f_nc
+        cpu.memory.tick_components
         cpu.pc = cpu.memory.read_word cpu.sp
         cpu.sp += 2
         return 20
@@ -1768,6 +1771,7 @@ class Opcodes
     ->(cpu : CPU) {
       cpu.pc &+= 1
       if cpu.f_c
+        cpu.memory.tick_components
         cpu.pc = cpu.memory.read_word cpu.sp
         cpu.sp += 2
         return 20

@@ -27,7 +27,6 @@ FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/ppu/lcdon_timing-GS.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/ppu/lcdon_write_timing-GS.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/ppu/intr_2_mode0_timing_sprites.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/ppu/intr_2_mode3_timing.gb
-FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/ret_cc_timing.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_regs-sgb.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/timer/rapid_toggle.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/emulator-only/mbc1/multicart_rom_8Mb.gb

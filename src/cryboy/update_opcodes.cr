@@ -371,7 +371,7 @@ module DmgOps
           instr
         else
           cond = operands[0]
-          branch(cond, instr)
+          branch(cond, ["cpu.memory.tick_components"] + instr)
         end
       when "RETI"
         ["cpu.set_ime true", "cpu.pc = cpu.memory.read_word cpu.sp", "cpu.sp += 0x02"]
