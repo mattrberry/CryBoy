@@ -1591,6 +1591,7 @@ class Opcodes
     # 0xC5 PUSH BC
     ->(cpu : CPU) {
       cpu.pc &+= 1
+      cpu.memory.tick_components
       cpu.memory[cpu.sp -= 2] = cpu.bc
       return 16
     },
@@ -1740,6 +1741,7 @@ class Opcodes
     # 0xD5 PUSH DE
     ->(cpu : CPU) {
       cpu.pc &+= 1
+      cpu.memory.tick_components
       cpu.memory[cpu.sp -= 2] = cpu.de
       return 16
     },
@@ -1868,6 +1870,7 @@ class Opcodes
     # 0xE5 PUSH HL
     ->(cpu : CPU) {
       cpu.pc &+= 1
+      cpu.memory.tick_components
       cpu.memory[cpu.sp -= 2] = cpu.hl
       return 16
     },
@@ -1990,6 +1993,7 @@ class Opcodes
     # 0xF5 PUSH AF
     ->(cpu : CPU) {
       cpu.pc &+= 1
+      cpu.memory.tick_components
       cpu.memory[cpu.sp -= 2] = cpu.af
       return 16
     },

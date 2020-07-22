@@ -237,8 +237,8 @@ class Memory
 
   # write 16 bits to memory
   def []=(index : Int, value : UInt16) : Nil
-    self[index] = (value & 0xFF).to_u8
     self[index + 1] = (value >> 8).to_u8
+    self[index] = (value & 0xFF).to_u8
   end
 
   # read 16 bits from memory

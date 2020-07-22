@@ -10,7 +10,6 @@ FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_div2-S.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_div-dmg0.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_div-dmgABCmgb.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_div-S.gb
-FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/push_timing.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_regs-sgb2.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_regs-dmg0.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/serial/boot_sclk_align-dmgABCmgb.gb

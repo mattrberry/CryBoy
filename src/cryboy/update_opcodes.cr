@@ -358,7 +358,10 @@ module DmgOps
           "return cycles",
         ]
       when "PUSH"
-        ["cpu.memory[cpu.sp -= 2] = #{operands[0]}"]
+        [
+          "cpu.memory.tick_components",
+          "cpu.memory[cpu.sp -= 2] = #{operands[0]}",
+        ]
       when "RES"
         bit, reg = operands
         ["#{reg} &= ~(0x1 << #{bit})"]
