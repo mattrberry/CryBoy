@@ -128,6 +128,7 @@ class CPU
   def set_ime(ime : Bool, now : Bool = false) : Nil
     if now || !ime
       @ime = ime
+      @ime_enable = 0 if !ime
     else
       @ime_enable = 2 if @ime_enable == 0
     end
