@@ -408,7 +408,7 @@ module DmgOps
         ["cpu.a = (cpu.a >> 1) + (cpu.a << 7)"] +
           set_flag_c("cpu.a & 0x80")
       when "RST"
-        ["cpu.sp -= 2", "cpu.memory[cpu.sp] = cpu.pc", "cpu.pc = #{operands[0]}"]
+        ["cpu.memory.tick_components", "cpu.memory[cpu.sp -= 2] = cpu.pc", "cpu.pc = #{operands[0]}"]
       when "SBC"
         to, from = operands
         ["to_sub = #{from}.to_u16 + (cpu.f_c ? 0x01 : 0x00)"] +

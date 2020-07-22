@@ -1610,8 +1610,8 @@ class Opcodes
     # 0xC7 RST 00h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.sp -= 2
-      cpu.memory[cpu.sp] = cpu.pc
+      cpu.memory.tick_components
+      cpu.memory[cpu.sp -= 2] = cpu.pc
       cpu.pc = 0x00_u16
       return 16
     },
@@ -1691,8 +1691,8 @@ class Opcodes
     # 0xCF RST 08h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.sp -= 2
-      cpu.memory[cpu.sp] = cpu.pc
+      cpu.memory.tick_components
+      cpu.memory[cpu.sp -= 2] = cpu.pc
       cpu.pc = 0x08_u16
       return 16
     },
@@ -1762,8 +1762,8 @@ class Opcodes
     # 0xD7 RST 10h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.sp -= 2
-      cpu.memory[cpu.sp] = cpu.pc
+      cpu.memory.tick_components
+      cpu.memory[cpu.sp -= 2] = cpu.pc
       cpu.pc = 0x10_u16
       return 16
     },
@@ -1835,8 +1835,8 @@ class Opcodes
     # 0xDF RST 18h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.sp -= 2
-      cpu.memory[cpu.sp] = cpu.pc
+      cpu.memory.tick_components
+      cpu.memory[cpu.sp -= 2] = cpu.pc
       cpu.pc = 0x18_u16
       return 16
     },
@@ -1892,8 +1892,8 @@ class Opcodes
     # 0xE7 RST 20h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.sp -= 2
-      cpu.memory[cpu.sp] = cpu.pc
+      cpu.memory.tick_components
+      cpu.memory[cpu.sp -= 2] = cpu.pc
       cpu.pc = 0x20_u16
       return 16
     },
@@ -1954,8 +1954,8 @@ class Opcodes
     # 0xEF RST 28h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.sp -= 2
-      cpu.memory[cpu.sp] = cpu.pc
+      cpu.memory.tick_components
+      cpu.memory[cpu.sp -= 2] = cpu.pc
       cpu.pc = 0x28_u16
       return 16
     },
@@ -2015,8 +2015,8 @@ class Opcodes
     # 0xF7 RST 30h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.sp -= 2
-      cpu.memory[cpu.sp] = cpu.pc
+      cpu.memory.tick_components
+      cpu.memory[cpu.sp -= 2] = cpu.pc
       cpu.pc = 0x30_u16
       return 16
     },
@@ -2075,8 +2075,8 @@ class Opcodes
     # 0xFF RST 38h
     ->(cpu : CPU) {
       cpu.pc &+= 1
-      cpu.sp -= 2
-      cpu.memory[cpu.sp] = cpu.pc
+      cpu.memory.tick_components
+      cpu.memory[cpu.sp -= 2] = cpu.pc
       cpu.pc = 0x38_u16
       return 16
     },
