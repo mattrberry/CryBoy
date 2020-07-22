@@ -130,7 +130,7 @@ class CPU
       @ime = ime
     else
       if ime # enable _after_ next instruction
-        @ime_enable = 2
+        @ime_enable = 2 if @ime_enable == 0
       else # disable immediately
         @ime = false
       end

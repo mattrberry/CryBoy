@@ -1,4 +1,3 @@
-FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/ei_sequence.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_hwio-dmg0.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_regs-mgb.gb
 FAIL - /home/matt/Downloads/gb/mooneye-tests/acceptance/boot_hwio-S.gb
