@@ -12,9 +12,9 @@ class Memory
   HRAM          = 0xFF80..0xFFFE
   INTERRUPT_REG = 0xFFFF
 
-  @memory = Bytes.new 0xFFFF + 1
-  @wram = Array(Bytes).new 8 { Bytes.new 4096 }
+  @wram = Array(Bytes).new 8 { Bytes.new Memory::WORK_RAM_N.size }
   @wram_bank : UInt8 = 1
+  @hram = Bytes.new HRAM.size
   property bootrom = Bytes.new 0
   @cycle_tick_count = 0
 
@@ -135,13 +135,12 @@ class Memory
     when EXTERNAL_RAM then @cartridge[index]
     when WORK_RAM_0   then @wram[0][index - WORK_RAM_0.begin]
     when WORK_RAM_N   then @wram[@wram_bank][index - WORK_RAM_N.begin]
-    when ECHO         then @memory[index - 0x2000]
+    when ECHO         then read_byte index - 0x2000
     when SPRITE_TABLE then @ppu[index]
     when NOT_USABLE   then 0_u8
     when IO_PORTS
       case index
       when 0xFF00         then @joypad.read
-      when 0xFF02         then @memory[index] | 0x7E # todo actual serial
       when 0xFF04..0xFF07 then @timer[index]
       when 0xFF0F         then @interrupts[index]
       when 0xFF10..0xFF3F then @apu[index]
@@ -156,13 +155,13 @@ class Memory
       when 0xFF54         then @hdma_dst.to_u8
       when 0xFF55         then @hdma5 # todo
       when 0xFF68..0xFF6B then @ppu[index]
-      when 0xFF70         then @cgb_ptr.value ? 0xF8_u8 | @wram_bank : @memory[index]
-      when 0xFF75         then @memory[index] | 0x8F # (todo) undocumented cgb register
-      when 0xFF76         then 0x00_u8               # (todo) lower bits should have apu channel 1/2 PCM amp
-      when 0xFF77         then 0x00_u8               # (todo) lower bits should have apu channel 3/4 PCM amp
-      else                     @memory[index]
+      when 0xFF70         then @cgb_ptr.value ? 0xF8_u8 | @wram_bank : 0xFF_u8
+      when 0xFF75         then @cgb_ptr.value ? 0x8F_u8 : 0xFF_u8 # (todo) undocumented cgb register
+      when 0xFF76         then 0x00_u8                            # (todo) lower bits should have apu channel 1/2 PCM amp
+      when 0xFF77         then 0x00_u8                            # (todo) lower bits should have apu channel 3/4 PCM amp
+      else                     0xFF_u8
       end
-    when HRAM          then @memory[index]
+    when HRAM          then @hram[index - HRAM.begin]
     when INTERRUPT_REG then @interrupts[index]
     else                    raise "FAILED TO GET INDEX #{index}"
     end
@@ -190,14 +189,13 @@ class Memory
     when EXTERNAL_RAM then @cartridge[index] = value
     when WORK_RAM_0   then @wram[0][index - WORK_RAM_0.begin] = value
     when WORK_RAM_N   then @wram[@wram_bank][index - WORK_RAM_N.begin] = value
-    when ECHO         then @memory[index - 0x2000] = value
+    when ECHO         then write_byte index - 0x2000, value
     when SPRITE_TABLE then @ppu[index] = value
     when NOT_USABLE   then nil
     when IO_PORTS
       case index
       when 0xFF00 then @joypad.write value
       when 0xFF01
-        @memory[index] = value
         print value
         STDOUT.flush
       when 0xFF04..0xFF07 then @timer[index] = value
@@ -217,12 +215,10 @@ class Memory
         if @cgb_ptr.value
           @wram_bank = value & 0x7
           @wram_bank += 1 if @wram_bank == 0
-        else
-          @memory[index] = value
         end
-      else @memory[index] = value
+      else nil
       end
-    when HRAM          then @memory[index] = value
+    when HRAM          then @hram[index - HRAM.begin] = value
     when INTERRUPT_REG then @interrupts[index] = value
     else                    raise "FAILED TO SET INDEX #{index}"
     end
