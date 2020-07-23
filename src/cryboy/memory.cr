@@ -15,6 +15,12 @@ class Memory
   @wram = Array(Bytes).new 8 { Bytes.new Memory::WORK_RAM_N.size }
   @wram_bank : UInt8 = 1
   @hram = Bytes.new HRAM.size
+  @ff72 : UInt8 = 0x00
+  @ff73 : UInt8 = 0x00
+  @ff74 : UInt8 = 0x00
+  @ff75 : UInt8 = 0x00
+  @ff76 : UInt8 = 0x00
+  @ff77 : UInt8 = 0x00
   property bootrom = Bytes.new 0
   @cycle_tick_count = 0
 
@@ -146,19 +152,26 @@ class Memory
       when 0xFF10..0xFF3F then @apu[index]
       when 0xFF46         then @dma
       when 0xFF40..0xFF4B then @ppu[index]
-      when 0xFF4D         then 0x7E_u8 | ((@current_speed - 1) << 7) | (@requested_speed_switch ? 1 : 0)
+      when 0xFF4D
+        if @cgb_ptr.value
+          0x7E_u8 | ((@current_speed - 1) << 7) | (@requested_speed_switch ? 1 : 0)
+        else
+          0xFF_u8
+        end
       when 0xFF4F         then @ppu[index]
-      when 0xFF50         then 0xFF_u8
-      when 0xFF51         then (@hdma_src >> 8).to_u8
-      when 0xFF52         then @hdma_src.to_u8
-      when 0xFF53         then (@hdma_dst >> 8).to_u8
-      when 0xFF54         then @hdma_dst.to_u8
-      when 0xFF55         then @hdma5 # todo
+      when 0xFF51         then @cgb_ptr.value ? (@hdma_src >> 8).to_u8 : 0xFF_u8
+      when 0xFF52         then @cgb_ptr.value ? @hdma_src.to_u8! : 0xFF_u8
+      when 0xFF53         then @cgb_ptr.value ? (@hdma_dst >> 8).to_u8 : 0xFF_u8
+      when 0xFF54         then @cgb_ptr.value ? @hdma_dst.to_u8! : 0xFF_u8
+      when 0xFF55         then @cgb_ptr.value ? @hdma5 : 0xFF_u8
       when 0xFF68..0xFF6B then @ppu[index]
       when 0xFF70         then @cgb_ptr.value ? 0xF8_u8 | @wram_bank : 0xFF_u8
-      when 0xFF75         then @cgb_ptr.value ? 0x8F_u8 : 0xFF_u8 # (todo) undocumented cgb register
-      when 0xFF76         then 0x00_u8                            # (todo) lower bits should have apu channel 1/2 PCM amp
-      when 0xFF77         then 0x00_u8                            # (todo) lower bits should have apu channel 3/4 PCM amp
+      when 0xFF72         then @ff72                            # (todo) undocumented register
+      when 0xFF73         then @ff73                            # (todo) undocumented register
+      when 0xFF74         then @cgb_ptr.value ? @ff74 : 0xFF_u8 # (todo) undocumented register
+      when 0xFF75         then @ff75                            # (todo) undocumented register
+      when 0xFF76         then 0x00_u8                          # (todo) lower bits should have apu channel 1/2 PCM amp
+      when 0xFF77         then 0x00_u8                          # (todo) lower bits should have apu channel 3/4 PCM amp
       else                     0xFF_u8
       end
     when HRAM          then @hram[index - HRAM.begin]
@@ -203,20 +216,24 @@ class Memory
       when 0xFF10..0xFF3F then @apu[index] = value
       when 0xFF46         then dma_transfer value
       when 0xFF40..0xFF4B then @ppu[index] = value
-      when 0xFF4D         then @requested_speed_switch = value & 0x1 > 0
+      when 0xFF4D         then @requested_speed_switch = value & 0x1 > 0 if @cgb_ptr.value
       when 0xFF4F         then @ppu[index] = value
-      when 0xFF51         then @hdma_src = (@hdma_src & 0x00FF) | (value.to_u16 << 8)
-      when 0xFF52         then @hdma_src = (@hdma_src & 0xFF00) | (value.to_u16 & 0xF0)
-      when 0xFF53         then @hdma_dst = (@hdma_dst & 0x80FF) | ((value.to_u16 & 0x1F) << 8)
-      when 0xFF54         then @hdma_dst = (@hdma_dst & 0xFF00) | (value.to_u16 & 0xF0)
-      when 0xFF55         then start_hdma_transfer value
+      when 0xFF51         then @hdma_src = (@hdma_src & 0x00FF) | (value.to_u16 << 8) if @cgb_ptr.value
+      when 0xFF52         then @hdma_src = (@hdma_src & 0xFF00) | (value.to_u16 & 0xF0) if @cgb_ptr.value
+      when 0xFF53         then @hdma_dst = (@hdma_dst & 0x80FF) | ((value.to_u16 & 0x1F) << 8) if @cgb_ptr.value
+      when 0xFF54         then @hdma_dst = (@hdma_dst & 0xFF00) | (value.to_u16 & 0xF0) if @cgb_ptr.value
+      when 0xFF55         then start_hdma_transfer value if @cgb_ptr.value
       when 0xFF68..0xFF6B then @ppu[index] = value
       when 0xFF70
         if @cgb_ptr.value
           @wram_bank = value & 0x7
           @wram_bank += 1 if @wram_bank == 0
         end
-      else nil
+      when 0xFF72 then @ff72 = value
+      when 0xFF73 then @ff73 = value
+      when 0xFF74 then @ff74 = value if @cgb_ptr.value
+      when 0xFF75 then @ff75 = value | 0x8F
+      else             nil
       end
     when HRAM          then @hram[index - HRAM.begin] = value
     when INTERRUPT_REG then @interrupts[index] = value

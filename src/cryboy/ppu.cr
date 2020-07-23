@@ -346,23 +346,31 @@ class PPU
     when 0xFF4F               then @cgb_ptr.value ? 0xFE_u8 | @vram_bank : 0xFF_u8
     when 0xFF68               then @cgb_ptr.value ? 0x40_u8 | (@auto_increment ? 0x80 : 0) | @palette_index : 0xFF_u8
     when 0xFF69
-      palette_number = @palette_index // 8
-      color_number = (@palette_index % 8) // 2
-      color = @palettes[palette_number][color_number]
-      if @palette_index % 2 == 0
-        color.red | (color.green << 5)
+      if @cgb_ptr.value
+        palette_number = @palette_index // 8
+        color_number = (@palette_index % 8) // 2
+        color = @palettes[palette_number][color_number]
+        if @palette_index % 2 == 0
+          color.red | (color.green << 5)
+        else
+          (color.green >> 3) | (color.blue << 2)
+        end
       else
-        (color.green >> 3) | (color.blue << 2)
+        0xFF_u8
       end
     when 0xFF6A then @cgb_ptr.value ? 0x40_u8 | (@obj_auto_increment ? 0x80 : 0) | @obj_palette_index : 0xFF_u8
     when 0xFF6B
-      palette_number = @obj_palette_index // 8
-      color_number = (@obj_palette_index % 8) // 2
-      color = @obj_palettes[palette_number][color_number]
-      if @palette_index % 2 == 0
-        color.red | (color.green << 5)
+      if @cgb_ptr.value
+        palette_number = @obj_palette_index // 8
+        color_number = (@obj_palette_index % 8) // 2
+        color = @obj_palettes[palette_number][color_number]
+        if @palette_index % 2 == 0
+          color.red | (color.green << 5)
+        else
+          (color.green >> 3) | (color.blue << 2)
+        end
       else
-        (color.green >> 3) | (color.blue << 2)
+        0xFF_u8
       end
     else raise "Reading from invalid ppu register: #{hex_str index.to_u16!}"
     end
@@ -392,39 +400,47 @@ class PPU
     when 0xFF4B then @wx = value
     when 0xFF4F then @vram_bank = value & 1 if @cgb_ptr.value
     when 0xFF68
-      @palette_index = value & 0x1F
-      @auto_increment = value & 0x80 > 0
+      if @cgb_ptr.value
+        @palette_index = value & 0x1F
+        @auto_increment = value & 0x80 > 0
+      end
     when 0xFF69
-      palette_number = @palette_index // 8
-      color_number = (@palette_index % 8) // 2
-      color = @palettes[palette_number][color_number]
-      if @palette_index % 2 == 0
-        color.red = value & 0b00011111
-        color.green = ((value & 0b11100000) >> 5) | (color.green & 0b11000)
-      else
-        color.green = ((value & 0b00000011) << 3) | (color.green & 0b00111)
-        color.blue = (value & 0b01111100) >> 2
+      if @cgb_ptr.value
+        palette_number = @palette_index // 8
+        color_number = (@palette_index % 8) // 2
+        color = @palettes[palette_number][color_number]
+        if @palette_index % 2 == 0
+          color.red = value & 0b00011111
+          color.green = ((value & 0b11100000) >> 5) | (color.green & 0b11000)
+        else
+          color.green = ((value & 0b00000011) << 3) | (color.green & 0b00111)
+          color.blue = (value & 0b01111100) >> 2
+        end
+        @palettes[palette_number][color_number] = color
+        @palette_index += 1 if @auto_increment
+        @palette_index &= 0x3F
       end
-      @palettes[palette_number][color_number] = color
-      @palette_index += 1 if @auto_increment
-      @palette_index &= 0x3F
     when 0xFF6A
-      @obj_palette_index = value & 0x1F
-      @obj_auto_increment = value & 0x80 > 0
-    when 0xFF6B
-      palette_number = @obj_palette_index // 8
-      color_number = (@obj_palette_index % 8) // 2
-      color = @obj_palettes[palette_number][color_number]
-      if @obj_palette_index % 2 == 0
-        color.red = value & 0b00011111
-        color.green = ((value & 0b11100000) >> 5) | (color.green & 0b11000)
-      else
-        color.green = ((value & 0b00000011) << 3) | (color.green & 0b00111)
-        color.blue = (value & 0b01111100) >> 2
+      if @cgb_ptr.value
+        @obj_palette_index = value & 0x1F
+        @obj_auto_increment = value & 0x80 > 0
       end
-      @obj_palettes[palette_number][color_number] = color
-      @obj_palette_index += 1 if @obj_auto_increment
-      @obj_palette_index &= 0x3F
+    when 0xFF6B
+      if @cgb_ptr.value
+        palette_number = @obj_palette_index // 8
+        color_number = (@obj_palette_index % 8) // 2
+        color = @obj_palettes[palette_number][color_number]
+        if @obj_palette_index % 2 == 0
+          color.red = value & 0b00011111
+          color.green = ((value & 0b11100000) >> 5) | (color.green & 0b11000)
+        else
+          color.green = ((value & 0b00000011) << 3) | (color.green & 0b00111)
+          color.blue = (value & 0b01111100) >> 2
+        end
+        @obj_palettes[palette_number][color_number] = color
+        @obj_palette_index += 1 if @obj_auto_increment
+        @obj_palette_index &= 0x3F
+      end
     else raise "Writing to invalid ppu register: #{hex_str index.to_u16!}"
     end
   end
