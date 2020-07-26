@@ -14,9 +14,7 @@ class Timer
 
   # tick timer forward by specified number of cycles
   def tick(cycles : Int) : Nil
-    while cycles > 0
-      cycles -= 1
-
+    cycles.times do
       @countdown -= 1 if @countdown > -1
       if @countdown == 0
         @interrupts.timer_interrupt = true
