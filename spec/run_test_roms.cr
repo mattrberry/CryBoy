@@ -58,6 +58,6 @@ unless mooneye_dir == ""
           when 9 then "KILL"
           else        "CRSH"
           end
-    puts "#{msg} - #{path}" if msg != "PASS"
+    puts "#{msg} - #{path[mooneye_dir.size, path.size - mooneye_dir.size]}" if msg != "PASS"
   end
 end
