@@ -166,7 +166,7 @@ class PPU
 
   @fetch_counter = 0
   @fetcher_x = 0
-  @lx = 0
+  @lx : Int32? = nil
 
   @tile_num : UInt8 = 0x00
   @tile_data_low : UInt8 = 0x00
@@ -182,7 +182,7 @@ class PPU
             self.mode_flag = 3
             @fifo.clear
             @fetcher_x = 0
-            @lx = -(7 & @scx)
+            @lx = nil
             @fetch_counter = 0
           end
         when 3 # drawing
@@ -237,10 +237,11 @@ class PPU
           if @fifo.size > 0
             palette = palette_to_array @bgp
             pixel = @fifo.shift
-            if @lx >= 0
-              @framebuffer[Display::WIDTH * @ly + @lx] = @palettes[0][palette[pixel.color]].convert_from_cgb
+            @lx ||= -(7 & @scx)
+            if @lx.not_nil! >= 0
+              @framebuffer[Display::WIDTH * @ly + @lx.not_nil!] = @palettes[0][palette[pixel.color]].convert_from_cgb
             end
-            @lx += 1
+            @lx = @lx.not_nil! + 1
             if @lx == Display::WIDTH
               self.mode_flag = 0
             end
