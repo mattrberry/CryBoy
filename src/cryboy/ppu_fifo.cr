@@ -99,7 +99,6 @@ end
 
 class PPU
   @framebuffer = Array(RGB).new Display::WIDTH * Display::HEIGHT, RGB.new(0, 0, 0)
-  @framebuffer_pos = 0
 
   @fifo = Deque(Pixel).new 8
 
@@ -166,8 +165,8 @@ class PPU
   end
 
   @fetch_counter = 0
-  @x_pos = 0
-  @shifted_pixels = 0
+  @fetcher_x = 0
+  @lx = 0
 
   @tile_num : UInt8 = 0x00
   @tile_data_low : UInt8 = 0x00
@@ -182,17 +181,17 @@ class PPU
           if @cycle_counter == 80
             self.mode_flag = 3
             @fifo.clear
-            @x_pos = 0
+            @fetcher_x = 0
+            @lx = -(7 & @scx)
             @fetch_counter = 0
-            @shifted_pixels = 0
           end
         when 3 # drawing
           case @fetch_counter
           when 0, 1 # fetching tile number
             if @fetch_counter == 0
               background_map = bg_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
-              tile_num_offset = (((@x_pos + @scx) // 8) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
-              @x_pos += 8
+              tile_num_offset = ((@fetcher_x + (@scx // 8)) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
+              @fetcher_x += 1
               @tile_num = @vram[0][background_map + tile_num_offset]
             end
           when 2, 3 # fetching low tile data
@@ -234,14 +233,12 @@ class PPU
             if @fifo.size > 0
               palette = palette_to_array @bgp
               pixel = @fifo.shift
-              if @shifted_pixels >= @scx % 8
-                @framebuffer[@framebuffer_pos] = @palettes[0][palette[pixel.color]].convert_from_cgb
-                @framebuffer_pos += 1
-                if @framebuffer_pos % Display::WIDTH == 0
-                  self.mode_flag = 0
-                end
-              else
-                @shifted_pixels += 1
+              if @lx >= 0
+                @framebuffer[Display::WIDTH * @ly + @lx] = @palettes[0][palette[pixel.color]].convert_from_cgb
+              end
+              @lx += 1
+              if @lx == Display::WIDTH
+                self.mode_flag = 0
               end
             end
           end
