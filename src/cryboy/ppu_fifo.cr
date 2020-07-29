@@ -191,7 +191,6 @@ class PPU
             if @fetch_counter == 0
               background_map = bg_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
               tile_num_offset = ((@fetcher_x + (@scx // 8)) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
-              @fetcher_x += 1
               @tile_num = @vram[0][background_map + tile_num_offset]
             end
           when 2, 3 # fetching low tile data
@@ -220,26 +219,30 @@ class PPU
               tile_ptr = tile_data_table + 16 * tile_num
               @tile_data_high = @vram[0][tile_ptr + ((@ly.to_u16 + @scy) % 8) * 2 + 1]
             end
+            if @cycle_counter == 86
+              @fetch_counter = -1 # drop first tile
+            end
           else # attempt pushing 8 pixels into fifo
             if @fifo.size == 0
+              @fetcher_x += 1
               8.times do |col|
                 lsb = (@tile_data_low >> (7 - col)) & 0x1
                 msb = (@tile_data_high >> (7 - col)) & 0x1
                 color = (msb << 1) | lsb
                 @fifo.push Pixel.new(color, 0, 0, 0)
               end
-              @fetch_counter = -1
+              @fetch_counter = -1 # reset fetcher phase
             end
-            if @fifo.size > 0
-              palette = palette_to_array @bgp
-              pixel = @fifo.shift
-              if @lx >= 0
-                @framebuffer[Display::WIDTH * @ly + @lx] = @palettes[0][palette[pixel.color]].convert_from_cgb
-              end
-              @lx += 1
-              if @lx == Display::WIDTH
-                self.mode_flag = 0
-              end
+          end
+          if @fifo.size > 0
+            palette = palette_to_array @bgp
+            pixel = @fifo.shift
+            if @lx >= 0
+              @framebuffer[Display::WIDTH * @ly + @lx] = @palettes[0][palette[pixel.color]].convert_from_cgb
+            end
+            @lx += 1
+            if @lx == Display::WIDTH
+              self.mode_flag = 0
             end
           end
           @fetch_counter += 1
