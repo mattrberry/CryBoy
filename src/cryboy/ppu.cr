@@ -179,8 +179,8 @@ class PPU
         tile_ptr = tile_data_table + 16 * tile_num
         bank_num = @cgb_ptr.value ? (@vram[1][tile_num_addr] & 0b00001000) >> 3 : 0
         if @cgb_ptr.value && @vram[1][tile_num_addr] & 0b01000000 > 0
-          byte_1 = @vram[bank_num][tile_ptr + (7 - tile_row) * 2]
-          byte_2 = @vram[bank_num][tile_ptr + (7 - tile_row) * 2 + 1]
+          byte_1 = @vram[bank_num][tile_ptr + (7 - tile_row_window) * 2]
+          byte_2 = @vram[bank_num][tile_ptr + (7 - tile_row_window) * 2 + 1]
         else
           byte_1 = @vram[bank_num][tile_ptr + tile_row_window * 2]
           byte_2 = @vram[bank_num][tile_ptr + tile_row_window * 2 + 1]
