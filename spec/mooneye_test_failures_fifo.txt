@@ -21,7 +21,6 @@ FAIL - /acceptance/boot_regs-sgb2.gb
 FAIL - /acceptance/boot_regs-sgb.gb
 FAIL - /acceptance/oam_dma/sources-GS.gb
 FAIL - /acceptance/ppu/hblank_ly_scx_timing-GS.gb
-FAIL - /acceptance/ppu/intr_2_0_timing.gb
 FAIL - /acceptance/ppu/intr_2_mode0_timing.gb
 FAIL - /acceptance/ppu/intr_2_mode0_timing_sprites.gb
 FAIL - /acceptance/ppu/intr_2_mode3_timing.gb
