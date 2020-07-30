@@ -134,18 +134,30 @@ module DmgOps
       operand = operand.sub /\be\b/, "cpu.e"
       operand = operand.sub /\bh\b/, "cpu.h"
       operand = operand.sub /\bl\b/, "cpu.l"
-      operand = operand.sub "cpu.memory[cpu.hl]", "cpu.memory_at_hl"
       operand
+    end
+
+    def has_memory_access : Bool
+      !(/\(.+\)/ =~ name).nil?
+    end
+
+    def tick_if_memory_access : Array(String)
+      if has_memory_access
+        tick
+      else
+        [] of String
+      end
     end
 
     # set u8, u16, and i8 if necessary
     def assign_extra_integers : Array(String)
       if name.includes? "u8"
-        return ["u8 = cpu.memory[cpu.pc + 1]"]
+        return tick + ["u8 = cpu.memory[cpu.pc + 1]"]
       elsif name.includes? "u16"
-        return ["u16 = cpu.memory.read_word cpu.pc + 1"]
+        return tick + ["u16 = cpu.memory[cpu.pc + 1].to_u16"] +
+          tick + ["u16 |= cpu.memory[cpu.pc + 2].to_u16 << 8"]
       elsif name.includes? "i8"
-        return ["i8 = cpu.memory[cpu.pc + 1].to_i8!"]
+        return tick + ["i8 = cpu.memory[cpu.pc + 1].to_i8!"]
       end
       [] of String
     end
@@ -207,6 +219,10 @@ module DmgOps
         (flags.c == FlagOp::ONE ? set_flag_c! true : [] of String)
     end
 
+    def tick(cycles : Int = 4) : Array(String)
+      ["cpu.tick_components #{cycles}"]
+    end
+
     # switch over operation type and generate code
     private def codegen_help : Array(String)
       case type
@@ -221,6 +237,7 @@ module DmgOps
         else
           ["carry = cpu.f_c ? 0x01 : 0x00"] +
             set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) + carry > 0x0F") +
+            tick_if_memory_access +
             ["#{to} &+= #{from} &+ carry"] +
             set_flag_z("#{to} == 0") +
             set_flag_c("#{to} < #{from}.to_u16 + carry")
@@ -235,6 +252,7 @@ module DmgOps
               set_flag_z("#{to} == 0")
           else
             set_flag_h("(#{to} & 0x0F) + (#{from} & 0x0F) > 0x0F") +
+              tick_if_memory_access +
               ["#{to} &+= #{from}"] +
               set_flag_z("#{to} == 0") +
               set_flag_c("#{to} < #{from}")
@@ -248,10 +266,12 @@ module DmgOps
           elsif to == from
             set_flag_h("(#{to} & 0x0FFF).to_u32 + (#{from} & 0x0FFF) > 0x0FFF") +
               set_flag_c("#{to} > 0x7FFF") +
+              tick +
               ["#{to} &+= #{from}"]
           else
             set_flag_h("(#{to} & 0x0FFF).to_u32 + (#{from} & 0x0FFF) > 0x0FFF") +
               ["#{to} &+= #{from}"] +
+              tick +
               set_flag_c("#{to} < #{from}")
           end
         else
@@ -259,13 +279,17 @@ module DmgOps
         end
       when "AND"
         to, from = operands
-        ["#{to} &= #{from}"] +
+        tick_if_memory_access +
+          ["#{to} &= #{from}"] +
           set_flag_z("#{to} == 0")
       when "BIT"
         bit, reg = operands
-        set_flag_z("#{reg} & (0x1 << #{bit}) == 0")
+        tick_if_memory_access + set_flag_z("#{reg} & (0x1 << #{bit}) == 0")
       when "CALL"
-        instr = ["cpu.memory.tick_components", "cpu.memory[cpu.sp -= 2] = cpu.pc", "cpu.pc = u16"]
+        instr = tick +
+                tick + ["cpu.sp &-= 1", "cpu.memory[cpu.sp] = (cpu.pc >> 8).to_u8"] +
+                tick + ["cpu.sp &-= 1", "cpu.memory[cpu.sp] = cpu.pc.to_u8!"] +
+                ["cpu.pc = u16"]
         if operands.size == 1
           instr
         else
@@ -276,7 +300,8 @@ module DmgOps
         set_flag_c("!cpu.f_c")
       when "CP"
         to, from = operands
-        set_flag_z("#{to} &- #{from} == 0") +
+        tick_if_memory_access +
+          set_flag_z("#{to} &- #{from} == 0") +
           set_flag_h("#{to} & 0xF < #{from} & 0xF") +
           set_flag_c("#{to} < #{from}")
       when "CPL"
@@ -299,7 +324,9 @@ module DmgOps
           set_flag_z("cpu.a == 0")
       when "DEC"
         to = operands[0]
-        ["#{to} &-= 1"] +
+        extra = to.size > 5 ? tick : [] of String
+        tick_if_memory_access + extra +
+          ["#{to} &-= 1"] +
           set_flag_z("#{to} == 0") +
           set_flag_h("#{to} & 0x0F == 0x0F")
       when "DI"
@@ -310,18 +337,21 @@ module DmgOps
         ["cpu.halted = true"]
       when "INC"
         to = operands[0]
+        extra = to.size > 5 ? tick : [] of String
         set_flag_h("#{to} & 0x0F == 0x0F") +
+          tick_if_memory_access + extra +
           ["#{to} &+= 1"] +
           set_flag_z("#{to} == 0")
       when "JP"
         if operands.size == 1
-          ["cpu.pc = #{operands[0]}"]
+          extra = operands[0] == "u16" ? tick : [] of String
+          extra + ["cpu.pc = #{operands[0]}"]
         else
           cond, loc = operands
-          branch(cond, ["cpu.pc = #{loc}"])
+          branch(cond, tick + ["cpu.pc = #{loc}"])
         end
       when "JR"
-        instr = ["cpu.pc &+= i8"]
+        instr = tick + ["cpu.pc &+= i8"]
         if operands.size == 1
           instr
         else
@@ -330,7 +360,12 @@ module DmgOps
         end
       when "LD"
         to, from = operands
-        ["#{to} = #{from}"] +
+        extra = if (from.includes? "cpu.sp") || (to == "cpu.sp" && from == "cpu.hl")
+                  tick
+                else
+                  [] of String
+                end
+        tick_if_memory_access + extra + ["#{to} = #{from}"] +
           # the following flags _only_ apply to `LD HL, SP + i8`
           set_flag_h("(cpu.sp ^ i8 ^ cpu.hl) & 0x0010 != 0") +
           set_flag_c("(cpu.sp ^ i8 ^ cpu.hl) & 0x0100 != 0")
@@ -338,11 +373,13 @@ module DmgOps
         [] of String
       when "OR"
         to, from = operands
-        ["#{to} |= #{from}"] +
+        tick_if_memory_access +
+          ["#{to} |= #{from}"] +
           set_flag_z("#{to} == 0")
       when "POP"
         reg = operands[0]
-        ["#{reg} = cpu.memory.read_word (cpu.sp += 2) - 2"] +
+        tick + ["#{reg} = (#{reg} & 0xFF00) | cpu.memory[cpu.sp]", "cpu.sp &+= 1"] +
+          tick + ["#{reg} = (#{reg} & 0x00FF) | cpu.memory[cpu.sp].to_u16 << 8", "cpu.sp &+= 1"] +
           set_flag_z("#{reg} & (0x1 << 7)") +
           set_flag_n("#{reg} & (0x1 << 6)") +
           set_flag_h("#{reg} & (0x1 << 5)") +
@@ -353,31 +390,37 @@ module DmgOps
           "#       This will require a restructure where the CPU leads the timing, rather than the PPU.",
           "#       https://discordapp.com/channels/465585922579103744/465586075830845475/712358911151177818",
           "#       https://discordapp.com/channels/465585922579103744/465586075830845475/712359253255520328",
+        ] + tick + [
           "cycles = Opcodes::PREFIXED[cpu.memory[cpu.pc]].call cpu",
           "cpu.pc &-= 1 # izik's table lists all prefixed opcodes as a length of 2 when they should be 1",
           "return cycles",
         ]
       when "PUSH"
-        [
-          "cpu.memory.tick_components",
-          "cpu.memory[cpu.sp -= 2] = #{operands[0]}",
-        ]
+        tick +
+          tick + ["cpu.sp &-= 1", "cpu.memory[cpu.sp] = (#{operands[0]} >> 8).to_u8"] +
+          tick + ["cpu.sp &-= 1", "cpu.memory[cpu.sp] = #{operands[0]}.to_u8!"]
       when "RES"
         bit, reg = operands
-        ["#{reg} &= ~(0x1 << #{bit})"]
+        tick_if_memory_access + tick_if_memory_access + ["#{reg} &= ~(0x1 << #{bit})"]
       when "RET"
-        instr = ["cpu.pc = cpu.memory.read_word cpu.sp", "cpu.sp += 2"]
+        instr = tick + ["val = cpu.memory[cpu.sp].to_u16", "cpu.sp &+= 1"] +
+                tick + ["val |= cpu.memory[cpu.sp].to_u16 << 8", "cpu.sp &+= 1"] +
+                tick + ["cpu.pc = val"]
         if operands.size == 0
           instr
         else
           cond = operands[0]
-          branch(cond, ["cpu.memory.tick_components"] + instr)
+          tick + branch(cond, instr)
         end
       when "RETI"
-        ["cpu.set_ime true, now: true", "cpu.pc = cpu.memory.read_word cpu.sp", "cpu.sp += 0x02"]
+        ["cpu.set_ime true, now: true"] +
+          tick + ["cpu.pc = (cpu.pc & 0xFF00) | cpu.memory[cpu.pc]", "cpu.sp &+= 1"] +
+          tick + ["cpu.pc = (cpu.pc & 0x00FF) | cpu.memory[cpu.pc].to_u16 << 8", "cpu.sp &+= 1"] +
+          tick
       when "RL"
         reg = operands[0]
-        ["carry = #{reg} & 0x80", "#{reg} = (#{reg} << 1) + (cpu.f_c ? 0x01 : 0x00)"] +
+        tick_if_memory_access + tick_if_memory_access +
+          ["carry = #{reg} & 0x80", "#{reg} = (#{reg} << 1) + (cpu.f_c ? 0x01 : 0x00)"] +
           set_flag_z("#{reg} == 0") +
           set_flag_c("carry")
       when "RLA"
@@ -385,7 +428,8 @@ module DmgOps
           set_flag_c("carry")
       when "RLC"
         reg = operands[0]
-        ["#{reg} = (#{reg} << 1) + (#{reg} >> 7)"] +
+        tick_if_memory_access + tick_if_memory_access +
+          ["#{reg} = (#{reg} << 1) + (#{reg} >> 7)"] +
           set_flag_z("#{reg} == 0") +
           set_flag_c("#{reg} & 0x01")
       when "RLCA"
@@ -393,7 +437,8 @@ module DmgOps
           set_flag_c("cpu.a & 0x01")
       when "RR"
         reg = operands[0]
-        ["carry = #{reg} & 0x01", "#{reg} = (#{reg} >> 1) + (cpu.f_c ? 0x80 : 0x00)"] +
+        tick_if_memory_access + tick_if_memory_access +
+          ["carry = #{reg} & 0x01", "#{reg} = (#{reg} >> 1) + (cpu.f_c ? 0x80 : 0x00)"] +
           set_flag_z("#{reg} == 0") +
           set_flag_c("carry")
       when "RRA"
@@ -401,19 +446,24 @@ module DmgOps
           set_flag_c("carry")
       when "RRC"
         reg = operands[0]
-        ["#{reg} = (#{reg} >> 1) + (#{reg} << 7)"] +
+        tick_if_memory_access + tick_if_memory_access +
+          ["#{reg} = (#{reg} >> 1) + (#{reg} << 7)"] +
           set_flag_z("#{reg} == 0") +
           set_flag_c("#{reg} & 0x80")
       when "RRCA"
         ["cpu.a = (cpu.a >> 1) + (cpu.a << 7)"] +
           set_flag_c("cpu.a & 0x80")
       when "RST"
-        ["cpu.memory.tick_components", "cpu.memory[cpu.sp -= 2] = cpu.pc", "cpu.pc = #{operands[0]}"]
+        tick +
+          tick + ["cpu.sp -= 1", "cpu.memory[cpu.sp] = (cpu.pc >> 8).to_u8"] +
+          tick + ["cpu.sp -= 1", "cpu.memory[cpu.sp] = cpu.pc.to_u8!"]
+        # ["cpu.memory[cpu.sp &-= 2] = cpu.pc", "cpu.pc = #{operands[0]}"] # todo
       when "SBC"
         to, from = operands
         ["to_sub = #{from}.to_u16 + (cpu.f_c ? 0x01 : 0x00)"] +
           set_flag_h("(#{to} & 0x0F) < (#{from} & 0x0F) + (cpu.f_c ? 0x01 : 0x00)") +
           set_flag_c("#{to} < to_sub") +
+          tick_if_memory_access +
           ["#{to} &-= to_sub"] +
           set_flag_z("#{to} == 0")
       when "SCF"
@@ -421,20 +471,24 @@ module DmgOps
         [] of String
       when "SET"
         bit, reg = operands
-        ["#{reg} |= (0x1 << #{bit})"]
+        tick_if_memory_access + tick_if_memory_access +
+          ["#{reg} |= (0x1 << #{bit})"]
       when "SLA"
         reg = operands[0]
         set_flag_c("#{reg} & 0x80") +
+          tick_if_memory_access + tick_if_memory_access +
           ["#{reg} <<= 1"] +
           set_flag_z("#{reg} == 0")
       when "SRA"
         reg = operands[0]
         set_flag_c("#{reg} & 0x01") +
+          tick_if_memory_access + tick_if_memory_access +
           ["#{reg} = (#{reg} >> 1) + (#{reg} & 0x80)"] +
           set_flag_z("#{reg} == 0")
       when "SRL"
         reg = operands[0]
         set_flag_c("#{reg} & 0x1") +
+          tick_if_memory_access + tick_if_memory_access +
           ["#{reg} >>= 1"] +
           set_flag_z("#{reg} == 0")
       when "STOP"
@@ -443,17 +497,20 @@ module DmgOps
         to, from = operands
         set_flag_h("#{to} & 0x0F < #{from} & 0x0F") +
           set_flag_c("#{to} < #{from}") +
+          tick_if_memory_access +
           ["#{to} &-= #{from}"] +
           set_flag_z("#{to} == 0")
       when "SWAP"
         reg = operands[0]
-        ["#{reg} = (#{reg} << 4) + (#{reg} >> 4)"] +
+        tick_if_memory_access + tick_if_memory_access +
+          ["#{reg} = (#{reg} << 4) + (#{reg} >> 4)"] +
           set_flag_z("#{reg} == 0")
       when "UNUSED"
         ["# unused opcode"]
       when "XOR"
         to, from = operands
-        ["#{to} ^= #{from}"] +
+        tick_if_memory_access +
+          ["#{to} ^= #{from}"] +
           set_flag_z("#{to} == 0")
       else ["raise \"Not currently supporting #{name}\""]
       end
@@ -462,6 +519,7 @@ module DmgOps
     # generate the code required to process this operation
     def codegen : Array(String)
       assign_extra_integers +
+        ["puts \"#{@name}\""] +
         ["cpu.pc &+= #{length}"] +
         codegen_help +
         set_reset_flags +

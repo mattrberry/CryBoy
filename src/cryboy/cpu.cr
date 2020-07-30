@@ -134,18 +134,12 @@ class CPU
     end
   end
 
-  def memory_at_hl : UInt8
-    @cached_hl_read = @memory[self.hl] if @cached_hl_read.nil?
-    @cached_hl_read.not_nil!
-  end
-
-  def memory_at_hl=(val : UInt8) : Nil
-    @cached_hl_read = val
-    @memory[self.hl] = val
-  end
-
   def print_state : Nil
     puts "AF:#{hex_str self.af} BC:#{hex_str self.bc} DE:#{hex_str self.de} HL:#{hex_str self.hl} | PC:#{hex_str @pc} | OP:#{hex_str @memory.read_byte @pc} | IME:#{@ime ? 1 : 0}"
+  end
+
+  def tick_components(cycles = 4, hdma = false) : Nil
+    @memory.tick_components cycles, hdma
   end
 
   # Runs for the specified number of machine cycles. If no argument provided,
@@ -156,13 +150,13 @@ class CPU
       if @halted
         cycles_taken = 4
       else
+        tick_components
         cycles_taken = Opcodes::UNPREFIXED[@memory[@pc]].call self
       end
       if @ime_enable > 0
         @ime = true if @ime_enable == 1
         @ime_enable -= 1
       end
-      @cached_hl_read = nil           # clear hl read cache
       @memory.tick_extra cycles_taken # tell memory component to tick extra cycles
       cycles -= cycles_taken
       handle_interrupts
