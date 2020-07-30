@@ -254,7 +254,9 @@ class PPU
             pixel = @fifo.shift
             @lx ||= -(7 & @scx)
             if @lx.not_nil! >= 0
-              @framebuffer[Display::WIDTH * @ly + @lx.not_nil!] = @palettes[0][palette[pixel.color]].convert_from_cgb
+              if bg_display?
+                @framebuffer[Display::WIDTH * @ly + @lx.not_nil!] = @palettes[0][palette[pixel.color]].convert_from_cgb
+              end
             end
             @lx = @lx.not_nil! + 1
             if @lx == Display::WIDTH
