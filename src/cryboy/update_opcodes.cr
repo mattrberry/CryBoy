@@ -461,7 +461,8 @@ module DmgOps
 
     # generate the code required to process this operation
     def codegen : Array(String)
-      assign_extra_integers +
+      # ["cpu.print_state \"#{name}\""] +
+        assign_extra_integers +
         ["cpu.pc &+= #{length}"] +
         codegen_help +
         set_reset_flags +

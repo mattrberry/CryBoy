@@ -144,8 +144,8 @@ class CPU
     @memory[self.hl] = val
   end
 
-  def print_state : Nil
-    puts "AF:#{hex_str self.af} BC:#{hex_str self.bc} DE:#{hex_str self.de} HL:#{hex_str self.hl} | PC:#{hex_str @pc} | OP:#{hex_str @memory.read_byte @pc} | IME:#{@ime ? 1 : 0}"
+  def print_state(op : String? = nil) : Nil
+    puts "AF:#{hex_str self.af} BC:#{hex_str self.bc} DE:#{hex_str self.de} HL:#{hex_str self.hl} | PC:#{hex_str @pc} | OP:#{hex_str @memory.read_byte @pc} | IME:#{@ime ? 1 : 0}#{" | #{op}" if op}"
   end
 
   # Runs for the specified number of machine cycles. If no argument provided,
