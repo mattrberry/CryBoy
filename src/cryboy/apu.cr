@@ -32,18 +32,24 @@ class APU
 
   @nr51 : UInt8 = 0x00
 
+  @audiospec : LibSDL::AudioSpec
+  @obtained_spec : LibSDL::AudioSpec
+
   def initialize
     @audiospec = LibSDL::AudioSpec.new
-    @audiospec.freq = SAMPLE_RATE
-    @audiospec.format = LibSDL::AUDIO_F32SYS
-    @audiospec.channels = CHANNELS
-    @audiospec.samples = BUFFER_SIZE
-    @audiospec.callback = nil
-    @audiospec.userdata = nil
+    @audiospec.not_nil!.freq = SAMPLE_RATE
+    @audiospec.not_nil!.format = LibSDL::AUDIO_F32SYS
+    @audiospec.not_nil!.channels = CHANNELS
+    @audiospec.not_nil!.samples = BUFFER_SIZE
+    @audiospec.not_nil!.callback = nil
+    @audiospec.not_nil!.userdata = nil
 
     @obtained_spec = LibSDL::AudioSpec.new
-    raise "Failed to open audio" if LibSDL.open_audio(pointerof(@audiospec), pointerof(@obtained_spec)) > 0
-    LibSDL.pause_audio 0
+
+    {% unless flag? :headless %}
+      raise "Failed to open audio" if LibSDL.open_audio(pointerof(@audiospec), pointerof(@obtained_spec)) > 0
+      LibSDL.pause_audio 0
+    {% end %}
   end
 
   # tick apu forward by specified number of cycles
@@ -114,10 +120,12 @@ class APU
 
       # push to SDL if buffer is full
       if @buffer_pos >= BUFFER_SIZE
-        while LibSDL.get_queued_audio_size(1) > BUFFER_SIZE * sizeof(Float32) * 2
-          LibSDL.delay(1)
-        end
-        LibSDL.queue_audio 1, @buffer, BUFFER_SIZE * sizeof(Float32)
+        {% unless flag? :headless %}
+          while LibSDL.get_queued_audio_size(1) > BUFFER_SIZE * sizeof(Float32) * 2
+            LibSDL.delay(1)
+          end
+          LibSDL.queue_audio 1, @buffer, BUFFER_SIZE * sizeof(Float32)
+        {% end %}
         @buffer_pos = 0
       end
     end

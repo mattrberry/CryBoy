@@ -5,18 +5,26 @@ class Display
   PIXELFORMAT_RGB24       = (1 << 28) | (7 << 24) | (1 << 20) | (0 << 16) | (24 << 8) | (3 << 0)
   TEXTUREACCESS_STREAMING = 1
 
+  @window : SDL::Window?
+  @renderer : SDL::Renderer?
+  @texture : Pointer(LibSDL::Texture)?
+
   def initialize(scale = 4, title : String? = nil)
-    @window = SDL::Window.new("CryBoy" + (title.nil? ? "" : " - #{title}"), WIDTH * scale, HEIGHT * scale)
-    @renderer = SDL::Renderer.new @window
-    @renderer.logical_size = {WIDTH, HEIGHT}
-    @texture = LibSDL.create_texture @renderer, PIXELFORMAT_RGB24, TEXTUREACCESS_STREAMING, WIDTH, HEIGHT
+    {% unless flag? :headless %}
+      @window = SDL::Window.new("CryBoy" + (title.nil? ? "" : " - #{title}"), WIDTH * scale, HEIGHT * scale)
+      @renderer = SDL::Renderer.new @window.not_nil!
+      @renderer.not_nil!.logical_size = {WIDTH, HEIGHT}
+      @texture = LibSDL.create_texture @renderer.not_nil!, PIXELFORMAT_RGB24, TEXTUREACCESS_STREAMING, WIDTH, HEIGHT
+    {% end %}
   end
 
   def draw(framebuffer : Array(RGB)) : Nil
-    LibSDL.update_texture @texture, nil, framebuffer, WIDTH * sizeof(RGB)
-    @renderer.clear
-    @renderer.copy @texture
-    @renderer.present
+    {% unless flag? :headless %}
+      LibSDL.update_texture @texture, nil, framebuffer, WIDTH * sizeof(RGB)
+      @renderer.not_nil!.clear
+      @renderer.not_nil!.copy @texture
+      @renderer.not_nil!.present
+    {% end %}
   end
 end
 

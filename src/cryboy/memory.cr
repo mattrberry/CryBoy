@@ -209,8 +209,13 @@ class Memory
       case index
       when 0xFF00 then @joypad.write value
       when 0xFF01
-        print value
-        STDOUT.flush
+        {% if flag? :print_serial %}
+          print value
+          STDOUT.flush
+        {% elsif flag? :print_serial_ascii %}
+          print value.chr
+          STDOUT.flush
+        {% end %}
       when 0xFF04..0xFF07 then @timer[index] = value
       when 0xFF0F         then @interrupts[index] = value
       when 0xFF10..0xFF3F then @apu[index] = value
