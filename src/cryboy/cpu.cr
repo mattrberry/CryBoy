@@ -78,6 +78,7 @@ class CPU
   property memory : Memory
   @ime : IME = IME.new 0
   @halted : Bool = false
+  @halt_bug : Bool = false
 
   # hl reads are cached for each instruction
   # this is tracked here to reduce complications in the codegen
@@ -152,11 +153,26 @@ class CPU
   end
 
   def print_state(op : String? = nil) : Nil
-    puts "AF:#{hex_str self.af} BC:#{hex_str self.bc} DE:#{hex_str self.de} HL:#{hex_str self.hl} | PC:#{hex_str @pc} | OP:#{hex_str @memory.read_byte @pc} | IME:#{@ime ? 1 : 0}#{" | #{op}" if op}"
+    puts "AF:#{hex_str self.af} BC:#{hex_str self.bc} DE:#{hex_str self.de} HL:#{hex_str self.hl} | SP:#{hex_str @sp} | PC:#{hex_str @pc} | OP:#{hex_str @memory.read_byte @pc} | IME:#{@ime}#{" | #{op}" if op}"
   end
 
-  def halted=(halted : Bool) : Nil
-    @halted = halted
+  # Handle regular and obscure halting behavior
+  def halt : Nil
+    if !@ime.includes?(IME::ENABLED) && (@interrupts[0xFF0F] & @interrupts[0xFFFF] & 0x1F > 0)
+      @halt_bug = true
+      @halted = false
+    else
+      @halted = true
+    end
+  end
+
+  # Increment PC unless the halt bug should cause it to fail to increment
+  def inc_pc : Nil
+    if @halt_bug
+      @halt_bug = false
+    else
+      @pc &+= 1
+    end
   end
 
   def tick_ime : Nil

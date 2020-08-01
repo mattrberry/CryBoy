@@ -141,11 +141,11 @@ module DmgOps
     # set u8, u16, and i8 if necessary
     def assign_extra_integers : Array(String)
       if name.includes? "u8"
-        return ["u8 = cpu.memory[cpu.pc + 1]"]
+        return ["u8 = cpu.memory[cpu.pc]", "cpu.inc_pc"]
       elsif name.includes? "u16"
-        return ["u16 = cpu.memory.read_word cpu.pc + 1"]
+        return ["u16 = cpu.memory[cpu.pc].to_u16", "cpu.inc_pc", "u16 |= cpu.memory[cpu.pc].to_u16 << 8", "cpu.inc_pc"]
       elsif name.includes? "i8"
-        return ["i8 = cpu.memory[cpu.pc + 1].to_i8!"]
+        return ["i8 = cpu.memory[cpu.pc].to_i8!", "cpu.inc_pc"]
       end
       [] of String
     end
@@ -307,7 +307,7 @@ module DmgOps
       when "EI"
         ["cpu.set_ime true"]
       when "HALT"
-        ["cpu.halted = true"]
+        ["cpu.halt"]
       when "INC"
         to = operands[0]
         set_flag_h("#{to} & 0x0F == 0x0F") +
@@ -354,7 +354,6 @@ module DmgOps
           "#       https://discordapp.com/channels/465585922579103744/465586075830845475/712358911151177818",
           "#       https://discordapp.com/channels/465585922579103744/465586075830845475/712359253255520328",
           "cycles = Opcodes::PREFIXED[cpu.memory[cpu.pc]].call cpu",
-          "cpu.pc &-= 1 # izik's table lists all prefixed opcodes as a length of 2 when they should be 1",
           "return cycles",
         ]
       when "PUSH"
@@ -438,7 +437,7 @@ module DmgOps
           ["#{reg} >>= 1"] +
           set_flag_z("#{reg} == 0")
       when "STOP"
-        ["# todo: see if something more needs to happen here...", "cpu.memory.stop_instr"]
+        ["# todo: see if something more needs to happen here...", "cpu.inc_pc", "cpu.memory.stop_instr"]
       when "SUB"
         to, from = operands
         set_flag_h("#{to} & 0x0F < #{from} & 0x0F") +
@@ -462,8 +461,8 @@ module DmgOps
     # generate the code required to process this operation
     def codegen : Array(String)
       # ["cpu.print_state \"#{name}\""] +
+        ["cpu.inc_pc"] +
         assign_extra_integers +
-        ["cpu.pc &+= #{length}"] +
         codegen_help +
         set_reset_flags +
         ["return #{cycles}"]
