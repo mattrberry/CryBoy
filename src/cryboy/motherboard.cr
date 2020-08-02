@@ -8,6 +8,7 @@ require "./joypad"
 require "./mbc/*"
 require "./memory"
 require "./opcodes"
+require "./ppu_shared"
 {% if flag?(:fifo) %}
 require "./ppu_fifo"
 {% else %}
