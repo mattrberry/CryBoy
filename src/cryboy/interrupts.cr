@@ -1,4 +1,13 @@
 class Interrupts
+  enum InterruptLine : UInt16
+    VBLANK = 0x0040
+    STAT   = 0x0048
+    TIMER  = 0x0050
+    SERIAL = 0x0058
+    JOYPAD = 0x0060
+    NONE   = 0x0000
+  end
+
   @top_3_ie_bits : UInt8 = 0x00 # they're writable for some reason
 
   property vblank_interrupt = false
@@ -12,6 +21,33 @@ class Interrupts
   property timer_enabled = false
   property serial_enabled = false
   property joypad_enabled = false
+
+  def highest_priority : InterruptLine
+    if vblank_interrupt && vblank_enabled
+      InterruptLine::VBLANK
+    elsif lcd_stat_interrupt && lcd_stat_enabled
+      InterruptLine::STAT
+    elsif timer_interrupt && timer_enabled
+      InterruptLine::TIMER
+    elsif serial_interrupt && serial_enabled
+      InterruptLine::SERIAL
+    elsif joypad_interrupt && joypad_enabled
+      InterruptLine::JOYPAD
+    else
+      InterruptLine::NONE
+    end
+  end
+
+  def clear(interrupt_line : InterruptLine) : Nil
+    case interrupt_line
+    in InterruptLine::VBLANK then @vblank_interrupt = false
+    in InterruptLine::STAT   then @lcd_stat_interrupt = false
+    in InterruptLine::TIMER  then @timer_interrupt = false
+    in InterruptLine::SERIAL then @serial_interrupt = false
+    in InterruptLine::JOYPAD then @joypad_interrupt = false
+    in InterruptLine::NONE   then nil
+    end
+  end
 
   # read from interrupts memory
   def [](index : Int) : UInt8

@@ -11,7 +11,6 @@ FAIL - /acceptance/boot_regs-dmgABC.gb
 FAIL - /acceptance/boot_regs-mgb.gb
 FAIL - /acceptance/boot_regs-sgb.gb
 FAIL - /acceptance/boot_regs-sgb2.gb
-CRSH - /acceptance/interrupts/ie_push.gb
 FAIL - /acceptance/oam_dma/sources-GS.gb
 FAIL - /acceptance/ppu/hblank_ly_scx_timing-GS.gb
 FAIL - /acceptance/ppu/intr_2_mode0_timing.gb

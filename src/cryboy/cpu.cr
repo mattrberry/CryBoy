@@ -99,35 +99,20 @@ class CPU
     @memory.skip_boot
   end
 
-  # call to the specified interrupt vector and handle ime/halted flags
-  def call_interrupt_vector(vector : UInt16) : Nil
-    @ime &= ~IME::ENABLED
-    @sp -= 2
-    @memory[@sp] = @pc
-    @pc = vector
-    @halted = false
-    @memory.tick_extra 20
-  end
-
   # service all interrupts
   def handle_interrupts
-    @halted = false if @interrupts[0xFF0F] & @interrupts[0xFFFF] & 0x1F > 0
-    if @ime.includes? IME::ENABLED
-      if @interrupts.vblank_interrupt && @interrupts.vblank_enabled
-        @interrupts.vblank_interrupt = false
-        call_interrupt_vector 0x0040_u16
-      elsif @interrupts.lcd_stat_interrupt && @interrupts.lcd_stat_enabled
-        @interrupts.lcd_stat_interrupt = false
-        call_interrupt_vector 0x0048_u16
-      elsif @interrupts.timer_interrupt && @interrupts.timer_enabled
-        @interrupts.timer_interrupt = false
-        call_interrupt_vector 0x0050_u16
-      elsif @interrupts.serial_interrupt && @interrupts.serial_enabled
-        @interrupts.serial_interrupt = false
-        call_interrupt_vector 0x0058_u16
-      elsif @interrupts.joypad_interrupt && @interrupts.joypad_enabled
-        @interrupts.joypad_interrupt = false
-        call_interrupt_vector 0x0060_u16
+    if @interrupts[0xFF0F] & @interrupts[0xFFFF] & 0x1F > 0
+      @halted = false
+      if @ime.includes? IME::ENABLED
+        @ime &= ~IME::ENABLED
+        @sp &-= 1
+        @memory[@sp] = (@pc >> 8).to_u8
+        interrupt = @interrupts.highest_priority
+        @sp &-= 1
+        @memory[@sp] = @pc.to_u8!
+        @pc = interrupt.value
+        @interrupts.clear interrupt
+        @memory.tick_extra 20
       end
     end
   end
