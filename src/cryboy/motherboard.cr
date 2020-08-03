@@ -17,6 +17,8 @@ require "./ppu"
 require "./timer"
 require "./util"
 
+DISPLAY_SCALE = {% unless flag? :graphics_test %} 4 {% else %} 1 {% end %}
+
 class Motherboard
   def initialize(bootrom : String?, rom_path : String)
     SDL.init(SDL::Init::VIDEO | SDL::Init::AUDIO | SDL::Init::JOYSTICK)
@@ -27,7 +29,7 @@ class Motherboard
     @cartridge = Cartridge.new rom_path
     @cgb_enabled = !(bootrom.nil? && @cartridge.cgb == Cartridge::CGB::NONE)
     @interrupts = Interrupts.new
-    @display = Display.new title: @cartridge.title
+    @display = Display.new scale: DISPLAY_SCALE, title: @cartridge.title
     @ppu = PPU.new @display, @interrupts, pointerof(@cgb_enabled)
     @apu = APU.new
     @timer = Timer.new @interrupts

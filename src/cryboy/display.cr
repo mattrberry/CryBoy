@@ -9,7 +9,7 @@ class Display
   @renderer : SDL::Renderer?
   @texture : Pointer(LibSDL::Texture)?
 
-  def initialize(scale = 4, title : String? = nil)
+  def initialize(scale = Int, title : String? = nil)
     {% unless flag? :headless %}
       @window = SDL::Window.new("CryBoy" + (title.nil? ? "" : " - #{title}"), WIDTH * scale, HEIGHT * scale)
       @renderer = SDL::Renderer.new @window.not_nil!
