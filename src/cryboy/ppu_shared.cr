@@ -81,8 +81,8 @@ struct RGB
     @red = @green = @blue = grey
   end
 
-  def convert_from_cgb(cgb_enabled : Bool) : RGB
-    if cgb_enabled
+  def convert_from_cgb(should_convert : Bool) : RGB
+    if should_convert
       {% unless flag? :graphics_test %}
         # correction algorithm from: https://byuu.net/video/color-emulation
         RGB.new(
@@ -105,6 +105,8 @@ struct RGB
 end
 
 abstract class BasePPU
+  @ran_bios : Bool # determine if colors should be adjusted for cgb
+
   @framebuffer = Array(RGB).new Display::WIDTH * Display::HEIGHT, RGB.new(0, 0, 0)
 
   @palettes = Array(Array(RGB)).new 8 { Array(RGB).new 4, RGB.new(0, 0, 0) }
@@ -154,6 +156,7 @@ abstract class BasePPU
         ]
       {% end %}
     end
+    @ran_bios = @cgb_ptr.value
   end
 
   # gets ly

@@ -59,9 +59,9 @@ class PPU < BasePPU
         color = (msb << 1) | lsb
         @scanline_color_vals[x] = {color, @vram[1][tile_num_addr] & 0x80 > 0}
         if @cgb_ptr.value
-          @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb @cgb_ptr.value
+          @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb @ran_bios
         else
-          @framebuffer[Display::WIDTH * self.ly + x] = @palettes[0][bg_palette[color]].convert_from_cgb @cgb_ptr.value
+          @framebuffer[Display::WIDTH * self.ly + x] = @palettes[0][bg_palette[color]].convert_from_cgb @ran_bios
         end
       elsif bg_display? || @cgb_ptr.value
         tile_num_addr = background_map + (((x + @scx) // 8) % 32) + ((((self.ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
@@ -86,9 +86,9 @@ class PPU < BasePPU
         color = (msb << 1) | lsb
         @scanline_color_vals[x] = {color, @vram[1][tile_num_addr] & 0x80 > 0}
         if @cgb_ptr.value
-          @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb @cgb_ptr.value
+          @framebuffer[Display::WIDTH * self.ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb @ran_bios
         else
-          @framebuffer[Display::WIDTH * self.ly + x] = @palettes[0][bg_palette[color]].convert_from_cgb @cgb_ptr.value
+          @framebuffer[Display::WIDTH * self.ly + x] = @palettes[0][bg_palette[color]].convert_from_cgb @ran_bios
         end
       end
     end
@@ -115,11 +115,11 @@ class PPU < BasePPU
               # objects are always on top of bg/window color 0
               # objects are on top of bg/window colors 1-3 if bg_priority and object priority are both unset
               if !bg_display? || @scanline_color_vals[x][0] == 0 || (!@scanline_color_vals[x][1] && sprite.priority == 0)
-                @framebuffer[Display::WIDTH * self.ly + x] = @obj_palettes[sprite.cgb_palette_number][color].convert_from_cgb @cgb_ptr.value
+                @framebuffer[Display::WIDTH * self.ly + x] = @obj_palettes[sprite.cgb_palette_number][color].convert_from_cgb @ran_bios
               end
             else
               if sprite.priority == 0 || @scanline_color_vals[x][0] == 0
-                @framebuffer[Display::WIDTH * self.ly + x] = @obj_palettes[0][sprite_palette[color]].convert_from_cgb @cgb_ptr.value
+                @framebuffer[Display::WIDTH * self.ly + x] = @obj_palettes[0][sprite_palette[color]].convert_from_cgb @ran_bios
               end
             end
           end

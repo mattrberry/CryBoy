@@ -131,7 +131,7 @@ class PPU < BasePPU
             @lx ||= -(7 & @scx)
             if @lx.not_nil! >= 0 # otherwise drop pixel on floor
               if bg_display?
-                @framebuffer[Display::WIDTH * @ly + @lx.not_nil!] = @palettes[0][palette[pixel.color]].convert_from_cgb @cgb_ptr.value
+                @framebuffer[Display::WIDTH * @ly + @lx.not_nil!] = @palettes[0][palette[pixel.color]].convert_from_cgb @ran_bios
               end
             end
             @lx = @lx.not_nil! + 1
