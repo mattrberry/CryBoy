@@ -16,10 +16,13 @@ class PPU < BasePPU
   @fetch_counter = 0
   @fetcher_x = 0
   @lx : Int32? = nil
+  @fetch_window = false
 
   @tile_num : UInt8 = 0x00
   @tile_data_low : UInt8 = 0x00
   @tile_data_high : UInt8 = 0x00
+
+  @current_window_line = -1
 
   enum FetchStage
     GET_TILE
@@ -36,6 +39,14 @@ class PPU < BasePPU
     FetchStage::PUSH_PIXEL,
   ]
 
+  def reset_fifo : Nil
+    @fifo.clear
+    @fetcher_x = 0
+    @lx = nil
+    @fetch_counter = 0
+    @fetch_window = false
+  end
+
   # tick ppu forward by specified number of cycles
   def tick(cycles : Int) : Nil
     if lcd_enabled?
@@ -44,17 +55,20 @@ class PPU < BasePPU
         when 2 # OAM search
           if @cycle_counter == 80
             self.mode_flag = 3
-            @fifo.clear
-            @fetcher_x = 0
-            @lx = nil
-            @fetch_counter = 0
+            reset_fifo
           end
         when 3 # drawing
           case FETCHER_ORDER[@fetch_counter]
           in FetchStage::GET_TILE
-            background_map = bg_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
-            tile_num_offset = ((@fetcher_x + (@scx // 8)) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
-            @tile_num = @vram[0][background_map + tile_num_offset]
+            if @fetch_window
+              window_map = window_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
+              tile_num_offset = @fetcher_x + ((@current_window_line // 8) * 32)
+              @tile_num = @vram[0][window_map + tile_num_offset]
+            else
+              background_map = bg_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
+              tile_num_offset = ((@fetcher_x + (@scx // 8)) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
+              @tile_num = @vram[0][background_map + tile_num_offset]
+            end
             @fetch_counter += 1
           in FetchStage::GET_TILE_DATA_LOW
             if bg_window_tile_data > 0
@@ -66,7 +80,11 @@ class PPU < BasePPU
             end
             # tile_num = bg_window_tile_data > 0 ? @tile_num : @tile_num.to_i8!
             tile_ptr = tile_data_table + 16 * tile_num
-            @tile_data_low = @vram[0][tile_ptr + ((@ly.to_u16 + @scy) % 8) * 2]
+            if @fetch_window
+              @tile_data_low = @vram[0][tile_ptr + (@current_window_line % 8) * 2]
+            else
+              @tile_data_low = @vram[0][tile_ptr + ((@ly.to_u16 + @scy) % 8) * 2]
+            end
             @fetch_counter += 1
           in FetchStage::GET_TILE_DATA_HIGH
             if bg_window_tile_data > 0
@@ -78,7 +96,11 @@ class PPU < BasePPU
             end
             # tile_num = bg_window_tile_data > 0 ? @tile_num : @tile_num.to_i8!
             tile_ptr = tile_data_table + 16 * tile_num
-            @tile_data_high = @vram[0][tile_ptr + ((@ly.to_u16 + @scy) % 8) * 2 + 1]
+            if @fetch_window
+              @tile_data_high = @vram[0][tile_ptr + (@current_window_line % 8) * 2 + 1]
+            else
+              @tile_data_high = @vram[0][tile_ptr + ((@ly.to_u16 + @scy) % 8) * 2 + 1]
+            end
             @fetch_counter += 1
             if @cycle_counter == 86
               @fetch_counter = 0 # drop first tile
@@ -87,8 +109,13 @@ class PPU < BasePPU
             if @fifo.size == 0
               @fetcher_x += 1
               8.times do |col|
-                lsb = (@tile_data_low >> (7 - col)) & 0x1
-                msb = (@tile_data_high >> (7 - col)) & 0x1
+                if @fetch_window
+                  lsb = (@tile_data_low >> (7 - ((col + 7 - @wx) % 8))) & 0x1
+                  msb = (@tile_data_high >> (7 - ((col + 7 - @wx) % 8))) & 0x1
+                else
+                  lsb = (@tile_data_low >> (7 - col)) & 0x1
+                  msb = (@tile_data_high >> (7 - col)) & 0x1
+                end
                 color = (msb << 1) | lsb
                 @fifo.push Pixel.new(color, 0, 0, 0)
               end
@@ -102,7 +129,7 @@ class PPU < BasePPU
             palette = palette_to_array @bgp
             pixel = @fifo.shift
             @lx ||= -(7 & @scx)
-            if @lx.not_nil! >= 0
+            if @lx.not_nil! >= 0 # otherwise drop pixel on floor
               if bg_display?
                 @framebuffer[Display::WIDTH * @ly + @lx.not_nil!] = @palettes[0][palette[pixel.color]].convert_from_cgb @cgb_ptr.value
               end
@@ -110,6 +137,13 @@ class PPU < BasePPU
             @lx = @lx.not_nil! + 1
             if @lx == Display::WIDTH
               self.mode_flag = 0
+            end
+            if window_enabled? && @ly >= @wy && @lx.not_nil! + 7 >= @wx && !@fetch_window
+              @fifo.clear
+              @fetcher_x = 0
+              @fetch_counter = 0
+              @fetch_window = true
+              @current_window_line += 1
             end
           end
         when 0 # hblank
@@ -131,6 +165,7 @@ class PPU < BasePPU
             self.ly += 1 if self.ly != 0
             if self.ly == 0      # end of vblank reached (ly has already shortcut to 0)
               self.mode_flag = 2 # switch to oam search
+              @current_window_line = -1
             end
           end
           self.ly = 0 if self.ly == 153 && @cycle_counter > 4 # shortcut ly to from 153 to 0 after 4 cycles
