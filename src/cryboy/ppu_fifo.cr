@@ -149,9 +149,9 @@ class PPU < BasePPU
         when 0 # hblank
           if @cycle_counter == 456
             @cycle_counter = 0
-            self.ly += 1
-            if self.ly == Display::HEIGHT # final row of screen complete
-              self.mode_flag = 1          # switch to vblank
+            @ly += 1
+            if @ly == Display::HEIGHT # final row of screen complete
+              self.mode_flag = 1      # switch to vblank
               @interrupts.vblank_interrupt = true
               @display.draw @framebuffer # render at vblank
               @framebuffer_pos = 0
@@ -162,13 +162,13 @@ class PPU < BasePPU
         when 1 # vblank
           if @cycle_counter == 456
             @cycle_counter = 0
-            self.ly += 1 if self.ly != 0
-            if self.ly == 0      # end of vblank reached (ly has already shortcut to 0)
+            @ly += 1 if @ly != 0
+            if @ly == 0          # end of vblank reached (ly has already shortcut to 0)
               self.mode_flag = 2 # switch to oam search
               @current_window_line = -1
             end
           end
-          self.ly = 0 if self.ly == 153 && @cycle_counter > 4 # shortcut ly to from 153 to 0 after 4 cycles
+          @ly = 0 if @ly == 153 && @cycle_counter > 4 # shortcut ly to from 153 to 0 after 4 cycles
         end
         @cycle_counter += 1
         handle_stat_interrupt
@@ -176,7 +176,7 @@ class PPU < BasePPU
     else                 # lcd is disabled
       @cycle_counter = 0 # reset cycle counter
       self.mode_flag = 0 # reset to mode 0
-      self.ly = 0        # reset ly
+      @ly = 0            # reset ly
     end
   end
 end

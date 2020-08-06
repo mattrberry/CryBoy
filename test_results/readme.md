@@ -58,7 +58,7 @@
 | 👀 | acceptance/ppu/intr_2_oam_ok_timing |
 | 👀 | acceptance/ppu/lcdon_timing-GS |
 | 👀 | acceptance/ppu/lcdon_write_timing-GS |
-| 👀 | acceptance/ppu/stat_irq_blocking |
+| 👌 | acceptance/ppu/stat_irq_blocking |
 | 👀 | acceptance/ppu/stat_lyc_onoff |
 | 👀 | acceptance/ppu/vblank_stat_intr-GS |
 | 👌 | acceptance/push_timing |

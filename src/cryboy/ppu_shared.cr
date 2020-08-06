@@ -159,21 +159,10 @@ abstract class BasePPU
     @ran_bios = @cgb_ptr.value
   end
 
-  # gets ly
-  def ly : UInt8
-    @ly
-  end
-
-  # sets ly AND sets coincidence flag
-  def ly=(value : UInt8) : Nil
-    @ly = value
-    self.coincidence_flag = @ly == @lyc
-    @old_stat_flag = false
-  end
-
   # handle stat interrupts
   # stat interrupts are only requested on the rising edge
   def handle_stat_interrupt : Nil
+    self.coincidence_flag = @ly == @lyc
     stat_flag = (coincidence_flag && coincidence_interrupt_enabled) ||
                 (mode_flag == 2 && oam_interrupt_enabled) ||
                 (mode_flag == 0 && hblank_interrupt_enabled) ||
@@ -193,7 +182,7 @@ abstract class BasePPU
     when 0xFF41               then @lcd_status
     when 0xFF42               then @scy
     when 0xFF43               then @scx
-    when 0xFF44               then self.ly
+    when 0xFF44               then @ly
     when 0xFF45               then @lyc
     when 0xFF46               then @dma
     when 0xFF47               then @bgp
@@ -241,7 +230,7 @@ abstract class BasePPU
     when Memory::SPRITE_TABLE then @sprite_table[index - Memory::SPRITE_TABLE.begin] = value
     when 0xFF40
       if value & 0x80 > 0 && !lcd_enabled?
-        self.ly = 0
+        @ly = 0
         self.mode_flag = 2
       end
       @lcd_control = value

@@ -39,7 +39,7 @@ unless acid_dir == ""
   test_results << {suite: "Acid", results: [] of TestResult}
   puts "Acid Tests"
   system "shards build -Dgraphics_test"
-  Dir.glob "#{acid_dir}/*acid2.gb*" do |path|
+  Dir.glob("#{acid_dir}/*acid2.gb*").sort.each do |path|
     test_name = get_test_name acid_dir, path
     Process.run "bin/cryboy", [path] do |process|
       sleep 1
