@@ -177,7 +177,14 @@ class CPU
       if @halted
         cycles_taken = 4
       else
-        cycles_taken = Opcodes::UNPREFIXED[@memory[@pc]].call self
+        opcode = @memory[@pc]
+        {% if flag? :graphics_test %}
+          if opcode == 0x40
+            @ppu.write_png
+            exit 0
+          end
+        {% end %}
+        cycles_taken = Opcodes::UNPREFIXED[opcode].call self
       end
       tick_ime
       @cached_hl_read = nil           # clear hl read cache

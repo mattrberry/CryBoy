@@ -365,4 +365,8 @@ abstract class BasePPU
   def palette_to_array(palette : UInt8) : Array(UInt8)
     [palette & 0x3, (palette >> 2) & 0x3, (palette >> 4) & 0x3, (palette >> 6) & 0x3]
   end
+
+  def write_png : Nil
+    @display.write_png @framebuffer
+  end
 end

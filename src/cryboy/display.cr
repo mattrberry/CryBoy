@@ -1,3 +1,5 @@
+require "stumpy_png"
+
 class Display
   WIDTH  = 160
   HEIGHT = 144
@@ -25,6 +27,18 @@ class Display
       @renderer.not_nil!.copy @texture
       @renderer.not_nil!.present
     {% end %}
+  end
+
+  def write_png(framebuffer : Array(RGB)) : Nil
+    canvas = StumpyPNG::Canvas.new WIDTH, HEIGHT
+    HEIGHT.times do |row|
+      WIDTH.times do |col|
+        rgb = framebuffer[row * WIDTH + col]
+        color = StumpyPNG::RGBA.from_rgb8(rgb.red, rgb.green, rgb.blue)
+        canvas[col, row] = color
+      end
+    end
+    StumpyPNG.write(canvas, "out.png")
   end
 end
 

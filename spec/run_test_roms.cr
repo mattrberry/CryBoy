@@ -42,14 +42,14 @@ unless acid_dir == ""
   Dir.glob("#{acid_dir}/*acid2.gb*").sort.each do |path|
     test_name = get_test_name acid_dir, path
     Process.run "bin/cryboy", [path] do |process|
-      sleep 1
-      system %[import -window "$(xdotool getwindowfocus -f)" #{SCREENSHOT_DIR}/#{test_name}.png]
-      system %[compare -metric AE #{SCREENSHOT_DIR}/#{test_name}.png #{SCREENSHOT_DIR}/expected/#{test_name}.png /tmp/cryboy_diff 2>/dev/null]
-      passed = $?.exit_status == 0
-      process.terminate if process.exists?
-      test_results[test_results.size - 1][:results] << {test: test_name, pass: passed}
-      print passed ? "." : "F"
+      kill process, after: 1
     end
+    system %[touch out.png] # touch image in case something went wrong
+    system %[mv out.png #{SCREENSHOT_DIR}/#{test_name}.png]
+    system %[compare -metric AE #{SCREENSHOT_DIR}/#{test_name}.png #{SCREENSHOT_DIR}/expected/#{test_name}.png /tmp/cryboy_diff 2>/dev/null]
+    passed = $?.exit_status == 0
+    test_results[test_results.size - 1][:results] << {test: test_name, pass: passed}
+    print passed ? "." : "F"
   end
   print "\n"
 end
