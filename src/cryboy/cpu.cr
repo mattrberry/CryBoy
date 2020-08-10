@@ -56,13 +56,6 @@ class CPU
     end
   end
 
-  @[Flags]
-  private enum IME
-    ENABLED
-    TRIGGERED # triggered be ei instruction
-    WAITING   # waiting 4 cycles after trigger
-  end
-
   register a, f, mask: 0xFFF0
   register b, c
   register d, e
@@ -76,7 +69,8 @@ class CPU
   property pc : UInt16 = 0x0000
   property sp : UInt16 = 0x0000
   property memory : Memory
-  @ime : IME = IME.new 0
+  property scheduler : Scheduler
+  property ime : Bool = false
   @halted : Bool = false
   @halt_bug : Bool = false
 
@@ -84,7 +78,7 @@ class CPU
   # this is tracked here to reduce complications in the codegen
   @cached_hl_read : UInt8? = nil
 
-  def initialize(@memory : Memory, @interrupts : Interrupts, @ppu : PPU, @apu : APU, @timer : Timer, boot = false)
+  def initialize(@memory : Memory, @interrupts : Interrupts, @ppu : PPU, @apu : APU, @timer : Timer, @scheduler : Scheduler, boot = false)
     skip_boot if !boot
   end
 
@@ -103,8 +97,8 @@ class CPU
   def handle_interrupts
     if @interrupts[0xFF0F] & @interrupts[0xFFFF] & 0x1F > 0
       @halted = false
-      if @ime.includes? IME::ENABLED
-        @ime &= ~IME::ENABLED
+      if @ime
+        @ime = false
         @sp &-= 1
         @memory[@sp] = (@pc >> 8).to_u8
         interrupt = @interrupts.highest_priority
@@ -114,16 +108,6 @@ class CPU
         @interrupts.clear interrupt
         @memory.tick_extra 20
       end
-    end
-  end
-
-  def set_ime(ime : Bool, now : Bool = false) : Nil
-    if now && ime
-      @ime |= IME::ENABLED
-    elsif !ime # disable also cancels pending ime enable
-      @ime = IME::None
-    else
-      @ime |= IME::TRIGGERED
     end
   end
 
@@ -143,7 +127,7 @@ class CPU
 
   # Handle regular and obscure halting behavior
   def halt : Nil
-    if !@ime.includes?(IME::ENABLED) && (@interrupts[0xFF0F] & @interrupts[0xFFFF] & 0x1F > 0)
+    if !@ime && (@interrupts[0xFF0F] & @interrupts[0xFFFF] & 0x1F > 0)
       @halt_bug = true
       @halted = false
     else
@@ -160,15 +144,6 @@ class CPU
     end
   end
 
-  def tick_ime : Nil
-    if @ime.includes? IME::WAITING
-      @ime = (@ime & ~IME::WAITING) | IME::ENABLED
-    end
-    if @ime.includes? IME::TRIGGERED
-      @ime = (@ime & ~IME::TRIGGERED) | IME::WAITING
-    end
-  end
-
   # Runs for the specified number of machine cycles. If no argument provided,
   # runs only one instruction. Handles interrupts _after_ the instruction is
   # executed.
@@ -179,7 +154,6 @@ class CPU
       else
         cycles_taken = Opcodes::UNPREFIXED[@memory[@pc]].call self
       end
-      tick_ime
       @cached_hl_read = nil           # clear hl read cache
       @memory.tick_extra cycles_taken # tell memory component to tick extra cycles
       cycles -= cycles_taken
