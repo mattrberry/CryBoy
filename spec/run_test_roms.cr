@@ -25,10 +25,10 @@ mealybug_dir = ""
 mooneye_dir = ""
 
 OptionParser.parse do |parser|
-  parser.on("-acid PATH", "Path to directory with acid tests") { |path| acid_dir = path }
-  parser.on("-blargg PATH", "Path to directory with blargg tests") { |path| blargg = path }
-  parser.on("-mealybug PATH", "Path to directory with mealybug tests") { |path| mealybug_dir = path }
-  parser.on("-mooneye PATH", "Path to directory with mooneye tests") { |path| mooneye_dir = path }
+  parser.on("--acid PATH", "Path to directory with acid tests") { |path| acid_dir = path }
+  parser.on("--blargg PATH", "Path to directory with blargg tests") { |path| blargg = path }
+  parser.on("--mealybug PATH", "Path to directory with mealybug tests") { |path| mealybug_dir = path }
+  parser.on("--mooneye PATH", "Path to directory with mooneye tests") { |path| mooneye_dir = path }
   parser.invalid_option do
     STDERR.puts parser
     exit 1
@@ -36,11 +36,32 @@ OptionParser.parse do |parser|
 end
 
 unless acid_dir == ""
-  test_results << {suite: "Acid", results: [] of TestResult}
-  puts "Acid Tests"
-  system "shards build -Dgraphics_test"
-  Dir.glob("#{acid_dir}/*acid2.gb*").sort.each do |path|
-    test_name = get_test_name acid_dir, path
+  [true, false].each do |fifo|
+    test_results << {suite: "Acid#{" Fifo" if fifo}", results: [] of TestResult}
+    puts "Acid #{"Fifo " if fifo}Tests"
+    system "shards build -Dheadless -Dgraphics_test #{"-Dfifo" if fifo}"
+    Dir.glob("#{acid_dir}/*acid2.gb*").sort.each do |path|
+      test_name = get_test_name acid_dir, path
+      Process.run "bin/cryboy", [path] do |process|
+        kill process, after: 1
+      end
+      system %[touch out.png] # touch image in case something went wrong
+      system %[mv out.png #{SCREENSHOT_DIR}/#{test_name}#{"_fifo" if fifo}.png]
+      system %[compare -metric AE #{SCREENSHOT_DIR}/#{test_name}#{"_fifo" if fifo}.png #{SCREENSHOT_DIR}/expected/#{test_name}.png /tmp/cryboy_diff 2>/dev/null]
+      passed = $?.exit_status == 0
+      test_results[test_results.size - 1][:results] << {test: test_name, pass: passed}
+      print passed ? "." : "F"
+    end
+    print "\n"
+  end
+end
+
+unless mealybug_dir == ""
+  test_results << {suite: "Mealybug Fifo", results: [] of TestResult}
+  puts "Mealybug Fifo Tests"
+  system "shards build -Dheadless -Dgraphics_test -Dfifo"
+  Dir.glob("#{mealybug_dir}/**/*.gb").sort.each do |path|
+    test_name = get_test_name mealybug_dir, path
     Process.run "bin/cryboy", [path] do |process|
       kill process, after: 1
     end
