@@ -97,6 +97,7 @@ class CPU
     self.de = 0x0008_u16
     self.hl = 0x007C_u16
     @memory.skip_boot
+    @ppu.skip_boot
   end
 
   # service all interrupts

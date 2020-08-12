@@ -34,7 +34,7 @@
 | 👀 | m3_obp0_change |
 | 👀 | m3_scx_high_5_bits |
 | 👀 | m3_scx_high_5_bits_change2 |
-| 👀 | m3_scx_low_3_bits |
+| 👌 | m3_scx_low_3_bits |
 | 👀 | m3_scy_change |
 | 👀 | m3_scy_change2 |
 | 👀 | m3_window_timing |
