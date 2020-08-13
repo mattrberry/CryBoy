@@ -24,6 +24,10 @@ class PPU < BasePPU
 
   @current_window_line = -1
 
+  def safe_lx : Int32
+    @lx.nil? ? 0 : @lx.not_nil!
+  end
+
   enum FetchStage
     GET_TILE
     GET_TILE_DATA_LOW
@@ -39,14 +43,6 @@ class PPU < BasePPU
     FetchStage::PUSH_PIXEL,
   ]
 
-  def reset_fifo : Nil
-    @fifo.clear
-    @fetcher_x = 0
-    @lx = nil
-    @fetch_counter = 0
-    @fetch_window = false
-  end
-
   # tick ppu forward by specified number of cycles
   def tick(cycles : Int) : Nil
     if lcd_enabled?
@@ -55,7 +51,12 @@ class PPU < BasePPU
         when 2 # OAM search
           if @cycle_counter == 80
             self.mode_flag = 3
-            reset_fifo
+            @fifo.clear
+            @fetcher_x = 0
+            @lx = nil
+            @fetch_counter = 0
+            @fetch_window = window_enabled? && @ly >= @wy && @wx <= 7
+            @current_window_line += 1 if @fetch_window
           end
         when 3 # drawing
           case FETCHER_ORDER[@fetch_counter]
@@ -110,14 +111,14 @@ class PPU < BasePPU
               @fetcher_x += 1
               8.times do |col|
                 if @fetch_window
-                  lsb = (@tile_data_low >> (7 - ((col + 7 - @wx) % 8))) & 0x1
-                  msb = (@tile_data_high >> (7 - ((col + 7 - @wx) % 8))) & 0x1
+                  lsb = (@tile_data_low >> (7 - ((safe_lx + col + 7 - @wx) % 8))) & 0x1
+                  msb = (@tile_data_high >> (7 - ((safe_lx + col + 7 - @wx) % 8))) & 0x1
                 else
                   lsb = (@tile_data_low >> (7 - col)) & 0x1
                   msb = (@tile_data_high >> (7 - col)) & 0x1
                 end
                 color = (msb << 1) | lsb
-                @fifo.push Pixel.new(color, 0, 0, 0)
+                @fifo.push Pixel.new(bg_display? ? color : 0_u8, 0, 0, 0)
               end
               @fetch_counter += 1
             end
@@ -130,9 +131,7 @@ class PPU < BasePPU
             pixel = @fifo.shift
             @lx ||= -(7 & @scx)
             if @lx.not_nil! >= 0 # otherwise drop pixel on floor
-              if bg_display?
-                @framebuffer[Display::WIDTH * @ly + @lx.not_nil!] = @palettes[0][palette[pixel.color]].convert_from_cgb @ran_bios
-              end
+              @framebuffer[Display::WIDTH * @ly + @lx.not_nil!] = @palettes[0][palette[pixel.color]].convert_from_cgb @ran_bios
             end
             @lx = @lx.not_nil! + 1
             if @lx == Display::WIDTH
