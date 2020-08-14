@@ -110,13 +110,8 @@ class PPU < BasePPU
             if @fifo.size == 0
               @fetcher_x += 1
               8.times do |col|
-                if @fetch_window
-                  lsb = (@tile_data_low >> (7 - ((safe_lx + col + 7 - @wx) % 8))) & 0x1
-                  msb = (@tile_data_high >> (7 - ((safe_lx + col + 7 - @wx) % 8))) & 0x1
-                else
-                  lsb = (@tile_data_low >> (7 - col)) & 0x1
-                  msb = (@tile_data_high >> (7 - col)) & 0x1
-                end
+                lsb = (@tile_data_low >> (7 - col)) & 0x1
+                msb = (@tile_data_high >> (7 - col)) & 0x1
                 color = (msb << 1) | lsb
                 @fifo.push Pixel.new(bg_display? ? color : 0_u8, 0, 0, 0)
               end
@@ -129,7 +124,11 @@ class PPU < BasePPU
           if @fifo.size > 0
             palette = palette_to_array @bgp
             pixel = @fifo.shift
-            @lx ||= -(7 & @scx)
+            if @fetch_window
+              @lx ||= -Math.max(0, 7 - @wx)
+            else
+              @lx ||= -(7 & @scx)
+            end
             if @lx.not_nil! >= 0 # otherwise drop pixel on floor
               @framebuffer[Display::WIDTH * @ly + @lx.not_nil!] = @palettes[0][palette[pixel.color]].convert_from_cgb @ran_bios
             end
@@ -154,6 +153,7 @@ class PPU < BasePPU
               @interrupts.vblank_interrupt = true
               @display.draw @framebuffer # render at vblank
               @framebuffer_pos = 0
+              @current_window_line = -1
             else
               self.mode_flag = 2 # switch to oam search
             end
@@ -164,7 +164,7 @@ class PPU < BasePPU
             @ly += 1 if @ly != 0
             if @ly == 0          # end of vblank reached (ly has already shortcut to 0)
               self.mode_flag = 2 # switch to oam search
-              @current_window_line = -1
+              # todo: I think the timing here might be _just wrong_
             end
           end
           @ly = 0 if @ly == 153 && @cycle_counter > 4 # shortcut ly to from 153 to 0 after 4 cycles
