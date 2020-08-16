@@ -17,7 +17,8 @@ class PPU < BasePPU
   @fetch_counter = 0
   @fetch_counter_sprite = 0
   @fetcher_x = 0
-  @lx : Int32? = nil
+  @lx : Int32 = 0
+  @smooth_scroll_sampled = false
   @fetching_window = false
   @fetching_sprite = false
 
@@ -28,10 +29,6 @@ class PPU < BasePPU
   @sprites = Array(Sprite).new
 
   @current_window_line = -1
-
-  def safe_lx : Int32
-    @lx.nil? ? 0 : @lx.not_nil!
-  end
 
   enum FetchStage
     GET_TILE
@@ -169,6 +166,15 @@ class PPU < BasePPU
     @fetch_counter_sprite %= FETCHER_ORDER.size
   end
 
+  def sample_smooth_scrolling
+    @smooth_scroll_sampled = true
+    if @fetching_window
+      @lx = -Math.max(0, 7 - @wx)
+    else
+      @lx = -(7 & @scx)
+    end
+  end
+
   def tick_shifter : Nil
     if @fifo.size > 0
       bg_pixel = @fifo.shift
@@ -180,30 +186,36 @@ class PPU < BasePPU
         pixel = bg_pixel
         palette = palette_to_array @bgp
       end
-      if @fetching_window
-        @lx ||= -Math.max(0, 7 - @wx)
-      else
-        @lx ||= -(7 & @scx)
+      sample_smooth_scrolling unless @smooth_scroll_sampled
+      if @lx >= 0 # otherwise drop pixel on floor
+        @framebuffer[Display::WIDTH * @ly + @lx] = @palettes[0][palette[pixel.color]].convert_from_cgb @ran_bios
       end
-      if @lx.not_nil! >= 0 # otherwise drop pixel on floor
-        @framebuffer[Display::WIDTH * @ly + @lx.not_nil!] = @palettes[0][palette[pixel.color]].convert_from_cgb @ran_bios
-      end
-      @lx = @lx.not_nil! + 1
+      @lx += 1
       if @lx == Display::WIDTH
         self.mode_flag = 0
       end
-      if window_enabled? && @ly >= @wy && @lx.not_nil! + 7 >= @wx && !@fetching_window
-        @fifo.clear
-        @fetcher_x = 0
-        @fetch_counter = 0
-        @fetching_window = true
-        @current_window_line += 1
+      if window_enabled? && @ly >= @wy && @lx + 7 >= @wx && !@fetching_window
+        reset_bg_fifo fetching_window: true
       end
-      if sprite_enabled? && @sprites.size > 0 && @lx.not_nil! + 8 == @sprites[0].x
+      if sprite_enabled? && @sprites.size > 0 && @lx + 8 == @sprites[0].x
         @fetching_sprite = true
         @fetch_counter_sprite = 0
       end
     end
+  end
+
+  def reset_bg_fifo(fetching_window : Bool) : Nil
+    @fifo.clear
+    @fetcher_x = 0
+    @fetch_counter = 0
+    @fetching_window = fetching_window
+    @current_window_line += 1 if @fetching_window
+  end
+
+  def reset_sprite_fifo : Nil
+    @fifo_sprite.clear
+    @fetch_counter_sprite = 0
+    @fetching_sprite = false
   end
 
   # tick ppu forward by specified number of cycles
@@ -214,14 +226,10 @@ class PPU < BasePPU
         when 2 # OAM search
           if @cycle_counter == 80
             self.mode_flag = 3
-            @fifo.clear
-            @fifo_sprite.clear
-            @fetcher_x = 0
-            @lx = nil
-            @fetch_counter = 0
-            @fetch_counter_sprite = 0
-            @fetching_window = window_enabled? && @ly >= @wy && @wx <= 7
-            @current_window_line += 1 if @fetching_window
+            reset_bg_fifo fetching_window: window_enabled? && @ly >= @wy && @wx <= 7
+            reset_sprite_fifo
+            @lx = 0
+            @smooth_scroll_sampled = false
             @sprites = get_sprites
           end
         when 3 # drawing
