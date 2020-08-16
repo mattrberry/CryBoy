@@ -3,7 +3,7 @@
 | Result | Test Name |
 |--------|-----------|
 | 👀 | cgb-acid2 |
-| 👀 | dmg-acid2 |
+| 👌 | dmg-acid2 |
 ## Acid Tests
 | Result | Test Name |
 |--------|-----------|
