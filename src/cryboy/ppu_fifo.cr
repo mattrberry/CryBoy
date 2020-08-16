@@ -45,6 +45,29 @@ class PPU < BasePPU
     FetchStage::PUSH_PIXEL,
   ]
 
+  def sample_smooth_scrolling
+    @smooth_scroll_sampled = true
+    if @fetching_window
+      @lx = -Math.max(0, 7 - @wx)
+    else
+      @lx = -(7 & @scx)
+    end
+  end
+
+  def reset_bg_fifo(fetching_window : Bool) : Nil
+    @fifo.clear
+    @fetcher_x = 0
+    @fetch_counter = 0
+    @fetching_window = fetching_window
+    @current_window_line += 1 if @fetching_window
+  end
+
+  def reset_sprite_fifo : Nil
+    @fifo_sprite.clear
+    @fetch_counter_sprite = 0
+    @fetching_sprite = false
+  end
+
   # get first 10 sprites on scanline, ordered
   # the order dictates how sprites should render
   def get_sprites : Array(Sprite)
@@ -152,10 +175,12 @@ class PPU < BasePPU
         end
         color = (msb << 1) | lsb
         pixel = Pixel.new(color, sprite.dmg_palette_number, 0, sprite.priority)
-        if col >= existing_pixels
-          @fifo_sprite.push pixel
-        elsif @fifo_sprite[col].color == 0
-          @fifo_sprite[col] = pixel
+        if col + sprite.x - 8 >= @lx
+          if col >= existing_pixels
+            @fifo_sprite.push pixel
+          elsif @fifo_sprite[col].color == 0
+            @fifo_sprite[col] = pixel
+          end
         end
       end
       @fetch_counter_sprite += 1
@@ -165,15 +190,6 @@ class PPU < BasePPU
       @fetch_counter_sprite += 1
     end
     @fetch_counter_sprite %= FETCHER_ORDER.size
-  end
-
-  def sample_smooth_scrolling
-    @smooth_scroll_sampled = true
-    if @fetching_window
-      @lx = -Math.max(0, 7 - @wx)
-    else
-      @lx = -(7 & @scx)
-    end
   end
 
   def tick_shifter : Nil
@@ -198,25 +214,11 @@ class PPU < BasePPU
       if window_enabled? && @ly >= @wy && @lx + 7 >= @wx && !@fetching_window
         reset_bg_fifo fetching_window: true
       end
-      if sprite_enabled? && @sprites.size > 0 && @lx + 8 == @sprites[0].x
+      if sprite_enabled? && @sprites.size > 0 && @lx + 8 >= @sprites[0].x
         @fetching_sprite = true
         @fetch_counter_sprite = 0
       end
     end
-  end
-
-  def reset_bg_fifo(fetching_window : Bool) : Nil
-    @fifo.clear
-    @fetcher_x = 0
-    @fetch_counter = 0
-    @fetching_window = fetching_window
-    @current_window_line += 1 if @fetching_window
-  end
-
-  def reset_sprite_fifo : Nil
-    @fifo_sprite.clear
-    @fetch_counter_sprite = 0
-    @fetching_sprite = false
   end
 
   # tick ppu forward by specified number of cycles
