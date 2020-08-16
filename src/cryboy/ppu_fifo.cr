@@ -143,8 +143,6 @@ class PPU < BasePPU
       bytes = sprite.bytes @ly, sprite_height
       existing_pixels = @fifo_sprite.size
       8.times do |col|
-        x = col + sprite.x - 8
-        next unless 0 <= x < Display::WIDTH # only render sprites on screen
         if sprite.x_flip?
           lsb = (@vram[0][bytes[0]] >> col) & 0x1
           msb = (@vram[0][bytes[1]] >> col) & 0x1
@@ -153,8 +151,11 @@ class PPU < BasePPU
           msb = (@vram[0][bytes[1]] >> (7 - col)) & 0x1
         end
         color = (msb << 1) | lsb
+        pixel = Pixel.new(color, sprite.dmg_palette_number, 0, sprite.priority)
         if col >= existing_pixels
-          @fifo_sprite.push Pixel.new(color, sprite.dmg_palette_number, 0, sprite.priority)
+          @fifo_sprite.push pixel
+        elsif @fifo_sprite[col].color == 0
+          @fifo_sprite[col] = pixel
         end
       end
       @fetch_counter_sprite += 1
