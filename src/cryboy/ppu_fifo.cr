@@ -161,7 +161,6 @@ class PPU < BasePPU
     in FetchStage::GET_TILE_DATA_LOW
       @fetch_counter_sprite += 1
     in FetchStage::GET_TILE_DATA_HIGH
-      @fetching_sprite = false
       sprite = @sprites.shift
       bytes = sprite.bytes @ly, sprite_height
       existing_pixels = @fifo_sprite.size
@@ -183,6 +182,7 @@ class PPU < BasePPU
           end
         end
       end
+      @fetching_sprite = !@sprites.empty? && @sprites[0].x == sprite.x
       @fetch_counter_sprite += 1
     in FetchStage::PUSH_PIXEL
       @fetch_counter_sprite += 1
