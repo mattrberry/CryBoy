@@ -3,7 +3,13 @@
 # this file is solely to reduce common changes to both renderers.
 
 struct Sprite
+  getter oam_idx : UInt8 = 0_u8
+
   def initialize(@y : UInt8, @x : UInt8, @tile_num : UInt8, @attributes : UInt8)
+  end
+
+  def initialize(oam : Bytes, @oam_idx : UInt8)
+    initialize oam[oam_idx], oam[oam_idx + 1], oam[oam_idx + 2], oam[oam_idx + 3]
   end
 
   def to_s(io : IO)

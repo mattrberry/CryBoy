@@ -1,10 +1,10 @@
 struct Pixel
-  property color : UInt8               # 0-3
-  property palette : UInt8             # 0-7
-  property sprite_priority : UInt8     # OAM index for sprite
-  property background_priority : UInt8 # OBJ-to_BG Priority bit
+  property color : UInt8     # 0-3
+  property palette : UInt8   # 0-7
+  property oam_idx : UInt8   # OAM index for sprite
+  property obj_to_bg : UInt8 # OBJ-to_BG Priority bit
 
-  def initialize(@color : UInt8, @palette : UInt8, @sprite_priority : UInt8, @background_priority : UInt8)
+  def initialize(@color : UInt8, @palette : UInt8, @oam_idx : UInt8, @obj_to_bg : UInt8)
   end
 end
 
@@ -23,6 +23,7 @@ class PPU < BasePPU
   @fetching_sprite = false
 
   @tile_num : UInt8 = 0x00
+  @tile_attrs : UInt8 = 0x00
   @tile_data_low : UInt8 = 0x00
   @tile_data_high : UInt8 = 0x00
 
@@ -69,24 +70,21 @@ class PPU < BasePPU
   end
 
   # get first 10 sprites on scanline, ordered
-  # the order dictates how sprites should render
   def get_sprites : Array(Sprite)
     sprites = [] of Sprite
-    (0x00..0x9F).step 4 do |sprite_address|
-      sprite = Sprite.new @sprite_table[sprite_address], @sprite_table[sprite_address + 1], @sprite_table[sprite_address + 2], @sprite_table[sprite_address + 3]
+    (0x00_u8..0x9F_u8).step 4 do |sprite_address|
+      sprite = Sprite.new @sprite_table, sprite_address
       if sprite.on_line @ly, sprite_height
         index = 0
-        if !@cgb_ptr.value
-          sprites.each do |sprite_elm|
-            break if sprite.x >= sprite_elm.x
-            index += 1
-          end
+        sprites.each do |sprite_elm|
+          break if sprite.x < sprite_elm.x
+          index += 1
         end
         sprites.insert index, sprite
       end
       break if sprites.size >= 10
     end
-    sprites.reverse
+    sprites
   end
 
   def tick_bg_fetcher : Nil
@@ -96,10 +94,12 @@ class PPU < BasePPU
         window_map = window_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
         tile_num_offset = @fetcher_x + ((@current_window_line // 8) * 32)
         @tile_num = @vram[0][window_map + tile_num_offset]
+        @tile_attrs = @vram[1][window_map + tile_num_offset]
       else
         background_map = bg_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
         tile_num_offset = ((@fetcher_x + (@scx // 8)) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
         @tile_num = @vram[0][background_map + tile_num_offset]
+        @tile_attrs = @vram[1][background_map + tile_num_offset]
       end
       @fetch_counter += 1
     in FetchStage::GET_TILE_DATA_LOW
@@ -110,13 +110,11 @@ class PPU < BasePPU
         tile_num = @tile_num.to_i8!
         tile_data_table = 0x1000 # 0x9000
       end
-      # tile_num = bg_window_tile_data > 0 ? @tile_num : @tile_num.to_i8!
       tile_ptr = tile_data_table + 16 * tile_num
-      if @fetching_window
-        @tile_data_low = @vram[0][tile_ptr + (@current_window_line % 8) * 2]
-      else
-        @tile_data_low = @vram[0][tile_ptr + ((@ly.to_u16 + @scy) % 8) * 2]
-      end
+      bank_num = @cgb_ptr.value ? (@tile_attrs & 0b00001000) >> 3 : 0
+      tile_row = @fetching_window ? (@current_window_line % 8) : ((@ly.to_u16 + @scy) % 8)
+      tile_row = 7 - tile_row if @cgb_ptr.value && @tile_attrs & 0b01000000 > 0
+      @tile_data_low = @vram[bank_num][tile_ptr + tile_row * 2]
       @fetch_counter += 1
     in FetchStage::GET_TILE_DATA_HIGH
       if bg_window_tile_data > 0
@@ -126,13 +124,11 @@ class PPU < BasePPU
         tile_num = @tile_num.to_i8!
         tile_data_table = 0x1000 # 0x9000
       end
-      # tile_num = bg_window_tile_data > 0 ? @tile_num : @tile_num.to_i8!
       tile_ptr = tile_data_table + 16 * tile_num
-      if @fetching_window
-        @tile_data_high = @vram[0][tile_ptr + (@current_window_line % 8) * 2 + 1]
-      else
-        @tile_data_high = @vram[0][tile_ptr + ((@ly.to_u16 + @scy) % 8) * 2 + 1]
-      end
+      bank_num = @cgb_ptr.value ? (@tile_attrs & 0b00001000) >> 3 : 0
+      tile_row = @fetching_window ? (@current_window_line % 8) : ((@ly.to_u16 + @scy) % 8)
+      tile_row = 7 - tile_row if @cgb_ptr.value && @tile_attrs & 0b01000000 > 0
+      @tile_data_high = @vram[bank_num][tile_ptr + tile_row * 2 + 1]
       @fetch_counter += 1
       if @cycle_counter == 86
         @fetch_counter = 0 # drop first tile
@@ -141,10 +137,15 @@ class PPU < BasePPU
       if @fifo.size == 0
         @fetcher_x += 1
         8.times do |col|
-          lsb = (@tile_data_low >> (7 - col)) & 0x1
-          msb = (@tile_data_high >> (7 - col)) & 0x1
+          shift = @cgb_ptr.value && @tile_attrs & 0b00100000 > 0 ? col : 7 - col
+          lsb = (@tile_data_low >> shift) & 0x1
+          msb = (@tile_data_high >> shift) & 0x1
           color = (msb << 1) | lsb
-          @fifo.push Pixel.new(bg_display? ? color : 0_u8, 0, 0, 0)
+          if @cgb_ptr.value
+            @fifo.push Pixel.new(color, @tile_attrs & 0x7, 0, (@tile_attrs & 0x80) >> 7)
+          else
+            @fifo.push Pixel.new(bg_display? ? color : 0_u8, 0, 0, 0)
+          end
         end
         @fetch_counter += 1
       end
@@ -163,21 +164,16 @@ class PPU < BasePPU
     in FetchStage::GET_TILE_DATA_HIGH
       sprite = @sprites.shift
       bytes = sprite.bytes @ly, sprite_height
-      existing_pixels = @fifo_sprite.size
       8.times do |col|
-        if sprite.x_flip?
-          lsb = (@vram[0][bytes[0]] >> col) & 0x1
-          msb = (@vram[0][bytes[1]] >> col) & 0x1
-        else
-          lsb = (@vram[0][bytes[0]] >> (7 - col)) & 0x1
-          msb = (@vram[0][bytes[1]] >> (7 - col)) & 0x1
-        end
+        shift = sprite.x_flip? ? col : 7 - col
+        lsb = (@vram[@cgb_ptr.value ? sprite.bank_num : 0][bytes[0]] >> shift) & 0x1
+        msb = (@vram[@cgb_ptr.value ? sprite.bank_num : 0][bytes[1]] >> shift) & 0x1
         color = (msb << 1) | lsb
-        pixel = Pixel.new(color, sprite.dmg_palette_number, 0, sprite.priority)
+        pixel = Pixel.new(color, @cgb_ptr.value ? sprite.cgb_palette_number : sprite.dmg_palette_number, sprite.oam_idx, sprite.priority)
         if col + sprite.x - 8 >= @lx
-          if col >= existing_pixels
+          if col >= @fifo_sprite.size
             @fifo_sprite.push pixel
-          elsif @fifo_sprite[col].color == 0
+          elsif @fifo_sprite[col].color == 0 || (@cgb_ptr.value && pixel.oam_idx <= @fifo_sprite[col].oam_idx && pixel.color != 0)
             @fifo_sprite[col] = pixel
           end
         end
@@ -192,20 +188,35 @@ class PPU < BasePPU
     @fetch_counter_sprite %= FETCHER_ORDER.size
   end
 
+  def sprite_wins?(bg_pixel : Pixel, sprite_pixel : Pixel) : Bool
+    if sprite_enabled? && sprite_pixel.color > 0
+      if @cgb_ptr.value
+        !bg_display? || bg_pixel.color == 0 || (bg_pixel.obj_to_bg == 0 && sprite_pixel.obj_to_bg == 0)
+      else
+        sprite_pixel.obj_to_bg == 0 || bg_pixel.color == 0
+      end
+    else
+      false
+    end
+  end
+
   def tick_shifter : Nil
     if @fifo.size > 0
       bg_pixel = @fifo.shift
       sprite_pixel = @fifo_sprite.shift if @fifo_sprite.size > 0
-      if !sprite_pixel.nil? && sprite_pixel.color > 0 && (sprite_pixel.background_priority == 0 || bg_pixel.color == 0)
+      if !sprite_pixel.nil? && sprite_wins? bg_pixel, sprite_pixel
         pixel = sprite_pixel
         palette = palette_to_array(sprite_pixel.palette == 0 ? @obp0 : @obp1)
+        palettes = @obj_palettes
       else
         pixel = bg_pixel
         palette = palette_to_array @bgp
+        palettes = @palettes
       end
       sample_smooth_scrolling unless @smooth_scroll_sampled
       if @lx >= 0 # otherwise drop pixel on floor
-        @framebuffer[Display::WIDTH * @ly + @lx] = @palettes[0][palette[pixel.color]].convert_from_cgb @ran_bios
+        color = @cgb_ptr.value ? pixel.color : palette[pixel.color]
+        @framebuffer[Display::WIDTH * @ly + @lx] = palettes[pixel.palette][color].convert_from_cgb @ran_bios
       end
       @lx += 1
       if @lx == Display::WIDTH
@@ -236,12 +247,9 @@ class PPU < BasePPU
             @sprites = get_sprites
           end
         when 3 # drawing
-          if @fetching_sprite
-            tick_sprite_fetcher
-          else
-            tick_bg_fetcher
-            tick_shifter
-          end
+          tick_bg_fetcher unless @fetching_sprite
+          tick_sprite_fetcher if @fetching_sprite
+          tick_shifter unless @fetching_sprite
         when 0 # hblank
           if @cycle_counter == 456
             @cycle_counter = 0
