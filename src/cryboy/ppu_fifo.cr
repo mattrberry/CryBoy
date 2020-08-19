@@ -19,6 +19,7 @@ class PPU < BasePPU
   @fetcher_x = 0
   @lx : Int32 = 0
   @smooth_scroll_sampled = false
+  @dropped_first_fetch = false
   @fetching_window = false
   @fetching_sprite = false
 
@@ -91,18 +92,16 @@ class PPU < BasePPU
     case FETCHER_ORDER[@fetch_counter]
     in FetchStage::GET_TILE
       if @fetching_window
-        window_map = window_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
-        tile_num_offset = @fetcher_x + ((@current_window_line // 8) * 32)
-        @tile_num = @vram[0][window_map + tile_num_offset]
-        @tile_attrs = @vram[1][window_map + tile_num_offset]
+        map = window_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
+        offset = @fetcher_x + ((@current_window_line // 8) * 32)
       else
-        background_map = bg_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
-        tile_num_offset = ((@fetcher_x + (@scx // 8)) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
-        @tile_num = @vram[0][background_map + tile_num_offset]
-        @tile_attrs = @vram[1][background_map + tile_num_offset]
+        map = bg_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
+        offset = ((@fetcher_x + (@scx // 8)) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
       end
+      @tile_num = @vram[0][map + offset]
+      @tile_attrs = @vram[1][map + offset] # vram[1] is all 0x00 if running in dmg mode
       @fetch_counter += 1
-    in FetchStage::GET_TILE_DATA_LOW
+    in FetchStage::GET_TILE_DATA_LOW, FetchStage::GET_TILE_DATA_HIGH
       if bg_window_tile_data > 0
         tile_num = @tile_num
         tile_data_table = 0x0000 # 0x8000
@@ -111,41 +110,30 @@ class PPU < BasePPU
         tile_data_table = 0x1000 # 0x9000
       end
       tile_ptr = tile_data_table + 16 * tile_num
-      bank_num = @cgb_ptr.value ? (@tile_attrs & 0b00001000) >> 3 : 0
-      tile_row = @fetching_window ? (@current_window_line % 8) : ((@ly.to_u16 + @scy) % 8)
-      tile_row = 7 - tile_row if @cgb_ptr.value && @tile_attrs & 0b01000000 > 0
-      @tile_data_low = @vram[bank_num][tile_ptr + tile_row * 2]
-      @fetch_counter += 1
-    in FetchStage::GET_TILE_DATA_HIGH
-      if bg_window_tile_data > 0
-        tile_num = @tile_num
-        tile_data_table = 0x0000 # 0x8000
+      bank_num = (@tile_attrs & 0b00001000) >> 3
+      tile_row = @fetching_window ? @current_window_line % 8 : (@ly.to_u16 + @scy) % 8
+      tile_row = 7 - tile_row if @tile_attrs & 0b01000000 > 0
+      if FETCHER_ORDER[@fetch_counter] == FetchStage::GET_TILE_DATA_LOW
+        @tile_data_low = @vram[bank_num][tile_ptr + tile_row * 2]
+        @fetch_counter += 1
       else
-        tile_num = @tile_num.to_i8!
-        tile_data_table = 0x1000 # 0x9000
-      end
-      tile_ptr = tile_data_table + 16 * tile_num
-      bank_num = @cgb_ptr.value ? (@tile_attrs & 0b00001000) >> 3 : 0
-      tile_row = @fetching_window ? (@current_window_line % 8) : ((@ly.to_u16 + @scy) % 8)
-      tile_row = 7 - tile_row if @cgb_ptr.value && @tile_attrs & 0b01000000 > 0
-      @tile_data_high = @vram[bank_num][tile_ptr + tile_row * 2 + 1]
-      @fetch_counter += 1
-      if @cycle_counter == 86
-        @fetch_counter = 0 # drop first tile
+        @tile_data_high = @vram[bank_num][tile_ptr + tile_row * 2 + 1]
+        @fetch_counter += 1
+        unless @dropped_first_fetch
+          @dropped_first_fetch = true
+          @fetch_counter = 0 # drop first tile
+        end
       end
     in FetchStage::PUSH_PIXEL
       if @fifo.size == 0
+        bg_enabled = bg_display? || @cgb_ptr.value
         @fetcher_x += 1
         8.times do |col|
-          shift = @cgb_ptr.value && @tile_attrs & 0b00100000 > 0 ? col : 7 - col
+          shift = @tile_attrs & 0b00100000 > 0 ? col : 7 - col
           lsb = (@tile_data_low >> shift) & 0x1
           msb = (@tile_data_high >> shift) & 0x1
           color = (msb << 1) | lsb
-          if @cgb_ptr.value
-            @fifo.push Pixel.new(color, @tile_attrs & 0x7, 0, (@tile_attrs & 0x80) >> 7)
-          else
-            @fifo.push Pixel.new(bg_display? ? color : 0_u8, 0, 0, 0)
-          end
+          @fifo.push Pixel.new(bg_enabled ? color : 0_u8, @tile_attrs & 0x7, 0, (@tile_attrs & 0x80) >> 7)
         end
         @fetch_counter += 1
       end
@@ -244,6 +232,7 @@ class PPU < BasePPU
             reset_sprite_fifo
             @lx = 0
             @smooth_scroll_sampled = false
+            @dropped_first_fetch = false
             @sprites = get_sprites
           end
         when 3 # drawing
@@ -258,7 +247,6 @@ class PPU < BasePPU
               self.mode_flag = 1      # switch to vblank
               @interrupts.vblank_interrupt = true
               @display.draw @framebuffer # render at vblank
-              @framebuffer_pos = 0
               @current_window_line = -1
             else
               self.mode_flag = 2 # switch to oam search
