@@ -226,7 +226,7 @@ class PPU < BasePPU
       cycles.times do
         case self.mode_flag
         when 2 # OAM search
-          if @cycle_counter == 80
+          if @cycle_counter == 79
             self.mode_flag = 3
             reset_bg_fifo fetching_window: window_enabled? && @ly >= @wy && @wx <= 7
             reset_sprite_fifo
