@@ -57,6 +57,8 @@ abstract class VolumeEnvelopeChannel < SoundChannel
   @volume_envelope_timer : UInt8 = 0x00
   @current_volume : UInt8 = 0x00
 
+  @volume_envelope_is_updating = false
+
   def volume_step : Nil
     if @period != 0
       @volume_envelope_timer -= 1 if @volume_envelope_timer > 0
@@ -64,6 +66,8 @@ abstract class VolumeEnvelopeChannel < SoundChannel
         @volume_envelope_timer = @period
         if (@current_volume < 0xF && @envelope_add_mode) || (@current_volume > 0 && !@envelope_add_mode)
           @current_volume += (@envelope_add_mode ? 1 : -1)
+        else
+          @volume_envelope_is_updating = false
         end
       end
     end
@@ -72,6 +76,7 @@ abstract class VolumeEnvelopeChannel < SoundChannel
   def init_volume_envelope : Nil
     @volume_envelope_timer = @period
     @current_volume = @starting_volume
+    @volume_envelope_is_updating = true
   end
 
   def read_NRx2 : UInt8
@@ -79,8 +84,15 @@ abstract class VolumeEnvelopeChannel < SoundChannel
   end
 
   def write_NRx2(value : UInt8) : Nil
+    envelope_add_mode = value & 0x08 > 0
+    if @enabled # Zombie mode glitch
+      @current_volume += 1 if (@period == 0 && @volume_envelope_is_updating) || !@envelope_add_mode
+      @current_volume = 0x10_u8 - @current_volume if (envelope_add_mode != @envelope_add_mode)
+      @current_volume &= 0x0F
+    end
+
     @starting_volume = value >> 4
-    @envelope_add_mode = value & 0x08 > 0
+    @envelope_add_mode = envelope_add_mode
     @period = value & 0x07
     # Internal values
     @dac_enabled = value & 0xF8 > 0
