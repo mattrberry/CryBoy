@@ -290,7 +290,7 @@ class Memory
         end
       end
       if @dma_position <= 0xA0
-        if @internal_dma_timer % 4 == 0
+        if @internal_dma_timer & 3 == 0
           write_byte 0xFE00 + @dma_position, read_byte @current_dma_source + @dma_position if @dma_position < 0xA0
           @dma_position += 1
         end
@@ -309,7 +309,7 @@ class Memory
     else
       length.times do |idx|
         write_byte @hdma_dst + idx, read_byte @hdma_src + idx
-        tick_components hdma: true if idx % 8 == 7 # 2 bytes per T-cycle
+        tick_components hdma: true if idx & 7 == 7 # 2 bytes per T-cycle
       end
       @hdma5 = 0xFF
     end
@@ -320,7 +320,7 @@ class Memory
     if @hdma_pos < @hdma_length && @ppu.mode_flag == 0 && !@hdma_transfer_this_hblank
       0x10.times do
         write_byte @hdma_dst + @hdma_pos, read_byte @hdma_src + @hdma_pos
-        tick_components hdma: true if @hdma_pos % 8 == 7 # 2 bytes per T-cycle
+        tick_components hdma: true if @hdma_pos & 7 == 7 # 2 bytes per T-cycle
         @hdma_pos += 1
       end
       @hdma_transfer_this_hblank = true

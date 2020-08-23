@@ -22,7 +22,7 @@ class Channel2 < VolumeEnvelopeChannel
   @frequency : UInt16 = 0x00
 
   def step_wave_generation : Nil
-    @wave_duty_position = (@wave_duty_position + 1) % 8
+    @wave_duty_position = (@wave_duty_position + 1) & 7
   end
 
   def reload_frequency_timer : Nil

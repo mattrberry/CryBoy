@@ -6,7 +6,7 @@ class Channel3 < SoundChannel
     value.is_a?(Int) && RANGE.includes?(value) || WAVE_RAM_RANGE.includes?(value)
   end
 
-  @wave_ram = Bytes.new(WAVE_RAM_RANGE.size) { |idx| idx % 2 == 0 ? 0x00_u8 : 0xFF_u8 }
+  @wave_ram = Bytes.new(WAVE_RAM_RANGE.size) { |idx| idx & 1 == 0 ? 0x00_u8 : 0xFF_u8 }
   @wave_ram_position : UInt8 = 0
   @wave_ram_sample_buffer : UInt8 = 0x00
 
@@ -32,7 +32,7 @@ class Channel3 < SoundChannel
 
   def get_amplitude : Float32
     if @enabled && @dac_enabled
-      dac_input = ((@wave_ram_sample_buffer >> (@wave_ram_position % 2 == 0 ? 4 : 0)) & 0x0F) >> @volume_code_shift
+      dac_input = ((@wave_ram_sample_buffer >> (@wave_ram_position & 1 == 0 ? 4 : 0)) & 0x0F) >> @volume_code_shift
       dac_output = (dac_input / 7.5) - 1
       dac_output
     else

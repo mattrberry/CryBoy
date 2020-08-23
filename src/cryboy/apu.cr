@@ -8,10 +8,10 @@ lib LibSDL
 end
 
 class APU
-  BUFFER_SIZE        =  1024
-  SAMPLE_RATE        = 65536 # Hz
-  CHANNELS           =     2 # Left / Right
-  BUFFER_FILL_PERIOD = CPU::CLOCK_SPEED // SAMPLE_RATE
+  CHANNELS      =     2 # Left / Right
+  BUFFER_SIZE   =  1024
+  SAMPLE_RATE   = 65536 # Hz
+  SAMPLE_PERIOD = CPU::CLOCK_SPEED // SAMPLE_RATE
 
   FRAME_SEQUENCER_RATE   = 512 # Hz
   FRAME_SEQUENCER_PERIOD = CPU::CLOCK_SPEED // FRAME_SEQUENCER_RATE
@@ -102,7 +102,7 @@ class APU
       end
 
       # put 1 frame in buffer
-      if @cycles % BUFFER_FILL_PERIOD == 0
+      if @cycles % SAMPLE_PERIOD == 0
         channel1_amp = @channel1.get_amplitude
         channel2_amp = @channel2.get_amplitude
         channel3_amp = @channel3.get_amplitude

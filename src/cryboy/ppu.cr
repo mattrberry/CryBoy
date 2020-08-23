@@ -63,7 +63,7 @@ class PPU < BasePPU
           @framebuffer[Display::WIDTH * @ly + x] = @palettes[0][@bgp[color]].convert_from_cgb @ran_bios
         end
       elsif bg_display? || @cgb_ptr.value
-        tile_num_addr = background_map + (((x + @scx) >> 3) & 0x1F) + ((((@ly.to_u16 + @scy) >> 3) * 32) % (32 * 32))
+        tile_num_addr = background_map + (((x + @scx) >> 3) & 0x1F) + ((((@ly.to_u16 + @scy) >> 3) * 32) & 0x3FF)
         tile_num = @vram[0][tile_num_addr]
         tile_num = tile_num.to_i8! if bg_window_tile_data == 0
         tile_ptr = tile_data_table + 16 * tile_num

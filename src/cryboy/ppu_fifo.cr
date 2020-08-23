@@ -96,7 +96,7 @@ class PPU < BasePPU
         offset = @fetcher_x + ((@current_window_line >> 3) * 32)
       else
         map = bg_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
-        offset = ((@fetcher_x + (@scx >> 3)) & 0x1F) + ((((@ly.to_u16 + @scy) >> 3) * 32) % (32 * 32))
+        offset = ((@fetcher_x + (@scx >> 3)) & 0x1F) + ((((@ly.to_u16 + @scy) >> 3) * 32) & 0x3FF)
       end
       @tile_num = @vram[0][map + offset]
       @tile_attrs = @vram[1][map + offset] # vram[1] is all 0x00 if running in dmg mode
