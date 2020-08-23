@@ -162,9 +162,9 @@ abstract class BasePPU
   @ly : UInt8 = 0x00_u8                                      # 0xFF44
   @lyc : UInt8 = 0x00_u8                                     # 0xFF45
   @dma : UInt8 = 0x00_u8                                     # 0xFF46
-  @bgp : UInt8 = 0x00_u8                                     # 0xFF47
-  @obp0 : UInt8 = 0x00_u8                                    # 0xFF48
-  @obp1 : UInt8 = 0x00_u8                                    # 0xFF49
+  @bgp : Array(UInt8) = Array(UInt8).new 4, 0                # 0xFF47
+  @obp0 : Array(UInt8) = Array(UInt8).new 4, 0               # 0xFF48
+  @obp1 : Array(UInt8) = Array(UInt8).new 4, 0               # 0xFF49
   @wy : UInt8 = 0x00_u8                                      # 0xFF4A
   @wx : UInt8 = 0x00_u8                                      # 0xFF4B
 
@@ -226,9 +226,9 @@ abstract class BasePPU
     when 0xFF44               then @ly
     when 0xFF45               then @lyc
     when 0xFF46               then @dma
-    when 0xFF47               then @bgp
-    when 0xFF48               then @obp0
-    when 0xFF49               then @obp1
+    when 0xFF47               then palette_from_array @bgp
+    when 0xFF48               then palette_from_array @obp0
+    when 0xFF49               then palette_from_array @obp1
     when 0xFF4A               then @wy
     when 0xFF4B               then @wx
     when 0xFF4F               then @cgb_ptr.value ? 0xFE_u8 | @vram_bank : 0xFF_u8
@@ -286,9 +286,9 @@ abstract class BasePPU
       @lyc = value
       handle_stat_interrupt
     when 0xFF46 then @dma = value
-    when 0xFF47 then @bgp = value
-    when 0xFF48 then @obp0 = value
-    when 0xFF49 then @obp1 = value
+    when 0xFF47 then @bgp = palette_to_array value
+    when 0xFF48 then @obp0 = palette_to_array value
+    when 0xFF49 then @obp1 = palette_to_array value
     when 0xFF4A then @wy = value
     when 0xFF4B then @wx = value
     when 0xFF4F then @vram_bank = value & 1 if @cgb_ptr.value
@@ -411,6 +411,12 @@ abstract class BasePPU
 
   def palette_to_array(palette : UInt8) : Array(UInt8)
     [palette & 0x3, (palette >> 2) & 0x3, (palette >> 4) & 0x3, (palette >> 6) & 0x3]
+  end
+
+  def palette_from_array(palette_array : Array(UInt8)) : UInt8
+    palette_array.each_with_index.reduce(0x00_u8) do |palette, (color, idx)|
+      palette | color << (idx * 2)
+    end
   end
 
   def write_png : Nil

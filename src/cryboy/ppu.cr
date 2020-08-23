@@ -28,13 +28,12 @@ class PPU < BasePPU
   def scanline
     @current_window_line = 0 if @ly == 0
     should_increment_window_line = false
-    bg_palette = palette_to_array @bgp
     window_map = window_tile_map == 0_u8 ? 0x1800 : 0x1C00       # 0x9800 : 0x9C00
     background_map = bg_tile_map == 0_u8 ? 0x1800 : 0x1C00       # 0x9800 : 0x9C00
     tile_data_table = bg_window_tile_data == 0 ? 0x1000 : 0x0000 # 0x9000 : 0x8000
     tile_row_window = @current_window_line & 7
     tile_row = (@ly.to_u16 + @scy) & 7
-    (0...Display::WIDTH).each do |x|
+    Display::WIDTH.times do |x|
       if window_enabled? && @ly >= @wy && x + 7 >= @wx
         should_increment_window_line = true
         tile_num_addr = window_map + ((x + 7 - @wx) >> 3) + ((@current_window_line >> 3) * 32)
@@ -61,7 +60,7 @@ class PPU < BasePPU
         if @cgb_ptr.value
           @framebuffer[Display::WIDTH * @ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb @ran_bios
         else
-          @framebuffer[Display::WIDTH * @ly + x] = @palettes[0][bg_palette[color]].convert_from_cgb @ran_bios
+          @framebuffer[Display::WIDTH * @ly + x] = @palettes[0][@bgp[color]].convert_from_cgb @ran_bios
         end
       elsif bg_display? || @cgb_ptr.value
         tile_num_addr = background_map + (((x + @scx) >> 3) & 0x1F) + ((((@ly.to_u16 + @scy) >> 3) * 32) % (32 * 32))
@@ -88,7 +87,7 @@ class PPU < BasePPU
         if @cgb_ptr.value
           @framebuffer[Display::WIDTH * @ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb @ran_bios
         else
-          @framebuffer[Display::WIDTH * @ly + x] = @palettes[0][bg_palette[color]].convert_from_cgb @ran_bios
+          @framebuffer[Display::WIDTH * @ly + x] = @palettes[0][@bgp[color]].convert_from_cgb @ran_bios
         end
       end
     end
@@ -96,9 +95,8 @@ class PPU < BasePPU
 
     if sprite_enabled?
       get_sprites.each do |sprite|
-        sprite_palette = palette_to_array(sprite.dmg_palette_number == 0 ? @obp0 : @obp1)
         bytes = sprite.bytes @ly, sprite_height
-        (0...8).each do |col|
+        8.times do |col|
           x = col + sprite.x - 8
           next unless 0 <= x < Display::WIDTH # only render sprites on screen
           if sprite.x_flip?
@@ -119,7 +117,8 @@ class PPU < BasePPU
               end
             else
               if sprite.priority == 0 || @scanline_color_vals[x][0] == 0
-                @framebuffer[Display::WIDTH * @ly + x] = @obj_palettes[0][sprite_palette[color]].convert_from_cgb @ran_bios
+                palette = sprite.dmg_palette_number == 0 ? @obp0 : @obp1
+                @framebuffer[Display::WIDTH * @ly + x] = @obj_palettes[0][palette[color]].convert_from_cgb @ran_bios
               end
             end
           end

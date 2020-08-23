@@ -192,17 +192,17 @@ class PPU < BasePPU
     if @fifo.size > 0
       bg_pixel = @fifo.shift
       sprite_pixel = @fifo_sprite.shift if @fifo_sprite.size > 0
-      if !sprite_pixel.nil? && sprite_wins? bg_pixel, sprite_pixel
-        pixel = sprite_pixel
-        palette = palette_to_array(sprite_pixel.palette == 0 ? @obp0 : @obp1)
-        palettes = @obj_palettes
-      else
-        pixel = bg_pixel
-        palette = palette_to_array @bgp
-        palettes = @palettes
-      end
       sample_smooth_scrolling unless @smooth_scroll_sampled
       if @lx >= 0 # otherwise drop pixel on floor
+        if !sprite_pixel.nil? && sprite_wins? bg_pixel, sprite_pixel
+          pixel = sprite_pixel
+          palette = sprite_pixel.palette == 0 ? @obp0 : @obp1
+          palettes = @obj_palettes
+        else
+          pixel = bg_pixel
+          palette = @bgp
+          palettes = @palettes
+        end
         color = @cgb_ptr.value ? pixel.color : palette[pixel.color]
         @framebuffer[Display::WIDTH * @ly + @lx] = palettes[pixel.palette][color].convert_from_cgb @ran_bios
       end
