@@ -8,11 +8,13 @@ lib LibSDL
 end
 
 class APU
-  BUFFER_SIZE =  1024
-  SAMPLE_RATE = 65536 # Hz
-  CHANNELS    =     2 # Left / Right
+  BUFFER_SIZE        =  1024
+  SAMPLE_RATE        = 65536 # Hz
+  CHANNELS           =     2 # Left / Right
+  BUFFER_FILL_PERIOD = CPU::CLOCK_SPEED // SAMPLE_RATE
 
-  FRAME_SEQUENCER_RATE = 512 # Hz
+  FRAME_SEQUENCER_RATE   = 512 # Hz
+  FRAME_SEQUENCER_PERIOD = CPU::CLOCK_SPEED // FRAME_SEQUENCER_RATE
 
   @channel1 = Channel1.new
   @channel2 = Channel2.new
@@ -54,7 +56,7 @@ class APU
 
   # tick apu forward by specified number of cycles
   def tick(cycles : Int) : Nil
-    (0...cycles).each do
+    cycles.times do
       @cycles &+= 1
       @channel1.step
       @channel2.step
@@ -62,7 +64,7 @@ class APU
       @channel4.step
 
       # tick frame sequencer
-      if @cycles % (CPU::CLOCK_SPEED // FRAME_SEQUENCER_RATE) == 0
+      if @cycles == FRAME_SEQUENCER_PERIOD
         @cycles = 0 # this is also an even divisor of the sample rate
         case @frame_sequencer_stage
         when 0
@@ -100,7 +102,7 @@ class APU
       end
 
       # put 1 frame in buffer
-      if @cycles % (CPU::CLOCK_SPEED // SAMPLE_RATE) == 0
+      if @cycles % BUFFER_FILL_PERIOD == 0
         channel1_amp = @channel1.get_amplitude
         channel2_amp = @channel2.get_amplitude
         channel3_amp = @channel3.get_amplitude

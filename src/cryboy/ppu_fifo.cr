@@ -93,10 +93,10 @@ class PPU < BasePPU
     in FetchStage::GET_TILE
       if @fetching_window
         map = window_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
-        offset = @fetcher_x + ((@current_window_line // 8) * 32)
+        offset = @fetcher_x + ((@current_window_line >> 3) * 32)
       else
         map = bg_tile_map == 0 ? 0x1800 : 0x1C00 # 0x9800 : 0x9C00
-        offset = ((@fetcher_x + (@scx // 8)) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
+        offset = ((@fetcher_x + (@scx >> 3)) & 0x1F) + ((((@ly.to_u16 + @scy) >> 3) * 32) % (32 * 32))
       end
       @tile_num = @vram[0][map + offset]
       @tile_attrs = @vram[1][map + offset] # vram[1] is all 0x00 if running in dmg mode
@@ -111,7 +111,7 @@ class PPU < BasePPU
       end
       tile_ptr = tile_data_table + 16 * tile_num
       bank_num = (@tile_attrs & 0b00001000) >> 3
-      tile_row = @fetching_window ? @current_window_line % 8 : (@ly.to_u16 + @scy) % 8
+      tile_row = @fetching_window ? @current_window_line & 7 : (@ly.to_u16 + @scy) & 7
       tile_row = 7 - tile_row if @tile_attrs & 0b01000000 > 0
       if FETCHER_ORDER[@fetch_counter] == FetchStage::GET_TILE_DATA_LOW
         @tile_data_low = @vram[bank_num][tile_ptr + tile_row * 2]

@@ -32,12 +32,12 @@ class PPU < BasePPU
     window_map = window_tile_map == 0_u8 ? 0x1800 : 0x1C00       # 0x9800 : 0x9C00
     background_map = bg_tile_map == 0_u8 ? 0x1800 : 0x1C00       # 0x9800 : 0x9C00
     tile_data_table = bg_window_tile_data == 0 ? 0x1000 : 0x0000 # 0x9000 : 0x8000
-    tile_row_window = @current_window_line % 8
-    tile_row = (@ly.to_u16 + @scy) % 8
+    tile_row_window = @current_window_line & 7
+    tile_row = (@ly.to_u16 + @scy) & 7
     (0...Display::WIDTH).each do |x|
       if window_enabled? && @ly >= @wy && x + 7 >= @wx
         should_increment_window_line = true
-        tile_num_addr = window_map + ((x + 7 - @wx) // 8) + ((@current_window_line // 8) * 32)
+        tile_num_addr = window_map + ((x + 7 - @wx) >> 3) + ((@current_window_line >> 3) * 32)
         tile_num = @vram[0][tile_num_addr]
         tile_num = tile_num.to_i8! if bg_window_tile_data == 0
         tile_ptr = tile_data_table + 16 * tile_num
@@ -50,11 +50,11 @@ class PPU < BasePPU
           byte_2 = @vram[bank_num][tile_ptr + tile_row_window * 2 + 1]
         end
         if @cgb_ptr.value && @vram[1][tile_num_addr] & 0b00100000 > 0
-          lsb = (byte_1 >> ((x + 7 - @wx) % 8)) & 0x1
-          msb = (byte_2 >> ((x + 7 - @wx) % 8)) & 0x1
+          lsb = (byte_1 >> ((x + 7 - @wx) & 7)) & 0x1
+          msb = (byte_2 >> ((x + 7 - @wx) & 7)) & 0x1
         else
-          lsb = (byte_1 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
-          msb = (byte_2 >> (7 - ((x + 7 - @wx) % 8))) & 0x1
+          lsb = (byte_1 >> (7 - ((x + 7 - @wx) & 7))) & 0x1
+          msb = (byte_2 >> (7 - ((x + 7 - @wx) & 7))) & 0x1
         end
         color = (msb << 1) | lsb
         @scanline_color_vals[x] = {color, @vram[1][tile_num_addr] & 0x80 > 0}
@@ -64,7 +64,7 @@ class PPU < BasePPU
           @framebuffer[Display::WIDTH * @ly + x] = @palettes[0][bg_palette[color]].convert_from_cgb @ran_bios
         end
       elsif bg_display? || @cgb_ptr.value
-        tile_num_addr = background_map + (((x + @scx) // 8) % 32) + ((((@ly.to_u16 + @scy) // 8) * 32) % (32 * 32))
+        tile_num_addr = background_map + (((x + @scx) >> 3) & 0x1F) + ((((@ly.to_u16 + @scy) >> 3) * 32) % (32 * 32))
         tile_num = @vram[0][tile_num_addr]
         tile_num = tile_num.to_i8! if bg_window_tile_data == 0
         tile_ptr = tile_data_table + 16 * tile_num
@@ -77,11 +77,11 @@ class PPU < BasePPU
           byte_2 = @vram[bank_num][tile_ptr + tile_row * 2 + 1]
         end
         if @cgb_ptr.value && @vram[1][tile_num_addr] & 0b00100000 > 0
-          lsb = (byte_1 >> ((x + @scx) % 8)) & 0x1
-          msb = (byte_2 >> ((x + @scx) % 8)) & 0x1
+          lsb = (byte_1 >> ((x + @scx) & 7)) & 0x1
+          msb = (byte_2 >> ((x + @scx) & 7)) & 0x1
         else
-          lsb = (byte_1 >> (7 - ((x + @scx) % 8))) & 0x1
-          msb = (byte_2 >> (7 - ((x + @scx) % 8))) & 0x1
+          lsb = (byte_1 >> (7 - ((x + @scx) & 7))) & 0x1
+          msb = (byte_2 >> (7 - ((x + @scx) & 7))) & 0x1
         end
         color = (msb << 1) | lsb
         @scanline_color_vals[x] = {color, @vram[1][tile_num_addr] & 0x80 > 0}

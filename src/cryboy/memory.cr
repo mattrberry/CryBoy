@@ -54,20 +54,20 @@ class Memory
   @hdma_transfer_this_hblank : Bool = false
 
   @requested_speed_switch : Bool = false
-  @current_speed : UInt8 = 1
+  @current_speed : UInt8 = 0 # 0 (single) or 1 (double)
 
   def stop_instr : Nil
     if @requested_speed_switch && @cgb_ptr.value
       @requested_speed_switch = false
-      @current_speed = (@current_speed % 2) + 1 # toggle between 1 and 2
+      @current_speed ^= 1 # toggle between 0 and 1
     end
   end
 
   # keep other components in sync with memory, usually before memory access
   def tick_components(cycles = 4, hdma = false) : Nil
     @cycle_tick_count += cycles if !hdma
-    @ppu.tick cycles // @current_speed
-    @apu.tick cycles // @current_speed
+    @ppu.tick cycles >> @current_speed
+    @apu.tick cycles >> @current_speed
     @timer.tick cycles
     dma_tick cycles
     hdma_step if !hdma
@@ -154,7 +154,7 @@ class Memory
       when 0xFF40..0xFF4B then @ppu[index]
       when 0xFF4D
         if @cgb_ptr.value
-          0x7E_u8 | ((@current_speed - 1) << 7) | (@requested_speed_switch ? 1 : 0)
+          0x7E_u8 | @current_speed << 7 | (@requested_speed_switch ? 1 : 0)
         else
           0xFF_u8
         end

@@ -32,7 +32,7 @@ struct Sprite
         tile_ptr = 16_u16 * (@tile_num & 0xFE)
       end
     end
-    sprite_row = (line.to_i16 - actual_y) % 8
+    sprite_row = (line.to_i16 - actual_y) & 7
     if y_flip?
       {tile_ptr + (7 - sprite_row) * 2, tile_ptr + (7 - sprite_row) * 2 + 1}
     else
@@ -235,10 +235,10 @@ abstract class BasePPU
     when 0xFF68               then @cgb_ptr.value ? 0x40_u8 | (@auto_increment ? 0x80 : 0) | @palette_index : 0xFF_u8
     when 0xFF69
       if @cgb_ptr.value
-        palette_number = @palette_index // 8
-        color_number = (@palette_index % 8) // 2
+        palette_number = @palette_index >> 3
+        color_number = (@palette_index & 7) >> 1
         color = @palettes[palette_number][color_number]
-        if @palette_index % 2 == 0
+        if @palette_index & 1 == 0
           color.red | (color.green << 5)
         else
           (color.green >> 3) | (color.blue << 2)
@@ -249,10 +249,10 @@ abstract class BasePPU
     when 0xFF6A then @cgb_ptr.value ? 0x40_u8 | (@obj_auto_increment ? 0x80 : 0) | @obj_palette_index : 0xFF_u8
     when 0xFF6B
       if @cgb_ptr.value
-        palette_number = @obj_palette_index // 8
-        color_number = (@obj_palette_index % 8) // 2
+        palette_number = @obj_palette_index >> 3
+        color_number = (@obj_palette_index & 7) >> 1
         color = @obj_palettes[palette_number][color_number]
-        if @palette_index % 2 == 0
+        if @palette_index & 1 == 0
           color.red | (color.green << 5)
         else
           (color.green >> 3) | (color.blue << 2)
@@ -299,10 +299,10 @@ abstract class BasePPU
       end
     when 0xFF69
       if @cgb_ptr.value
-        palette_number = @palette_index // 8
-        color_number = (@palette_index % 8) // 2
+        palette_number = @palette_index >> 3
+        color_number = (@palette_index & 7) >> 1
         color = @palettes[palette_number][color_number]
-        if @palette_index % 2 == 0
+        if @palette_index & 1 == 0
           color.red = value & 0b00011111
           color.green = ((value & 0b11100000) >> 5) | (color.green & 0b11000)
         else
@@ -320,10 +320,10 @@ abstract class BasePPU
       end
     when 0xFF6B
       if @cgb_ptr.value
-        palette_number = @obj_palette_index // 8
-        color_number = (@obj_palette_index % 8) // 2
+        palette_number = @obj_palette_index >> 3
+        color_number = (@obj_palette_index & 7) >> 1
         color = @obj_palettes[palette_number][color_number]
-        if @obj_palette_index % 2 == 0
+        if @obj_palette_index & 1 == 0
           color.red = value & 0b00011111
           color.green = ((value & 0b11100000) >> 5) | (color.green & 0b11000)
         else
