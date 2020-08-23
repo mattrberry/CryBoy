@@ -275,11 +275,16 @@ abstract class BasePPU
         self.mode_flag = 2
       end
       @lcd_control = value
-    when 0xFF41 then @lcd_status = (@lcd_status & 0b10000111) | (value & 0b01111000)
+      handle_stat_interrupt
+    when 0xFF41
+      @lcd_status = (@lcd_status & 0b10000111) | (value & 0b01111000)
+      handle_stat_interrupt
     when 0xFF42 then @scy = value
     when 0xFF43 then @scx = value
     when 0xFF44 then nil # read only
-    when 0xFF45 then @lyc = value
+    when 0xFF45
+      @lyc = value
+      handle_stat_interrupt
     when 0xFF46 then @dma = value
     when 0xFF47 then @bgp = value
     when 0xFF48 then @obp0 = value
@@ -399,6 +404,7 @@ abstract class BasePPU
 
   def mode_flag=(mode : UInt8)
     @lcd_status = (@lcd_status & 0b11111100) | mode
+    handle_stat_interrupt
   end
 
   # palettes

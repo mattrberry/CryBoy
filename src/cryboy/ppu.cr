@@ -159,6 +159,7 @@ class PPU < BasePPU
         if @counter >= 456      # end of line reached
           @counter -= 456       # reset counter, saving extra cycles
           @ly += 1 if @ly != 0
+          handle_stat_interrupt
           if @ly == 0          # end of vblank reached (ly has already shortcut to 0)
             self.mode_flag = 2 # switch to oam search
           end
@@ -167,7 +168,6 @@ class PPU < BasePPU
       else
         raise "Invalid mode #{self.mode_flag}"
       end
-      handle_stat_interrupt
     else                 # lcd is disabled
       @counter = 0       # reset cycle counter
       self.mode_flag = 0 # reset to mode 0

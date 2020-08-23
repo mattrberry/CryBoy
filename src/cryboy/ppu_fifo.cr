@@ -256,6 +256,7 @@ class PPU < BasePPU
           if @cycle_counter == 456
             @cycle_counter = 0
             @ly += 1 if @ly != 0
+            handle_stat_interrupt
             if @ly == 0          # end of vblank reached (ly has already shortcut to 0)
               self.mode_flag = 2 # switch to oam search
               # todo: I think the timing here might be _just wrong_
@@ -264,7 +265,6 @@ class PPU < BasePPU
           @ly = 0 if @ly == 153 && @cycle_counter > 4 # shortcut ly to from 153 to 0 after 4 cycles
         end
         @cycle_counter += 1
-        handle_stat_interrupt
       end
     else                 # lcd is disabled
       @cycle_counter = 0 # reset cycle counter
