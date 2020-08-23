@@ -303,9 +303,9 @@ module DmgOps
           set_flag_z("#{to} == 0") +
           set_flag_h("#{to} & 0x0F == 0x0F")
       when "DI"
-        ["cpu.set_ime false"]
+        ["cpu.ime = false"]
       when "EI"
-        ["cpu.set_ime true"]
+        ["cpu.scheduler.schedule 4 { cpu.ime = true }"]
       when "HALT"
         ["cpu.halt"]
       when "INC"
@@ -373,7 +373,7 @@ module DmgOps
           branch(cond, ["cpu.memory.tick_components"] + instr)
         end
       when "RETI"
-        ["cpu.set_ime true, now: true", "cpu.pc = cpu.memory.read_word cpu.sp", "cpu.sp += 0x02"]
+        ["cpu.ime = true", "cpu.pc = cpu.memory.read_word cpu.sp", "cpu.sp += 0x02"]
       when "RL"
         reg = operands[0]
         ["carry = #{reg} & 0x80", "#{reg} = (#{reg} << 1) + (cpu.f_c ? 0x01 : 0x00)"] +

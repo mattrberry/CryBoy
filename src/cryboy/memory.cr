@@ -66,6 +66,7 @@ class Memory
   # keep other components in sync with memory, usually before memory access
   def tick_components(cycles = 4, hdma = false) : Nil
     @cycle_tick_count += cycles if !hdma
+    @scheduler.tick cycles
     @ppu.tick cycles >> @current_speed
     @apu.tick cycles >> @current_speed
     @timer.tick cycles
@@ -87,8 +88,8 @@ class Memory
 
   def initialize(@cartridge : Cartridge, @interrupts : Interrupts,
                  @ppu : PPU, @apu : APU, @timer : Timer,
-                 @joypad : Joypad, @cgb_ptr : Pointer(Bool),
-                 bootrom : String? = nil)
+                 @joypad : Joypad, @scheduler : Scheduler,
+                 @cgb_ptr : Pointer(Bool), bootrom : String? = nil)
     if !bootrom.nil?
       File.open bootrom do |file|
         @bootrom = Bytes.new file.size

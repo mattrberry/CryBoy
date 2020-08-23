@@ -14,6 +14,7 @@ require "./ppu_fifo"
 {% else %}
 require "./ppu"
 {% end %}
+require "./scheduler"
 require "./timer"
 require "./util"
 
@@ -26,6 +27,7 @@ class Motherboard
 
     LibSDL.joystick_open 0
 
+    @scheduler = Scheduler.new
     @cartridge = Cartridge.new rom_path
     @cgb_enabled = !(bootrom.nil? && @cartridge.cgb == Cartridge::CGB::NONE)
     @interrupts = Interrupts.new
@@ -34,8 +36,8 @@ class Motherboard
     @apu = APU.new
     @timer = Timer.new @interrupts
     @joypad = Joypad.new
-    @memory = Memory.new @cartridge, @interrupts, @ppu, @apu, @timer, @joypad, pointerof(@cgb_enabled), bootrom
-    @cpu = CPU.new @memory, @interrupts, @ppu, @apu, @timer, boot: !bootrom.nil?
+    @memory = Memory.new @cartridge, @interrupts, @ppu, @apu, @timer, @joypad, @scheduler, pointerof(@cgb_enabled), bootrom
+    @cpu = CPU.new @memory, @interrupts, @ppu, @apu, @timer, @scheduler, boot: !bootrom.nil?
   end
 
   def handle_events : Nil
