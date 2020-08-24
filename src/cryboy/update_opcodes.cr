@@ -305,7 +305,7 @@ module DmgOps
       when "DI"
         ["cpu.ime = false"]
       when "EI"
-        ["cpu.scheduler.schedule 4 { cpu.ime = true }"]
+        ["cpu.scheduler.schedule(4, Scheduler::EventType::IME) { cpu.ime = true }"]
       when "HALT"
         ["cpu.halt"]
       when "INC"

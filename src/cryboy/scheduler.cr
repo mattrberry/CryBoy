@@ -1,27 +1,45 @@
 class Scheduler
-  private record Event, cycles : UInt64, proc : Proc(Void) do
+  enum EventType
+    APU
+    IME
+  end
+
+  private record Event, cycles : UInt64, type : EventType, proc : Proc(Void) do
     def to_s(io)
-      io << "Event(cycles: #{cycles}, proc: #{proc})"
+      io << "Event(cycles: #{cycles}, type: #{type}, proc: #{proc})"
     end
   end
 
-  # For now, I'm choosing to store the events in an unordered array. This would
-  # definitely cause performance issues if there were many events, but I'm
-  # currently operating under the assumption that there won't be. If this is a
-  # performance issue later, I'll change it.
   @events : Deque(Event) = Deque(Event).new 10
   @cycles : UInt64 = 0
 
-  def schedule(cycles : Int, proc : Proc(Void)) : Nil
-    self << Event.new @cycles + cycles, proc
+  @current_speed : UInt8 = 0
+
+  def schedule(cycles : Int, type : EventType, proc : Proc(Void)) : Nil
+    cycles = cycles << @current_speed if type == EventType::APU
+    self << Event.new @cycles + cycles, type, proc
   end
 
-  def schedule(cycles : Int, &block : ->)
-    self << Event.new @cycles + cycles, block
+  def schedule(cycles : Int, type : EventType, &block : ->)
+    cycles = cycles << @current_speed if type == EventType::APU
+    self << Event.new @cycles + cycles, type, block
+  end
+
+  # Set the current speed to 1x (0) or 2x (1)
+  def speed_mode=(speed : UInt8) : Nil
+    @current_speed = speed
+    @events.each_with_index do |event, idx|
+      if event.type == EventType::APU
+        remaining_cycles = event.cycles - @cycles
+        # divide by two if entering single speed, else multiply by two
+        offset = remaining_cycles >> (@current_speed - speed)
+        @events[idx] = event.copy_with cycles: @cycles + offset
+      end
+    end
   end
 
   def <<(event : Event) : Nil
-    idx = @events.bsearch_index { |e, i| e.cycles > event.cycles}
+    idx = @events.bsearch_index { |e, i| e.cycles > event.cycles }
     unless idx.nil?
       @events.insert(idx, event)
     else

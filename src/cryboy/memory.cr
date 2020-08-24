@@ -69,13 +69,14 @@ class Memory
     if @requested_speed_switch && @cgb_ptr.value
       @requested_speed_switch = false
       @current_speed ^= 1 # toggle between 0 and 1
+      @scheduler.speed_mode = @current_speed
     end
   end
 
   # keep other components in sync with memory, usually before memory access
   def tick_components(cycles = 4, hdma = false) : Nil
     @cycle_tick_count += cycles if !hdma
-    @scheduler.tick cycles >> @current_speed
+    @scheduler.tick cycles
     @ppu.tick cycles >> @current_speed
     @apu.tick cycles >> @current_speed
     @timer.tick cycles

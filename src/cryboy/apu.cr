@@ -91,7 +91,7 @@ class APU
     else nil
     end
     @frame_sequencer_stage = 0 if (@frame_sequencer_stage += 1) > 7
-    @gb.scheduler.schedule FRAME_SEQUENCER_PERIOD, ->tick_frame_sequencer
+    @gb.scheduler.schedule FRAME_SEQUENCER_PERIOD, Scheduler::EventType::APU, ->tick_frame_sequencer
   end
 
   def get_sample : Nil
@@ -110,7 +110,7 @@ class APU
                                 (@nr51 & 0x02 > 0 ? channel2_amp : 0) +
                                 (@nr51 & 0x01 > 0 ? channel1_amp : 0)) / 4
     @buffer_pos += 2
-    @gb.scheduler.schedule SAMPLE_PERIOD, ->get_sample
+    @gb.scheduler.schedule SAMPLE_PERIOD, Scheduler::EventType::APU, ->get_sample
   end
 
   # tick apu forward by specified number of cycles

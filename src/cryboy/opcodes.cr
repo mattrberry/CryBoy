@@ -2122,7 +2122,7 @@ class Opcodes
     # 0xFB EI
     ->(cpu : CPU) {
       cpu.inc_pc
-      cpu.scheduler.schedule 4 { cpu.ime = true }
+      cpu.scheduler.schedule(4, Scheduler::EventType::IME) { cpu.ime = true }
       return 4
     },
     # 0xFC UNUSED
