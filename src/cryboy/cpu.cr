@@ -155,7 +155,7 @@ class CPU
         opcode = @memory[@pc]
         {% if flag? :graphics_test %}
           if opcode == 0x40
-            @ppu.write_png
+            @gb.ppu.write_png
             exit 0
           end
         {% end %}

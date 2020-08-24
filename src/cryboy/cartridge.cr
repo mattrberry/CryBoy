@@ -12,7 +12,7 @@ abstract class Cartridge
   getter title : String {
     io = IO::Memory.new
     io.write @rom[0x0134...0x13F]
-    io.to_s
+    io.to_s.gsub(/[^[:print:]]/i, "").strip
   }
 
   getter rom_size : UInt32 {

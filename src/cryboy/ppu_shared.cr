@@ -422,6 +422,6 @@ abstract class BasePPU
   end
 
   def write_png : Nil
-    @display.write_png @framebuffer
+    @gb.display.write_png @framebuffer
   end
 end

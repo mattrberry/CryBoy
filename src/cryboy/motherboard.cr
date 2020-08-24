@@ -25,7 +25,7 @@ class Motherboard
   getter cgb_ptr : Pointer(Bool) { pointerof(@cgb_enabled) }
   getter cartridge : Cartridge
 
-  getter apu : APU { APU.new }
+  getter apu : APU { APU.new self }
   getter cpu : CPU { CPU.new self }
   getter display : Display { Display.new self }
   getter interrupts : Interrupts { Interrupts.new }

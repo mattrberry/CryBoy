@@ -75,7 +75,7 @@ class Memory
   # keep other components in sync with memory, usually before memory access
   def tick_components(cycles = 4, hdma = false) : Nil
     @cycle_tick_count += cycles if !hdma
-    @scheduler.tick cycles
+    @scheduler.tick cycles >> @current_speed
     @ppu.tick cycles >> @current_speed
     @apu.tick cycles >> @current_speed
     @timer.tick cycles

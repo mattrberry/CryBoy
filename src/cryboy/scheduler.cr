@@ -1,12 +1,7 @@
 class Scheduler
-  private struct Event
-    property cycles, proc
-
-    def initialize(@cycles : Int32, @proc : Proc(Void))
-    end
-
+  private record Event, cycles : UInt64, proc : Proc(Void) do
     def to_s(io)
-      io << "Event(cycles: #{@cycles}, proc: #{@proc})"
+      io << "Event(cycles: #{cycles}, proc: #{proc})"
     end
   end
 
@@ -14,39 +9,42 @@ class Scheduler
   # definitely cause performance issues if there were many events, but I'm
   # currently operating under the assumption that there won't be. If this is a
   # performance issue later, I'll change it.
-  @events : Array(Event) = [] of Event
+  @events : Deque(Event) = Deque(Event).new 10
   @cycles : UInt64 = 0
 
   def schedule(cycles : Int, proc : Proc(Void)) : Nil
-    @events << Event.new cycles + @cycles, proc
+    self << Event.new @cycles + cycles, proc
   end
 
   def schedule(cycles : Int, &block : ->)
-    @events << Event.new cycles + @cycles, block
+    self << Event.new @cycles + cycles, block
+  end
+
+  def <<(event : Event) : Nil
+    idx = @events.bsearch_index { |e, i| e.cycles > event.cycles}
+    unless idx.nil?
+      @events.insert(idx, event)
+    else
+      @events << event
+    end
   end
 
   def tick(cycles : Int) : Nil
     cycles.times do
       @cycles += 1
-      pop_current.each &.proc.call
+      call_current
     end
   end
 
-
-  def pop_current : Array(Event)
-    current_events = [] of Event
-    while true
-      event = get_lowest
-      if !event.nil? && event.cycles - @cycles <= 0
-        current_events << event
-        @events.delete event
+  def call_current : Nil
+    loop do
+      event = @events.first?
+      if event && @cycles >= event.cycles
+        event.proc.call
+        @events.shift
       else
-        return current_events
+        break
       end
     end
-  end
-
-  def get_lowest : Event?
-    @events.min_by? &.cycles
   end
 end
