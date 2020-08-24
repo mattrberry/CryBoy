@@ -11,13 +11,23 @@ class Display
   @renderer : SDL::Renderer?
   @texture : Pointer(LibSDL::Texture)?
 
-  def initialize(scale = Int, title : String? = nil)
+  @title : String
+
+  @fps = 30
+  @seconds : Int32 = Time.utc.second
+
+  def initialize(gb : Motherboard)
+    @title = gb.cartridge.title
     {% unless flag? :headless %}
-      @window = SDL::Window.new("CryBoy" + (title.nil? ? "" : " - #{title}"), WIDTH * scale, HEIGHT * scale)
+      @window = SDL::Window.new(window_title, WIDTH * DISPLAY_SCALE, HEIGHT * DISPLAY_SCALE)
       @renderer = SDL::Renderer.new @window.not_nil!
       @renderer.not_nil!.logical_size = {WIDTH, HEIGHT}
       @texture = LibSDL.create_texture @renderer.not_nil!, PIXELFORMAT_RGB24, TEXTUREACCESS_STREAMING, WIDTH, HEIGHT
     {% end %}
+  end
+
+  def window_title : String
+    "CryBoy - #{@title} - #{@fps} fps"
   end
 
   def draw(framebuffer : Array(RGB)) : Nil
@@ -26,6 +36,12 @@ class Display
       @renderer.not_nil!.clear
       @renderer.not_nil!.copy @texture
       @renderer.not_nil!.present
+      @fps += 1
+      if Time.utc.second != @seconds
+        @window.not_nil!.title = window_title
+        @fps = 0
+        @seconds = Time.utc.second
+      end
     {% end %}
   end
 

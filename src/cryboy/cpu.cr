@@ -78,11 +78,12 @@ class CPU
   # this is tracked here to reduce complications in the codegen
   @cached_hl_read : UInt8? = nil
 
-  def initialize(@memory : Memory, @interrupts : Interrupts, @ppu : PPU, @apu : APU, @timer : Timer, @scheduler : Scheduler, boot = false)
-    skip_boot if !boot
+  def initialize(@gb : Motherboard)
+    @memory = gb.memory
+    @scheduler = gb.scheduler
   end
 
-  def skip_boot
+  def skip_boot : Nil
     # https://gbdev.io/pandocs/#power-up-sequence
     @pc = 0x0100_u16
     @sp = 0xFFFE_u16
@@ -90,23 +91,21 @@ class CPU
     self.bc = 0x0000_u16
     self.de = 0x0008_u16
     self.hl = 0x007C_u16
-    @memory.skip_boot
-    @ppu.skip_boot
   end
 
   # service all interrupts
   def handle_interrupts
-    if @interrupts[0xFF0F] & @interrupts[0xFFFF] & 0x1F > 0
+    if @gb.interrupts[0xFF0F] & @gb.interrupts[0xFFFF] & 0x1F > 0
       @halted = false
       if @ime
         @ime = false
         @sp &-= 1
         @memory[@sp] = (@pc >> 8).to_u8
-        interrupt = @interrupts.highest_priority
+        interrupt = @gb.interrupts.highest_priority
         @sp &-= 1
         @memory[@sp] = @pc.to_u8!
         @pc = interrupt.value
-        @interrupts.clear interrupt
+        @gb.interrupts.clear interrupt
         @memory.tick_extra 20
       end
     end
@@ -128,7 +127,7 @@ class CPU
 
   # Handle regular and obscure halting behavior
   def halt : Nil
-    if !@ime && (@interrupts[0xFF0F] & @interrupts[0xFFFF] & 0x1F > 0)
+    if !@ime && (@gb.interrupts[0xFF0F] & @gb.interrupts[0xFFFF] & 0x1F > 0)
       @halt_bug = true
       @halted = false
     else

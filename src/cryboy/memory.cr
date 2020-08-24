@@ -12,6 +12,15 @@ class Memory
   HRAM          = 0xFF80..0xFFFE
   INTERRUPT_REG = 0xFFFF
 
+  @cartridge : Cartridge
+  @interrupts : Interrupts
+  @ppu : PPU
+  @apu : APU
+  @timer : Timer
+  @joypad : Joypad
+  @scheduler : Scheduler
+  @cgb_ptr : Pointer(Bool)
+
   @wram = Array(Bytes).new 8 { Bytes.new Memory::WORK_RAM_N.size }
   @wram_bank : UInt8 = 1
   @hram = Bytes.new HRAM.size
@@ -86,11 +95,17 @@ class Memory
     reset_cycle_count
   end
 
-  def initialize(@cartridge : Cartridge, @interrupts : Interrupts,
-                 @ppu : PPU, @apu : APU, @timer : Timer,
-                 @joypad : Joypad, @scheduler : Scheduler,
-                 @cgb_ptr : Pointer(Bool), bootrom : String? = nil)
-    if !bootrom.nil?
+  def initialize(@gb : Motherboard)
+    @cartridge = gb.cartridge
+    @interrupts = gb.interrupts
+    @ppu = gb.ppu
+    @apu = gb.apu
+    @timer = gb.timer
+    @joypad = gb.joypad
+    @scheduler = gb.scheduler
+    @cgb_ptr = gb.cgb_ptr
+    bootrom = gb.bootrom
+    unless bootrom.nil?
       File.open bootrom do |file|
         @bootrom = Bytes.new file.size
         file.read @bootrom

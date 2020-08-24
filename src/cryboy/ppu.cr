@@ -148,8 +148,8 @@ class PPU < BasePPU
           @ly += 1
           if @ly == Display::HEIGHT # final row of screen complete
             self.mode_flag = 1      # switch to vblank
-            @interrupts.vblank_interrupt = true
-            @display.draw @framebuffer # render at vblank
+            @gb.interrupts.vblank_interrupt = true
+            @gb.display.draw @framebuffer # render at vblank
           else
             self.mode_flag = 2 # switch to oam search
           end

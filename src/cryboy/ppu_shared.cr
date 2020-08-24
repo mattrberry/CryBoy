@@ -141,6 +141,7 @@ POST_BOOT_VRAM = [
 
 abstract class BasePPU
   @ran_bios : Bool # determine if colors should be adjusted for cgb
+  @cgb_ptr : Pointer(Bool)
 
   @framebuffer = Array(RGB).new Display::WIDTH * Display::HEIGHT, RGB.new(0, 0, 0)
 
@@ -172,7 +173,8 @@ abstract class BasePPU
 
   @old_stat_flag = false
 
-  def initialize(@display : Display, @interrupts : Interrupts, @cgb_ptr : Pointer(Bool))
+  def initialize(@gb : Motherboard)
+    @cgb_ptr = gb.cgb_ptr
     unless @cgb_ptr.value # fill default color palettes
       {% if flag? :pink %}
         @palettes[0] = @obj_palettes[0] = @obj_palettes[1] = [
@@ -209,7 +211,7 @@ abstract class BasePPU
                 (mode_flag == 0 && hblank_interrupt_enabled) ||
                 (mode_flag == 1 && vblank_interrupt_enabled)
     if !@old_stat_flag && stat_flag
-      @interrupts.lcd_stat_interrupt = true
+      @gb.interrupts.lcd_stat_interrupt = true
     end
     @old_stat_flag = stat_flag
   end

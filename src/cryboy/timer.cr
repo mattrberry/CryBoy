@@ -9,7 +9,7 @@ class Timer
   @previous_bit = false # used to detect falling edge
   @countdown = -1       # load tma and set interrupt flag when countdown is 0
 
-  def initialize(@interrupts : Interrupts)
+  def initialize(@gb : Motherboard)
   end
 
   # tick timer forward by specified number of cycles
@@ -17,7 +17,7 @@ class Timer
     cycles.times do
       @countdown -= 1 if @countdown > -1
       if @countdown == 0
-        @interrupts.timer_interrupt = true
+        @gb.interrupts.timer_interrupt = true
         @tima = @tma
       end
 
