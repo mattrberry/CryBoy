@@ -24,7 +24,6 @@ class APU
 
   @buffer = Slice(Float32).new BUFFER_SIZE
   @buffer_pos = 0
-  @cycles = 0_u32
   @frame_sequencer_stage = 0
 
   @left_enable = false
@@ -110,28 +109,28 @@ class APU
                                 (@nr51 & 0x02 > 0 ? channel2_amp : 0) +
                                 (@nr51 & 0x01 > 0 ? channel1_amp : 0)) / 4
     @buffer_pos += 2
+
+    # push to SDL if buffer is full
+    if @buffer_pos >= BUFFER_SIZE
+      {% unless flag? :headless %}
+        while LibSDL.get_queued_audio_size(1) > BUFFER_SIZE * sizeof(Float32) * 2
+          LibSDL.delay(1)
+        end
+        LibSDL.queue_audio 1, @buffer, BUFFER_SIZE * sizeof(Float32)
+      {% end %}
+      @buffer_pos = 0
+    end
+
     @gb.scheduler.schedule SAMPLE_PERIOD, Scheduler::EventType::APU, ->get_sample
   end
 
   # tick apu forward by specified number of cycles
   def tick(cycles : Int) : Nil
     cycles.times do
-      @cycles &+= 1
       @channel1.step
       @channel2.step
       @channel3.step
       @channel4.step
-
-      # push to SDL if buffer is full
-      if @buffer_pos >= BUFFER_SIZE
-        {% unless flag? :headless %}
-          while LibSDL.get_queued_audio_size(1) > BUFFER_SIZE * sizeof(Float32) * 2
-            LibSDL.delay(1)
-          end
-          LibSDL.queue_audio 1, @buffer, BUFFER_SIZE * sizeof(Float32)
-        {% end %}
-        @buffer_pos = 0
-      end
     end
   end
 
