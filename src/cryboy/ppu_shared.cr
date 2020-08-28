@@ -173,6 +173,16 @@ abstract class BasePPU
 
   @old_stat_flag = false
 
+  @hdma1 : UInt8 = 0xFF
+  @hdma2 : UInt8 = 0xFF
+  @hdma3 : UInt8 = 0xFF
+  @hdma4 : UInt8 = 0xFF
+  @hdma5 : UInt8 = 0xFF
+  @hdma_src : UInt16 = 0x0000
+  @hdma_dst : UInt16 = 0x8000
+  @hdma_pos : UInt16 = 0x0000
+  @hdma_active : Bool = false
+
   def initialize(@gb : Motherboard)
     @cgb_ptr = gb.cgb_ptr
     unless @cgb_ptr.value # fill default color palettes
@@ -216,6 +226,38 @@ abstract class BasePPU
     @old_stat_flag = stat_flag
   end
 
+  # Copy 16-byte block from hdma_src to hdma_dst, then decrement value in hdma5
+  def copy_hdma_block(block_number : Int) : Nil
+    0x10.times do |byte|
+      offset = 0x10 * block_number + byte
+      @gb.memory.write_byte @hdma_dst + offset, @gb.memory.read_byte @hdma_src + offset
+    end
+    @hdma5 &-= 1
+  end
+
+  def start_hdma(value : UInt8) : Nil
+    @hdma_src = ((@hdma1.to_u16 << 8) | @hdma2) & 0xFFF0
+    @hdma_dst = 0x8000_u16 + (((@hdma3.to_u16 << 8) | @hdma4) & 0x1FF0)
+    @hdma5 = value & 0x7F
+    if value & 0x80 > 0 # hdma
+      @hdma_active = true
+      @hdma_pos = 0
+    else # gdma
+      unless @hdma_active
+        (@hdma5 + 1).times do |block_num|
+          copy_hdma_block block_num
+        end
+      end
+      @hdma_active = false
+    end
+  end
+
+  def step_hdma : Nil
+    copy_hdma_block @hdma_pos
+    @hdma_pos += 1
+    @hdma_active = false if @hdma5 == 0xFF
+  end
+
   # read from ppu memory
   def [](index : Int) : UInt8
     case index
@@ -234,6 +276,11 @@ abstract class BasePPU
     when 0xFF4A               then @wy
     when 0xFF4B               then @wx
     when 0xFF4F               then @cgb_ptr.value ? 0xFE_u8 | @vram_bank : 0xFF_u8
+    when 0xFF51               then @cgb_ptr.value ? @hdma1 : 0xFF_u8
+    when 0xFF52               then @cgb_ptr.value ? @hdma2 : 0xFF_u8
+    when 0xFF53               then @cgb_ptr.value ? @hdma3 : 0xFF_u8
+    when 0xFF54               then @cgb_ptr.value ? @hdma4 : 0xFF_u8
+    when 0xFF55               then @cgb_ptr.value ? @hdma5 : 0xFF_u8
     when 0xFF68               then @cgb_ptr.value ? 0x40_u8 | (@auto_increment ? 0x80 : 0) | @palette_index : 0xFF_u8
     when 0xFF69
       if @cgb_ptr.value
@@ -294,6 +341,11 @@ abstract class BasePPU
     when 0xFF4A then @wy = value
     when 0xFF4B then @wx = value
     when 0xFF4F then @vram_bank = value & 1 if @cgb_ptr.value
+    when 0xFF51 then @hdma1 = value if @cgb_ptr.value
+    when 0xFF52 then @hdma2 = value if @cgb_ptr.value
+    when 0xFF53 then @hdma3 = value if @cgb_ptr.value
+    when 0xFF54 then @hdma4 = value if @cgb_ptr.value
+    when 0xFF55 then start_hdma value if @cgb_ptr.value
     when 0xFF68
       if @cgb_ptr.value
         @palette_index = value & 0x1F
@@ -405,6 +457,7 @@ abstract class BasePPU
   end
 
   def mode_flag=(mode : UInt8)
+    step_hdma if mode == 0 && @hdma_active
     @lcd_status = (@lcd_status & 0b11111100) | mode
     handle_stat_interrupt
   end

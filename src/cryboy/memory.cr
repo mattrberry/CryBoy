@@ -55,13 +55,6 @@ class Memory
   @requested_oam_dma_transfer : Bool = false
   @next_dma_counter : UInt8 = 0x00
 
-  @hdma_src : UInt16 = 0x0000
-  @hdma_dst : UInt16 = 0x8000
-  @hdma5 : UInt8 = 0xFF
-  @hdma_length : UInt16 = 0x0000
-  @hdma_pos : UInt16 = 0x0000
-  @hdma_transfer_this_hblank : Bool = false
-
   @requested_speed_switch : Bool = false
   @current_speed : UInt8 = 0 # 0 (single) or 1 (double)
 
@@ -74,14 +67,13 @@ class Memory
   end
 
   # keep other components in sync with memory, usually before memory access
-  def tick_components(cycles = 4, hdma = false) : Nil
-    @cycle_tick_count += cycles if !hdma
+  def tick_components(cycles = 4) : Nil
+    @cycle_tick_count += cycles
     @scheduler.tick cycles
     @ppu.tick cycles >> @current_speed
     @apu.tick cycles >> @current_speed
     @timer.tick cycles
     dma_tick cycles
-    hdma_step if !hdma
   end
 
   def reset_cycle_count : Nil
@@ -176,11 +168,7 @@ class Memory
           0xFF_u8
         end
       when 0xFF4F         then @ppu[index]
-      when 0xFF51         then @cgb_ptr.value ? (@hdma_src >> 8).to_u8 : 0xFF_u8
-      when 0xFF52         then @cgb_ptr.value ? @hdma_src.to_u8! : 0xFF_u8
-      when 0xFF53         then @cgb_ptr.value ? (@hdma_dst >> 8).to_u8 : 0xFF_u8
-      when 0xFF54         then @cgb_ptr.value ? @hdma_dst.to_u8! : 0xFF_u8
-      when 0xFF55         then @cgb_ptr.value ? @hdma5 : 0xFF_u8
+      when 0xFF51..0xFF55 then @ppu[index]
       when 0xFF68..0xFF6B then @ppu[index]
       when 0xFF70         then @cgb_ptr.value ? 0xF8_u8 | @wram_bank : 0xFF_u8
       when 0xFF72         then @ff72                            # (todo) undocumented register
@@ -240,11 +228,7 @@ class Memory
       when 0xFF40..0xFF4B then @ppu[index] = value
       when 0xFF4D         then @requested_speed_switch = value & 0x1 > 0 if @cgb_ptr.value
       when 0xFF4F         then @ppu[index] = value
-      when 0xFF51         then @hdma_src = (@hdma_src & 0x00FF) | (value.to_u16 << 8) if @cgb_ptr.value
-      when 0xFF52         then @hdma_src = (@hdma_src & 0xFF00) | (value.to_u16 & 0xF0) if @cgb_ptr.value
-      when 0xFF53         then @hdma_dst = (@hdma_dst & 0x80FF) | ((value.to_u16 & 0x1F) << 8) if @cgb_ptr.value
-      when 0xFF54         then @hdma_dst = (@hdma_dst & 0xFF00) | (value.to_u16 & 0xF0) if @cgb_ptr.value
-      when 0xFF55         then start_hdma_transfer value if @cgb_ptr.value
+      when 0xFF51..0xFF55 then @ppu[index] = value
       when 0xFF68..0xFF6B then @ppu[index] = value
       when 0xFF70
         if @cgb_ptr.value
@@ -313,35 +297,6 @@ class Memory
         end
         @internal_dma_timer += 1
       end
-    end
-  end
-
-  def start_hdma_transfer(value : UInt8) : Nil
-    # hdma transfer takes 8 T-cycles for every 16 bytes transfered
-    hdma = value & 0x80 > 0 # as opposed to gdma
-    length = ((value.to_u16 & 0x7F) + 1) * 0x10
-    if hdma
-      @hdma_length = length
-      @hdma_pos = 0
-    else
-      length.times do |idx|
-        write_byte @hdma_dst + idx, read_byte @hdma_src + idx
-        tick_components hdma: true if idx & 7 == 7 # 2 bytes per T-cycle
-      end
-      @hdma5 = 0xFF
-    end
-  end
-
-  def hdma_step : Nil
-    @hdma_transfer_this_hblank = false if @ppu.mode_flag != 0
-    if @hdma_pos < @hdma_length && @ppu.mode_flag == 0 && !@hdma_transfer_this_hblank
-      0x10.times do
-        write_byte @hdma_dst + @hdma_pos, read_byte @hdma_src + @hdma_pos
-        tick_components hdma: true if @hdma_pos & 7 == 7 # 2 bytes per T-cycle
-        @hdma_pos += 1
-      end
-      @hdma_transfer_this_hblank = true
-      @hdma5 = @hdma_pos == @hdma_length ? 0xFF_u8 : ((@hdma_length - @hdma_pos) // 0x10 - 1).to_u8
     end
   end
 end
