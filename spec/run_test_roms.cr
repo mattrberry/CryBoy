@@ -81,7 +81,7 @@ unless mooneye_dir == ""
   system "shards build -Dheadless -Dprint_serial"
   fib_string = "358132134"
   Dir.glob("#{mooneye_dir}/**/*.gb").sort.each do |path|
-    next if path.includes?("util") || path.includes?("manual-only")
+    next if path.includes?("util") || path.includes?("manual-only") || path.includes?("dmg") || path.includes?("mgb") || path.includes?("sgb")
     test_name = get_test_name mooneye_dir, path
     passed = false
     Process.run("bin/cryboy", [path]) do |process|

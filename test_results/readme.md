@@ -51,17 +51,8 @@
 | 👌 | acceptance/bits/reg_f |
 | 👀 | acceptance/bits/unused_hwio-GS |
 | 👀 | acceptance/boot_div-S |
-| 👀 | acceptance/boot_div-dmg0 |
-| 👀 | acceptance/boot_div-dmgABCmgb |
 | 👀 | acceptance/boot_div2-S |
 | 👀 | acceptance/boot_hwio-S |
-| 👀 | acceptance/boot_hwio-dmg0 |
-| 👀 | acceptance/boot_hwio-dmgABCmgb |
-| 👀 | acceptance/boot_regs-dmg0 |
-| 👀 | acceptance/boot_regs-dmgABC |
-| 👀 | acceptance/boot_regs-mgb |
-| 👀 | acceptance/boot_regs-sgb |
-| 👀 | acceptance/boot_regs-sgb2 |
 | 👌 | acceptance/call_cc_timing |
 | 👌 | acceptance/call_cc_timing2 |
 | 👌 | acceptance/call_timing |
@@ -107,7 +98,6 @@
 | 👌 | acceptance/reti_intr_timing |
 | 👌 | acceptance/reti_timing |
 | 👌 | acceptance/rst_timing |
-| 👀 | acceptance/serial/boot_sclk_align-dmgABCmgb |
 | 👌 | acceptance/timer/div_write |
 | 👀 | acceptance/timer/rapid_toggle |
 | 👌 | acceptance/timer/tim00 |
