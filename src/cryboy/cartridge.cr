@@ -19,14 +19,14 @@ abstract class Cartridge
     0x8000_u32 << @rom[0x0148]
   }
 
-  getter ram_size : UInt32 {
+  getter ram_size : Int32 {
     case @rom[0x0149]
-    when 0x01 then 0x0800_u32
-    when 0x02 then 0x2000_u32
-    when 0x03 then 0x2000_u32 * 4
-    when 0x04 then 0x2000_u32 * 16
-    when 0x05 then 0x2000_u32 * 8
-    else           0x0000_u32
+    when 0x01 then 0x0800
+    when 0x02 then 0x2000
+    when 0x03 then 0x2000 << 2
+    when 0x04 then 0x2000 << 4
+    when 0x05 then 0x2000 << 3
+    else           0x0000
     end
   }
 
@@ -52,8 +52,9 @@ abstract class Cartridge
     cartridge = case cartridge_type
                 when 0x00, 0x08, 0x09 then ROM.new rom
                 when 0x01, 0x02, 0x03 then MBC1.new rom
+                when 0x05, 0x06       then MBC2.new rom
                 when 0x0F, 0x10, 0x11,
-                     0x12, 0x13 then MBC3.new rom
+                     0x12, 0x13       then MBC3.new rom
                 when 0x19, 0x1A, 0x1B,
                      0x1C, 0x1D, 0x1E then MBC5.new rom
                 else raise "Unimplemented cartridge type: #{hex_str cartridge_type}"
