@@ -68,10 +68,9 @@ There is still a lot missing from CryBoy. Some of these missing pieces include
   - MBCs
     - MBC 2.
     - MBC 5 rumble.
+    - RTC
     - Fixing an issue when roms misreport their size.
   - Failing the mooneye-gb rapid_toggle timer test by 4 T-cycles. Needs to be debugged.
-  - Slight graphical glitch in Pokemon Crystal when opening menus, but entirely playable in both the scanline renderer and the FIFO renderer.
-  - Major graphical glitches in Tomb Raider sprites in both the scanline renderer and the FIFO renderer.
 
 ## Contributing
 

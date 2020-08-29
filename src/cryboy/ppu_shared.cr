@@ -348,7 +348,7 @@ abstract class BasePPU
     when 0xFF55 then start_hdma value if @cgb_ptr.value
     when 0xFF68
       if @cgb_ptr.value
-        @palette_index = value & 0x1F
+        @palette_index = value & 0x3F
         @auto_increment = value & 0x80 > 0
       end
     when 0xFF69
@@ -369,7 +369,7 @@ abstract class BasePPU
       end
     when 0xFF6A
       if @cgb_ptr.value
-        @obj_palette_index = value & 0x1F
+        @obj_palette_index = value & 0x3F
         @obj_auto_increment = value & 0x80 > 0
       end
     when 0xFF6B
