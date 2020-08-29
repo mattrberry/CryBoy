@@ -84,13 +84,17 @@ class CPU
   end
 
   def skip_boot : Nil
-    # https://gbdev.io/pandocs/#power-up-sequence
     @pc = 0x0100_u16
     @sp = 0xFFFE_u16
     self.af = 0x1180_u16
     self.bc = 0x0000_u16
-    self.de = 0x0008_u16
-    self.hl = 0x007C_u16
+    if @gb.cgb_ptr.value
+      self.de = 0xFF56_u16
+      self.hl = 0x000D_u16
+    else
+      self.de = 0x0008_u16
+      self.hl = 0x007C_u16
+    end
   end
 
   # service all interrupts
