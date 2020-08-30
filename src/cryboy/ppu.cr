@@ -1,6 +1,4 @@
 class PPU < BasePPU
-  @counter : UInt32 = 0_u32 # number of cycles into the current mode
-
   # get first 10 sprites on scanline, ordered
   # the order dictates how sprites should render, with the first ones on the bottom
   def get_sprites : Array(Sprite)
@@ -129,22 +127,22 @@ class PPU < BasePPU
 
   # tick ppu forward by specified number of cycles
   def tick(cycles : Int) : Nil
-    @counter += cycles
+    @cycle_counter += cycles
     if lcd_enabled?
-      if self.mode_flag == 2 # oam search
-        if @counter >= 80    # end of oam search reached
-          @counter -= 80     # reset counter, saving extra cycles
-          self.mode_flag = 3 # switch to drawing
+      if self.mode_flag == 2    # oam search
+        if @cycle_counter >= 80 # end of oam search reached
+          @cycle_counter -= 80  # reset cycle_counter, saving extra cycles
+          self.mode_flag = 3    # switch to drawing
         end
-      elsif self.mode_flag == 3 # drawing
-        if @counter >= 172      # end of drawing reached
-          @counter -= 172       # reset counter, saving extra cycles
-          self.mode_flag = 0    # switch to hblank
-          scanline              # store scanline data
+      elsif self.mode_flag == 3  # drawing
+        if @cycle_counter >= 172 # end of drawing reached
+          @cycle_counter -= 172  # reset cycle_counter, saving extra cycles
+          self.mode_flag = 0     # switch to hblank
+          scanline               # store scanline data
         end
-      elsif self.mode_flag == 0 # hblank
-        if @counter >= 204      # end of hblank reached
-          @counter -= 204       # reset counter, saving extra cycles
+      elsif self.mode_flag == 0  # hblank
+        if @cycle_counter >= 204 # end of hblank reached
+          @cycle_counter -= 204  # reset cycle_counter, saving extra cycles
           @ly += 1
           if @ly == Display::HEIGHT # final row of screen complete
             self.mode_flag = 1      # switch to vblank
@@ -154,21 +152,21 @@ class PPU < BasePPU
             self.mode_flag = 2 # switch to oam search
           end
         end
-      elsif self.mode_flag == 1 # vblank
-        if @counter >= 456      # end of line reached
-          @counter -= 456       # reset counter, saving extra cycles
+      elsif self.mode_flag == 1  # vblank
+        if @cycle_counter >= 456 # end of line reached
+          @cycle_counter -= 456  # reset cycle_counter, saving extra cycles
           @ly += 1 if @ly != 0
           handle_stat_interrupt
           if @ly == 0          # end of vblank reached (ly has already shortcut to 0)
             self.mode_flag = 2 # switch to oam search
           end
         end
-        @ly = 0 if @ly == 153 && @counter > 4 # shortcut ly to from 153 to 0 after 4 cycles
+        @ly = 0 if @ly == 153 && @cycle_counter > 4 # shortcut ly to from 153 to 0 after 4 cycles
       else
         raise "Invalid mode #{self.mode_flag}"
       end
     else                 # lcd is disabled
-      @counter = 0       # reset cycle counter
+      @cycle_counter = 0 # reset cycle cycle_counter
       self.mode_flag = 0 # reset to mode 0
       @ly = 0            # reset ly
     end

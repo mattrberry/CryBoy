@@ -12,8 +12,6 @@ class PPU < BasePPU
   @fifo = Deque(Pixel).new 8
   @fifo_sprite = Deque(Pixel).new 8
 
-  @cycle_counter : UInt16 = 0x0000 # count number of cycles into current line
-
   @fetch_counter = 0
   @fetch_counter_sprite = 0
   @fetcher_x = 0

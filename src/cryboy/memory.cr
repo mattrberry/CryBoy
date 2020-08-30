@@ -6,7 +6,7 @@ class Memory
   WORK_RAM_0    = 0xC000..0xCFFF
   WORK_RAM_N    = 0xD000..0xDFFF
   ECHO          = 0xE000..0xFDFF
-  SPRITE_TABLE  = 0xFE00..0xFE9F
+  OAM           = 0xFE00..0xFE9F
   NOT_USABLE    = 0xFEA0..0xFEFF
   IO_PORTS      = 0xFF00..0xFF7F
   HRAM          = 0xFF80..0xFFFE
@@ -148,7 +148,7 @@ class Memory
     when WORK_RAM_0   then @wram[0][index - WORK_RAM_0.begin]
     when WORK_RAM_N   then @wram[@wram_bank][index - WORK_RAM_N.begin]
     when ECHO         then read_byte index - 0x2000
-    when SPRITE_TABLE then @ppu[index]
+    when OAM          then @ppu[index]
     when NOT_USABLE   then 0_u8
     when IO_PORTS
       case index
@@ -187,7 +187,7 @@ class Memory
     # todo: not all of these registers are used. unused registers _should_ return 0xFF
     # - sound doesn't take all of 0xFF10..0xFF3F
     tick_components
-    return 0xFF_u8 if (0 < @dma_position <= 0xA0) && SPRITE_TABLE.includes?(index)
+    return 0xFF_u8 if (0 < @dma_position <= 0xA0) && OAM.includes?(index)
     read_byte index
   end
 
@@ -205,7 +205,7 @@ class Memory
     when WORK_RAM_0   then @wram[0][index - WORK_RAM_0.begin] = value
     when WORK_RAM_N   then @wram[@wram_bank][index - WORK_RAM_N.begin] = value
     when ECHO         then write_byte index - 0x2000, value
-    when SPRITE_TABLE then @ppu[index] = value
+    when OAM          then @ppu[index] = value
     when NOT_USABLE   then nil
     when IO_PORTS
       case index
@@ -247,7 +247,7 @@ class Memory
   # write 8 bits to memory and tick other components
   def []=(index : Int, value : UInt8) : Nil
     tick_components
-    return if (0 < @dma_position <= 0xA0) && SPRITE_TABLE.includes?(index)
+    return if (0 < @dma_position <= 0xA0) && OAM.includes?(index)
     write_byte index, value
   end
 

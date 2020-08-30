@@ -155,7 +155,7 @@ abstract class BasePPU
 
   @vram = Array(Bytes).new 2 { Bytes.new Memory::VRAM.size } # 0x8000..0x9FFF
   @vram_bank : UInt8 = 0                                     # track which bank is active
-  @sprite_table = Bytes.new Memory::SPRITE_TABLE.size        # 0xFE00..0xFE9F
+  @sprite_table = Bytes.new Memory::OAM.size                 # 0xFE00..0xFE9F
   @lcd_control : UInt8 = 0x00_u8                             # 0xFF40
   @lcd_status : UInt8 = 0x80_u8                              # 0xFF41
   @scy : UInt8 = 0x00_u8                                     # 0xFF42
@@ -182,6 +182,11 @@ abstract class BasePPU
   @hdma_dst : UInt16 = 0x8000
   @hdma_pos : UInt16 = 0x0000
   @hdma_active : Bool = false
+
+  @first_line = true
+
+  # count number of cycles into current line on fifo, or the number of cycles into the current mode on scanline
+  @cycle_counter : Int32 = 0
 
   def initialize(@gb : Motherboard)
     @cgb_ptr = gb.cgb_ptr
@@ -261,27 +266,32 @@ abstract class BasePPU
   # read from ppu memory
   def [](index : Int) : UInt8
     case index
-    when Memory::VRAM         then @vram[@vram_bank][index - Memory::VRAM.begin]
-    when Memory::SPRITE_TABLE then @sprite_table[index - Memory::SPRITE_TABLE.begin]
-    when 0xFF40               then @lcd_control
-    when 0xFF41               then @lcd_status
-    when 0xFF42               then @scy
-    when 0xFF43               then @scx
-    when 0xFF44               then @ly
-    when 0xFF45               then @lyc
-    when 0xFF46               then @dma
-    when 0xFF47               then palette_from_array @bgp
-    when 0xFF48               then palette_from_array @obp0
-    when 0xFF49               then palette_from_array @obp1
-    when 0xFF4A               then @wy
-    when 0xFF4B               then @wx
-    when 0xFF4F               then @cgb_ptr.value ? 0xFE_u8 | @vram_bank : 0xFF_u8
-    when 0xFF51               then @cgb_ptr.value ? @hdma1 : 0xFF_u8
-    when 0xFF52               then @cgb_ptr.value ? @hdma2 : 0xFF_u8
-    when 0xFF53               then @cgb_ptr.value ? @hdma3 : 0xFF_u8
-    when 0xFF54               then @cgb_ptr.value ? @hdma4 : 0xFF_u8
-    when 0xFF55               then @cgb_ptr.value ? @hdma5 : 0xFF_u8
-    when 0xFF68               then @cgb_ptr.value ? 0x40_u8 | (@auto_increment ? 0x80 : 0) | @palette_index : 0xFF_u8
+    when Memory::VRAM then @vram[@vram_bank][index - Memory::VRAM.begin]
+    when Memory::OAM  then @sprite_table[index - Memory::OAM.begin]
+    when 0xFF40       then @lcd_control
+    when 0xFF41
+      if @first_line && mode_flag == 2
+        @lcd_status & 0b11111100
+      else
+        @lcd_status
+      end
+    when 0xFF42 then @scy
+    when 0xFF43 then @scx
+    when 0xFF44 then @ly
+    when 0xFF45 then @lyc
+    when 0xFF46 then @dma
+    when 0xFF47 then palette_from_array @bgp
+    when 0xFF48 then palette_from_array @obp0
+    when 0xFF49 then palette_from_array @obp1
+    when 0xFF4A then @wy
+    when 0xFF4B then @wx
+    when 0xFF4F then @cgb_ptr.value ? 0xFE_u8 | @vram_bank : 0xFF_u8
+    when 0xFF51 then @cgb_ptr.value ? @hdma1 : 0xFF_u8
+    when 0xFF52 then @cgb_ptr.value ? @hdma2 : 0xFF_u8
+    when 0xFF53 then @cgb_ptr.value ? @hdma3 : 0xFF_u8
+    when 0xFF54 then @cgb_ptr.value ? @hdma4 : 0xFF_u8
+    when 0xFF55 then @cgb_ptr.value ? @hdma5 : 0xFF_u8
+    when 0xFF68 then @cgb_ptr.value ? 0x40_u8 | (@auto_increment ? 0x80 : 0) | @palette_index : 0xFF_u8
     when 0xFF69
       if @cgb_ptr.value
         palette_number = @palette_index >> 3
@@ -316,12 +326,13 @@ abstract class BasePPU
   # write to ppu memory
   def []=(index : Int, value : UInt8) : Nil
     case index
-    when Memory::VRAM         then @vram[@vram_bank][index - Memory::VRAM.begin] = value
-    when Memory::SPRITE_TABLE then @sprite_table[index - Memory::SPRITE_TABLE.begin] = value
+    when Memory::VRAM then @vram[@vram_bank][index - Memory::VRAM.begin] = value
+    when Memory::OAM  then @sprite_table[index - Memory::OAM.begin] = value
     when 0xFF40
       if value & 0x80 > 0 && !lcd_enabled?
         @ly = 0
         self.mode_flag = 2
+        @first_line = true
       end
       @lcd_control = value
       handle_stat_interrupt
@@ -458,6 +469,7 @@ abstract class BasePPU
 
   def mode_flag=(mode : UInt8)
     step_hdma if mode == 0 && @hdma_active
+    @first_line = false if @first_line && mode_flag == 0 && mode == 2
     @lcd_status = (@lcd_status & 0b11111100) | mode
     handle_stat_interrupt
   end
