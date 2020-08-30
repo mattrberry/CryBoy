@@ -99,7 +99,7 @@ class CPU
 
   # service all interrupts
   def handle_interrupts
-    if @gb.interrupts[0xFF0F] & @gb.interrupts[0xFFFF] & 0x1F > 0
+    if @gb.interrupts.interrupt_ready?
       @halted = false
       if @ime
         @ime = false
@@ -116,7 +116,7 @@ class CPU
   end
 
   def memory_at_hl : UInt8
-    @cached_hl_read = @memory[self.hl] if @cached_hl_read.nil?
+    @cached_hl_read ||= @memory[self.hl]
     @cached_hl_read.not_nil!
   end
 
@@ -131,7 +131,7 @@ class CPU
 
   # Handle regular and obscure halting behavior
   def halt : Nil
-    if !@ime && (@gb.interrupts[0xFF0F] & @gb.interrupts[0xFFFF] & 0x1F > 0)
+    if !@ime && @gb.interrupts.interrupt_ready?
       @halt_bug = true
       @halted = false
     else

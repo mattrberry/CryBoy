@@ -49,6 +49,10 @@ class Interrupts
     end
   end
 
+  def interrupt_ready? : Bool
+    self[0xFF0F] & self[0xFFFF] & 0x1F > 0
+  end
+
   # read from interrupts memory
   def [](index : Int) : UInt8
     case index
