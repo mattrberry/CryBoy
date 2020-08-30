@@ -48,6 +48,7 @@ class Motherboard
     cpu.skip_boot
     memory.skip_boot
     ppu.skip_boot
+    timer.skip_boot
   end
 
   def handle_events : Nil

@@ -12,6 +12,10 @@ class Timer
   def initialize(@gb : Motherboard)
   end
 
+  def skip_boot : Nil
+    @div = 0x2674_u16
+  end
+
   # tick timer forward by specified number of cycles
   def tick(cycles : Int) : Nil
     cycles.times do

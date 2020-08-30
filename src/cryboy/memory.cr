@@ -107,9 +107,6 @@ class Memory
   end
 
   def skip_boot : Nil
-    write_byte 0xFF05, 0x00_u8 # TIMA
-    write_byte 0xFF06, 0x00_u8 # TMA
-    write_byte 0xFF07, 0x00_u8 # TAC
     write_byte 0xFF10, 0x80_u8 # NR10
     write_byte 0xFF11, 0xBF_u8 # NR11
     write_byte 0xFF12, 0xF3_u8 # NR12

@@ -142,7 +142,7 @@
 | 👌 | misc/bits/unused_hwio-C |
 | 👀 | misc/boot_div-A |
 | 👀 | misc/boot_div-cgb0 |
-| 👀 | misc/boot_div-cgbABCDE |
+| 👌 | misc/boot_div-cgbABCDE |
 | 👀 | misc/boot_hwio-C |
 | 👀 | misc/boot_regs-A |
 | 👌 | misc/boot_regs-cgb |
