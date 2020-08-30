@@ -27,7 +27,7 @@ class MBC5 < Cartridge
     when 0x2000..0x2FFF # select lower 8 bits
       @rom_bank_number = (@rom_bank_number & 0x0100) | value
     when 0x3000..0x3FFF # select upper 1 bit
-      @rom_bank_number = (@rom_bank_number & 0x00FF) | ((value & 0b1) << 8)
+      @rom_bank_number = (@rom_bank_number & 0x00FF) | (value.to_u16 & 1) << 8
     when 0x4000..0x5FFF
       @ram_bank_number = value & 0b00001111
     when 0x6000..0x7FFF
