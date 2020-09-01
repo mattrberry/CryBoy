@@ -67,11 +67,11 @@ class Memory
   end
 
   # keep other components in sync with memory, usually before memory access
-  def tick_components(cycles = 4) : Nil
-    @cycle_tick_count += cycles
+  def tick_components(cycles = 4, from_cpu = true, ignore_speed = false) : Nil
+    @cycle_tick_count += cycles if from_cpu
     @scheduler.tick cycles
-    @ppu.tick cycles >> @current_speed
-    @apu.tick cycles >> @current_speed
+    @ppu.tick ignore_speed ? cycles : cycles >> @current_speed
+    @apu.tick ignore_speed ? cycles : cycles >> @current_speed
     @timer.tick cycles
     dma_tick cycles
   end

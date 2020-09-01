@@ -235,7 +235,8 @@ abstract class BasePPU
   def copy_hdma_block(block_number : Int) : Nil
     0x10.times do |byte|
       offset = 0x10 * block_number + byte
-      @gb.memory.write_byte @hdma_dst + offset, @gb.memory.read_byte @hdma_src + offset
+      @gb.memory.write_byte @hdma_dst &+ offset, @gb.memory.read_byte @hdma_src &+ offset
+      @gb.memory.tick_components 2, from_cpu: false, ignore_speed: true
     end
     @hdma5 &-= 1
   end
