@@ -32,7 +32,7 @@ class PPU < BasePPU
     tile_row_window = @current_window_line & 7
     tile_row = (@ly.to_u16 + @scy) & 7
     Display::WIDTH.times do |x|
-      if window_enabled? && @ly >= @wy && x + 7 >= @wx
+      if window_enabled? && @ly >= @wy && x + 7 >= @wx && @window_trigger
         should_increment_window_line = true
         tile_num_addr = window_map + ((x + 7 - @wx) >> 3) + ((@current_window_line >> 3) * 32)
         tile_num = @vram[0][tile_num_addr]
@@ -133,6 +133,7 @@ class PPU < BasePPU
         if @cycle_counter >= 80 # end of oam search reached
           @cycle_counter -= 80  # reset cycle_counter, saving extra cycles
           self.mode_flag = 3    # switch to drawing
+          @window_trigger = true if @ly == @wy
         end
       elsif self.mode_flag == 3  # drawing
         if @cycle_counter >= 172 # end of drawing reached

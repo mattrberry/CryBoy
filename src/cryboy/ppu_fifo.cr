@@ -208,7 +208,7 @@ class PPU < BasePPU
       if @lx == Display::WIDTH
         self.mode_flag = 0
       end
-      if window_enabled? && @ly >= @wy && @lx + 7 >= @wx && !@fetching_window
+      if window_enabled? && @ly >= @wy && @lx + 7 >= @wx && !@fetching_window && @window_trigger
         reset_bg_fifo fetching_window: true
       end
       if sprite_enabled? && @sprites.size > 0 && @lx + 8 >= @sprites[0].x
@@ -226,7 +226,8 @@ class PPU < BasePPU
         when 2 # OAM search
           if @cycle_counter == 79
             self.mode_flag = 3
-            reset_bg_fifo fetching_window: window_enabled? && @ly >= @wy && @wx <= 7
+            @window_trigger = true if @ly == @wy
+            reset_bg_fifo fetching_window: window_enabled? && @ly >= @wy && @wx <= 7 && @window_trigger
             reset_sprite_fifo
             @lx = 0
             @smooth_scroll_sampled = false

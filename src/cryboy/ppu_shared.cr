@@ -169,6 +169,8 @@ abstract class BasePPU
   @wy : UInt8 = 0x00_u8                                      # 0xFF4A
   @wx : UInt8 = 0x00_u8                                      # 0xFF4B
 
+  # At some point, wy _must_ equal ly to enable the window
+  @window_trigger = false
   @current_window_line = 0
 
   @old_stat_flag = false
@@ -471,6 +473,7 @@ abstract class BasePPU
   def mode_flag=(mode : UInt8)
     step_hdma if mode == 0 && @hdma_active
     @first_line = false if @first_line && mode_flag == 0 && mode == 2
+    @window_trigger = false if mode == 1
     @lcd_status = (@lcd_status & 0b11111100) | mode
     handle_stat_interrupt
   end
