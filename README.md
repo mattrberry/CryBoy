@@ -54,6 +54,7 @@ CryBoy is still a work in progress. As of right now, all of the following featur
 - PPU offers both scanline and FIFO rendering modes (behind a compile-time flag).
 - Save files work as intended, and are compatible with other emulators like BGB.
 - MBC1 cartridges are supported (except for multicarts).
+- MBC2 cartridges are fully supported.
 - MBC3 cartridges are supported (except timers).
 - MBC5 cartridges are supported.
 - Controller support.
@@ -66,7 +67,6 @@ There is still a lot missing from CryBoy. Some of these missing pieces include
     - I've made lots of progress into the FIFO renderer. There are still a couple of issues that I have yet to resolve, though. The main one that seems to be specific to the pixel FIFO renderer is that I don't render sprites on column 0 of the LCD, although I still do render the rest of the sprite in its correct position even if the sprite's x position is less than 8.
 - Misc
   - MBCs
-    - MBC 2.
     - MBC 5 rumble.
     - RTC
     - Fixing an issue when roms misreport their size.
