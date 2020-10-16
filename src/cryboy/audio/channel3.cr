@@ -89,11 +89,11 @@ class Channel3 < SoundChannel
       @length_enable = length_enable
       trigger = value & 0x80 > 0
       if trigger
-        puts "triggered"
-        puts "  NR30:      dac_enabled:#{@dac_enabled}"
-        puts "  NR31:      length_load:#{@length_load}"
-        puts "  NR32:      volume_code:#{@volume_code}"
-        puts "  NR33/NR34: frequency:#{@frequency}, length_enable:#{@length_enable}"
+        log "triggered"
+        log "  NR30:      dac_enabled:#{@dac_enabled}"
+        log "  NR31:      length_load:#{@length_load}"
+        log "  NR32:      volume_code:#{@volume_code}"
+        log "  NR33/NR34: frequency:#{@frequency}, length_enable:#{@length_enable}"
         @enabled = true if @dac_enabled
         # Init length
         if @length_counter == 0

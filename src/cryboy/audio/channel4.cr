@@ -71,11 +71,11 @@ class Channel4 < VolumeEnvelopeChannel
       @length_enable = length_enable
       trigger = value & 0x80 > 0
       if trigger
-        puts "triggered"
-        puts "  NR41: length_load:#{@length_load}"
-        puts "  NR42: starting_volume:#{@starting_volume}, envelope_add_mode:#{@envelope_add_mode}, period:#{@period}"
-        puts "  NR43: clock_shift:#{@clock_shift}, width_mode:#{@width_mode}, divisor_code:#{@divisor_code}"
-        puts "  NR44: length_enable:#{@length_enable}"
+        log "triggered"
+        log "  NR41: length_load:#{@length_load}"
+        log "  NR42: starting_volume:#{@starting_volume}, envelope_add_mode:#{@envelope_add_mode}, period:#{@period}"
+        log "  NR43: clock_shift:#{@clock_shift}, width_mode:#{@width_mode}, divisor_code:#{@divisor_code}"
+        log "  NR44: length_enable:#{@length_enable}"
         @enabled = true if @dac_enabled
         # Init length
         if @length_counter == 0

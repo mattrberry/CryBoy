@@ -112,11 +112,11 @@ class Channel1 < VolumeEnvelopeChannel
       @length_enable = length_enable
       trigger = value & 0x80 > 0
       if trigger
-        puts "triggered"
-        puts "  NR10:      sweep_period:#{@sweep_period}, negate:#{@negate}, shift:#{@shift}"
-        puts "  NR11:      duty:#{@duty}, length_load:#{@length_load}"
-        puts "  NR12:      starting_volume:#{@starting_volume}, envelope_add_mode:#{@envelope_add_mode}, period:#{@period}"
-        puts "  NR13/NR14: frequency:#{@frequency}, length_enable:#{@length_enable}"
+        log "triggered"
+        log "  NR10:      sweep_period:#{@sweep_period}, negate:#{@negate}, shift:#{@shift}"
+        log "  NR11:      duty:#{@duty}, length_load:#{@length_load}"
+        log "  NR12:      starting_volume:#{@starting_volume}, envelope_add_mode:#{@envelope_add_mode}, period:#{@period}"
+        log "  NR13/NR14: frequency:#{@frequency}, length_enable:#{@length_enable}"
         @enabled = true if @dac_enabled
         # Init length
         if @length_counter == 0

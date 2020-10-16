@@ -81,3 +81,23 @@ struct StaticArray(T, N)
     array
   end
 end
+
+macro trace(value, newline = true)
+  {% if flag? :trace %}
+    {% if newline %}
+      puts {{value}}
+    {% else %}
+      print {{value}}
+    {% end %}
+  {% end %}
+end
+
+macro log(value, newline = true)
+  {% if flag?(:log) %}
+    {% if newline %}
+      puts {{value}}
+    {% else %}
+      print {{value}}
+    {% end %}
+  {% end %}
+end
