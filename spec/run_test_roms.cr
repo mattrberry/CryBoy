@@ -29,20 +29,17 @@ OptionParser.parse do |parser|
   parser.on("--blargg PATH", "Path to directory with blargg tests") { |path| blargg = path }
   parser.on("--mealybug PATH", "Path to directory with mealybug tests") { |path| mealybug_dir = path }
   parser.on("--mooneye PATH", "Path to directory with mooneye tests") { |path| mooneye_dir = path }
-  parser.invalid_option do
-    STDERR.puts parser
-    exit 1
-  end
+  parser.invalid_option { abort parser }
 end
 
 unless acid_dir == ""
+  system "shards build -Dheadless -Dgraphics_test"
   [true, false].each do |fifo|
     test_results << {suite: "Acid#{" Fifo" if fifo}", results: [] of TestResult}
     puts "Acid #{"Fifo " if fifo}Tests"
-    system "shards build -Dheadless -Dgraphics_test #{"-Dfifo" if fifo}"
     Dir.glob("#{acid_dir}/*acid2.gb*").sort.each do |path|
       test_name = get_test_name acid_dir, path
-      Process.run "bin/cryboy", [path] do |process|
+      Process.run "bin/cryboy", [path] + (fifo ? ["--fifo"] : [] of String) do |process|
         kill process, after: 1
       end
       system %[touch out.png] # touch image in case something went wrong
@@ -58,11 +55,10 @@ end
 
 unless mealybug_dir == ""
   test_results << {suite: "Mealybug Fifo", results: [] of TestResult}
-  puts "Mealybug Fifo Tests"
-  system "shards build -Dheadless -Dgraphics_test -Dfifo"
+  puts "Mealybug Fifo Tests" # don't need to recompile because the acid tests take the same compile-time flags
   Dir.glob("#{mealybug_dir}/**/*.gb").sort.each do |path|
     test_name = get_test_name mealybug_dir, path
-    Process.run "bin/cryboy", [path] do |process|
+    Process.run "bin/cryboy", [path, "--fifo"] do |process|
       kill process, after: 1
     end
     system %[touch out.png] # touch image in case something went wrong

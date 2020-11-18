@@ -8,12 +8,9 @@ require "./joypad"
 require "./mbc/*"
 require "./memory"
 require "./opcodes"
-require "./ppu_shared"
-{% if flag?(:fifo) %}
-  require "./ppu_fifo"
-{% else %}
-  require "./ppu"
-{% end %}
+require "./ppu"
+require "./scanline_ppu"
+require "./fifo_ppu"
 require "./scheduler"
 require "./timer"
 require "./util"
@@ -25,17 +22,17 @@ class Motherboard
   getter cgb_ptr : Pointer(Bool) { pointerof(@cgb_enabled) }
   getter cartridge : Cartridge
 
-  getter apu : APU { APU.new self }
-  getter cpu : CPU { CPU.new self }
-  getter display : Display { Display.new self }
-  getter interrupts : Interrupts { Interrupts.new }
-  getter joypad : Joypad { Joypad.new }
-  getter memory : Memory { Memory.new self }
-  getter ppu : PPU { PPU.new self }
-  getter scheduler : Scheduler { Scheduler.new }
-  getter timer : Timer { Timer.new self }
+  getter! apu : APU
+  getter! cpu : CPU
+  getter! display : Display
+  getter! interrupts : Interrupts
+  getter! joypad : Joypad
+  getter! memory : Memory
+  getter! ppu : PPU
+  getter! scheduler : Scheduler
+  getter! timer : Timer
 
-  def initialize(@bootrom : String?, rom_path : String)
+  def initialize(@bootrom : String?, rom_path : String, @fifo : Bool)
     @cartridge = Cartridge.new rom_path
     @cgb_enabled = !(bootrom.nil? && @cartridge.cgb == Cartridge::CGB::NONE)
 
@@ -44,7 +41,20 @@ class Motherboard
     at_exit { SDL.quit }
   end
 
-  def skip_boot : Nil
+  def post_init : Nil
+    @scheduler = Scheduler.new
+    @interrupts = Interrupts.new
+    @apu = APU.new self
+    @display = Display.new self
+    @joypad = Joypad.new
+    @ppu = @fifo ? FifoPPU.new self : ScanlinePPU.new self
+    @timer = Timer.new self
+    @memory = Memory.new self
+    @cpu = CPU.new self
+    skip_boot if @bootrom.nil?
+  end
+
+  private def skip_boot : Nil
     cpu.skip_boot
     memory.skip_boot
     ppu.skip_boot
@@ -64,7 +74,6 @@ class Motherboard
   end
 
   def run : Nil
-    skip_boot if @bootrom.nil?
     loop do
       handle_events
       cpu.tick 70224

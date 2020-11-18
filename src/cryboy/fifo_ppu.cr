@@ -8,7 +8,7 @@ struct Pixel
   end
 end
 
-class PPU < BasePPU
+class FifoPPU < PPU
   @fifo = Deque(Pixel).new 8
   @fifo_sprite = Deque(Pixel).new 8
 

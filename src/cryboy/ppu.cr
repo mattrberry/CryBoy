@@ -1,175 +1,496 @@
-class PPU < BasePPU
-  # get first 10 sprites on scanline, ordered
-  # the order dictates how sprites should render, with the first ones on the bottom
-  def get_sprites : Array(Sprite)
-    sprites = [] of Sprite
-    (0x00..0x9F).step 4 do |sprite_address|
-      sprite = Sprite.new @sprite_table[sprite_address], @sprite_table[sprite_address + 1], @sprite_table[sprite_address + 2], @sprite_table[sprite_address + 3]
-      if sprite.on_line @ly, sprite_height
-        index = 0
-        if !@cgb_ptr.value
-          sprites.each do |sprite_elm|
-            break if sprite.x >= sprite_elm.x
-            index += 1
-          end
-        end
-        sprites.insert index, sprite
-      end
-      break if sprites.size >= 10
-    end
-    sprites
+# This file is simply designed to hold shared features of the scanline and FIFO
+# renderers while the FIFO renderer is in active development. The purpose of
+# this file is solely to reduce common changes to both renderers.
+
+struct Sprite
+  getter oam_idx : UInt8 = 0_u8
+
+  def initialize(@y : UInt8, @x : UInt8, @tile_num : UInt8, @attributes : UInt8)
   end
 
-  # color idx, BG-to-OAM priority bit
-  @scanline_color_vals = Array(Tuple(UInt8, Bool)).new Display::WIDTH, {0_u8, false}
-
-  def scanline
-    @current_window_line = 0 if @ly == 0
-    should_increment_window_line = false
-    window_map = window_tile_map == 0_u8 ? 0x1800 : 0x1C00       # 0x9800 : 0x9C00
-    background_map = bg_tile_map == 0_u8 ? 0x1800 : 0x1C00       # 0x9800 : 0x9C00
-    tile_data_table = bg_window_tile_data == 0 ? 0x1000 : 0x0000 # 0x9000 : 0x8000
-    tile_row_window = @current_window_line & 7
-    tile_row = (@ly.to_u16 + @scy) & 7
-    Display::WIDTH.times do |x|
-      if window_enabled? && @ly >= @wy && x + 7 >= @wx && @window_trigger
-        should_increment_window_line = true
-        tile_num_addr = window_map + ((x + 7 - @wx) >> 3) + ((@current_window_line >> 3) * 32)
-        tile_num = @vram[0][tile_num_addr]
-        tile_num = tile_num.to_i8! if bg_window_tile_data == 0
-        tile_ptr = tile_data_table + 16 * tile_num
-        bank_num = @cgb_ptr.value ? (@vram[1][tile_num_addr] & 0b00001000) >> 3 : 0
-        if @cgb_ptr.value && @vram[1][tile_num_addr] & 0b01000000 > 0
-          byte_1 = @vram[bank_num][tile_ptr + (7 - tile_row_window) * 2]
-          byte_2 = @vram[bank_num][tile_ptr + (7 - tile_row_window) * 2 + 1]
-        else
-          byte_1 = @vram[bank_num][tile_ptr + tile_row_window * 2]
-          byte_2 = @vram[bank_num][tile_ptr + tile_row_window * 2 + 1]
-        end
-        if @cgb_ptr.value && @vram[1][tile_num_addr] & 0b00100000 > 0
-          lsb = (byte_1 >> ((x + 7 - @wx) & 7)) & 0x1
-          msb = (byte_2 >> ((x + 7 - @wx) & 7)) & 0x1
-        else
-          lsb = (byte_1 >> (7 - ((x + 7 - @wx) & 7))) & 0x1
-          msb = (byte_2 >> (7 - ((x + 7 - @wx) & 7))) & 0x1
-        end
-        color = (msb << 1) | lsb
-        @scanline_color_vals[x] = {color, @vram[1][tile_num_addr] & 0x80 > 0}
-        if @cgb_ptr.value
-          @framebuffer[Display::WIDTH * @ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb @ran_bios
-        else
-          @framebuffer[Display::WIDTH * @ly + x] = @palettes[0][@bgp[color]].convert_from_cgb @ran_bios
-        end
-      elsif bg_display? || @cgb_ptr.value
-        tile_num_addr = background_map + (((x + @scx) >> 3) & 0x1F) + ((((@ly.to_u16 + @scy) >> 3) * 32) & 0x3FF)
-        tile_num = @vram[0][tile_num_addr]
-        tile_num = tile_num.to_i8! if bg_window_tile_data == 0
-        tile_ptr = tile_data_table + 16 * tile_num
-        bank_num = @cgb_ptr.value ? (@vram[1][tile_num_addr] & 0b00001000) >> 3 : 0
-        if @cgb_ptr.value && @vram[1][tile_num_addr] & 0b01000000 > 0
-          byte_1 = @vram[bank_num][tile_ptr + (7 - tile_row) * 2]
-          byte_2 = @vram[bank_num][tile_ptr + (7 - tile_row) * 2 + 1]
-        else
-          byte_1 = @vram[bank_num][tile_ptr + tile_row * 2]
-          byte_2 = @vram[bank_num][tile_ptr + tile_row * 2 + 1]
-        end
-        if @cgb_ptr.value && @vram[1][tile_num_addr] & 0b00100000 > 0
-          lsb = (byte_1 >> ((x + @scx) & 7)) & 0x1
-          msb = (byte_2 >> ((x + @scx) & 7)) & 0x1
-        else
-          lsb = (byte_1 >> (7 - ((x + @scx) & 7))) & 0x1
-          msb = (byte_2 >> (7 - ((x + @scx) & 7))) & 0x1
-        end
-        color = (msb << 1) | lsb
-        @scanline_color_vals[x] = {color, @vram[1][tile_num_addr] & 0x80 > 0}
-        if @cgb_ptr.value
-          @framebuffer[Display::WIDTH * @ly + x] = @palettes[@vram[1][tile_num_addr] & 0b111][color].convert_from_cgb @ran_bios
-        else
-          @framebuffer[Display::WIDTH * @ly + x] = @palettes[0][@bgp[color]].convert_from_cgb @ran_bios
-        end
-      end
-    end
-    @current_window_line += 1 if should_increment_window_line
-
-    if sprite_enabled?
-      get_sprites.each do |sprite|
-        bytes = sprite.bytes @ly, sprite_height
-        8.times do |col|
-          x = col + sprite.x - 8
-          next unless 0 <= x < Display::WIDTH # only render sprites on screen
-          if sprite.x_flip?
-            lsb = (@vram[@cgb_ptr.value ? sprite.bank_num : 0][bytes[0]] >> col) & 0x1
-            msb = (@vram[@cgb_ptr.value ? sprite.bank_num : 0][bytes[1]] >> col) & 0x1
-          else
-            lsb = (@vram[@cgb_ptr.value ? sprite.bank_num : 0][bytes[0]] >> (7 - col)) & 0x1
-            msb = (@vram[@cgb_ptr.value ? sprite.bank_num : 0][bytes[1]] >> (7 - col)) & 0x1
-          end
-          color = (msb << 1) | lsb
-          if color > 0 # color 0 is transparent
-            if @cgb_ptr.value
-              # if !bg_display, then objects are always on top in cgb mode
-              # objects are always on top of bg/window color 0
-              # objects are on top of bg/window colors 1-3 if bg_priority and object priority are both unset
-              if !bg_display? || @scanline_color_vals[x][0] == 0 || (!@scanline_color_vals[x][1] && sprite.priority == 0)
-                @framebuffer[Display::WIDTH * @ly + x] = @obj_palettes[sprite.cgb_palette_number][color].convert_from_cgb @ran_bios
-              end
-            else
-              if sprite.priority == 0 || @scanline_color_vals[x][0] == 0
-                palette = sprite.dmg_palette_number == 0 ? @obp0 : @obp1
-                @framebuffer[Display::WIDTH * @ly + x] = @obj_palettes[0][palette[color]].convert_from_cgb @ran_bios
-              end
-            end
-          end
-        end
-      end
-    end
+  def initialize(oam : Bytes, @oam_idx : UInt8)
+    initialize oam[oam_idx], oam[oam_idx + 1], oam[oam_idx + 2], oam[oam_idx + 3]
   end
 
-  # tick ppu forward by specified number of cycles
-  def tick(cycles : Int) : Nil
-    @cycle_counter += cycles
-    if lcd_enabled?
-      if self.mode_flag == 2    # oam search
-        if @cycle_counter >= 80 # end of oam search reached
-          @cycle_counter -= 80  # reset cycle_counter, saving extra cycles
-          self.mode_flag = 3    # switch to drawing
-          @window_trigger = true if @ly == @wy
-        end
-      elsif self.mode_flag == 3  # drawing
-        if @cycle_counter >= 172 # end of drawing reached
-          @cycle_counter -= 172  # reset cycle_counter, saving extra cycles
-          self.mode_flag = 0     # switch to hblank
-          scanline               # store scanline data
-        end
-      elsif self.mode_flag == 0  # hblank
-        if @cycle_counter >= 204 # end of hblank reached
-          @cycle_counter -= 204  # reset cycle_counter, saving extra cycles
-          @ly += 1
-          if @ly == Display::HEIGHT # final row of screen complete
-            self.mode_flag = 1      # switch to vblank
-            @gb.interrupts.vblank_interrupt = true
-            @gb.display.draw @framebuffer # render at vblank
-          else
-            self.mode_flag = 2 # switch to oam search
-          end
-        end
-      elsif self.mode_flag == 1  # vblank
-        if @cycle_counter >= 456 # end of line reached
-          @cycle_counter -= 456  # reset cycle_counter, saving extra cycles
-          @ly += 1 if @ly != 0
-          handle_stat_interrupt
-          if @ly == 0          # end of vblank reached (ly has already shortcut to 0)
-            self.mode_flag = 2 # switch to oam search
-          end
-        end
-        @ly = 0 if @ly == 153 && @cycle_counter > 4 # shortcut ly to from 153 to 0 after 4 cycles
+  def to_s(io : IO)
+    io << "Sprite(y:#{@y}, x:#{@x}, tile_num:#{@tile_num}, tile_ptr: #{hex_str tile_ptr}, visible:#{visible?}, priority:#{priority}, y_flip:#{y_flip?}, x_flip:#{x_flip?}, dmg_palette_number:#{dmg_palette_numpalette_number}"
+  end
+
+  def on_line(line : Int, sprite_height = 8) : Bool
+    y <= line + 16 < y + sprite_height
+  end
+
+  # behavior is undefined if sprite is not on given line
+  def bytes(line : Int, sprite_height = 8) : Tuple(UInt16, UInt16)
+    actual_y = -16 + y
+    if sprite_height == 8
+      tile_ptr = 16_u16 * @tile_num
+    else # 8x16 tile
+      if (actual_y + 8 <= line) ^ y_flip?
+        tile_ptr = 16_u16 * (@tile_num | 0x01)
       else
-        raise "Invalid mode #{self.mode_flag}"
+        tile_ptr = 16_u16 * (@tile_num & 0xFE)
       end
-    else                 # lcd is disabled
-      @cycle_counter = 0 # reset cycle cycle_counter
-      self.mode_flag = 0 # reset to mode 0
-      @ly = 0            # reset ly
     end
+    sprite_row = (line.to_i16 - actual_y) & 7
+    if y_flip?
+      {tile_ptr + (7 - sprite_row) * 2, tile_ptr + (7 - sprite_row) * 2 + 1}
+    else
+      {tile_ptr + sprite_row * 2, tile_ptr + sprite_row * 2 + 1}
+    end
+  end
+
+  def visible? : Bool
+    ((1...160).includes? y) && ((1...168).includes? x)
+  end
+
+  def y : UInt8
+    @y
+  end
+
+  def x : UInt8
+    @x
+  end
+
+  def priority : UInt8
+    (@attributes >> 7) & 0x1
+  end
+
+  def y_flip? : Bool
+    (@attributes >> 6) & 0x1 == 1
+  end
+
+  def x_flip? : Bool
+    (@attributes >> 5) & 0x1 == 1
+  end
+
+  def dmg_palette_number : UInt8
+    (@attributes >> 4) & 0x1
+  end
+
+  def bank_num : UInt8
+    (@attributes >> 3) & 0x1
+  end
+
+  def cgb_palette_number : UInt8
+    @attributes & 0b111
+  end
+end
+
+struct RGB
+  property red, green, blue
+
+  def initialize(@red : UInt8, @green : UInt8, @blue : UInt8)
+  end
+
+  def initialize(grey : UInt8)
+    @red = @green = @blue = grey
+  end
+
+  def convert_from_cgb(should_convert : Bool) : RGB
+    if should_convert
+      {% unless flag? :graphics_test %}
+        # correction algorithm from: https://byuu.net/video/color-emulation
+        RGB.new(
+          Math.min(240, (26_u32 * @red + 4_u32 * @green + 2_u32 * @blue) >> 2).to_u8,
+          Math.min(240, (24_u32 * @green + 8_u32 * @blue) >> 2).to_u8,
+          Math.min(240, (6_u32 * @red + 4_u32 * @green + 22_u32 * @blue) >> 2).to_u8
+        )
+      {% else %}
+        # documented in https://github.com/mattcurrie/mealybug-tearoom-tests
+        RGB.new(
+          @red << 3 | @red >> 2,
+          @green << 3 | @green >> 2,
+          @blue << 3 | @blue >> 2
+        )
+      {% end %}
+    else
+      self
+    end
+  end
+end
+
+POST_BOOT_VRAM = [
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0xF0, 0x00, 0xF0, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0xF3, 0x00, 0xF3, 0x00,
+  0x3C, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x3C, 0x00,
+  0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF3, 0x00, 0xF3, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCF, 0x00, 0xCF, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x0F, 0x00, 0x3F, 0x00, 0x3F, 0x00, 0x0F, 0x00, 0x0F, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x00, 0xC0, 0x00, 0x0F, 0x00, 0x0F, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x00, 0xF0, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF3, 0x00, 0xF3, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC0, 0x00, 0xC0, 0x00,
+  0x03, 0x00, 0x03, 0x00, 0x03, 0x00, 0x03, 0x00, 0x03, 0x00, 0x03, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+  0xC0, 0x00, 0xC0, 0x00, 0xC0, 0x00, 0xC0, 0x00, 0xC0, 0x00, 0xC0, 0x00, 0xC3, 0x00, 0xC3, 0x00,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFC, 0x00, 0xFC, 0x00,
+  0xF3, 0x00, 0xF3, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00,
+  0x3C, 0x00, 0x3C, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0x3C, 0x00, 0x3C, 0x00,
+  0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00,
+  0xF3, 0x00, 0xF3, 0x00, 0xC3, 0x00, 0xC3, 0x00, 0xC3, 0x00, 0xC3, 0x00, 0xC3, 0x00, 0xC3, 0x00,
+  0xCF, 0x00, 0xCF, 0x00, 0xCF, 0x00, 0xCF, 0x00, 0xCF, 0x00, 0xCF, 0x00, 0xCF, 0x00, 0xCF, 0x00,
+  0x3C, 0x00, 0x3C, 0x00, 0x3F, 0x00, 0x3F, 0x00, 0x3C, 0x00, 0x3C, 0x00, 0x0F, 0x00, 0x0F, 0x00,
+  0x3C, 0x00, 0x3C, 0x00, 0xFC, 0x00, 0xFC, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFC, 0x00, 0xFC, 0x00,
+  0xFC, 0x00, 0xFC, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00, 0xF0, 0x00,
+  0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF3, 0x00, 0xF0, 0x00, 0xF0, 0x00,
+  0xC3, 0x00, 0xC3, 0x00, 0xC3, 0x00, 0xC3, 0x00, 0xC3, 0x00, 0xC3, 0x00, 0xFF, 0x00, 0xFF, 0x00,
+  0xCF, 0x00, 0xCF, 0x00, 0xCF, 0x00, 0xCF, 0x00, 0xCF, 0x00, 0xCF, 0x00, 0xC3, 0x00, 0xC3, 0x00,
+  0x0F, 0x00, 0x0F, 0x00, 0x0F, 0x00, 0x0F, 0x00, 0x0F, 0x00, 0x0F, 0x00, 0xFC, 0x00, 0xFC, 0x00,
+  0x3C, 0x00, 0x42, 0x00, 0xB9, 0x00, 0xA5, 0x00, 0xB9, 0x00, 0xA5, 0x00, 0x42, 0x00, 0x3C, 0x00,
+]
+
+abstract class PPU
+  @ran_bios : Bool # determine if colors should be adjusted for cgb
+  @cgb_ptr : Pointer(Bool)
+
+  @framebuffer = Array(RGB).new Display::WIDTH * Display::HEIGHT, RGB.new(0, 0, 0)
+
+  @palettes = Array(Array(RGB)).new 8 { Array(RGB).new 4, RGB.new(0, 0, 0) }
+  @palette_index : UInt8 = 0
+  @auto_increment = false
+
+  @obj_palettes = Array(Array(RGB)).new 8 { Array(RGB).new 4, RGB.new(0, 0, 0) }
+  @obj_palette_index : UInt8 = 0
+  @obj_auto_increment = false
+
+  @vram = Array(Bytes).new 2 { Bytes.new Memory::VRAM.size } # 0x8000..0x9FFF
+  @vram_bank : UInt8 = 0                                     # track which bank is active
+  @sprite_table = Bytes.new Memory::OAM.size                 # 0xFE00..0xFE9F
+  @lcd_control : UInt8 = 0x00_u8                             # 0xFF40
+  @lcd_status : UInt8 = 0x80_u8                              # 0xFF41
+  @scy : UInt8 = 0x00_u8                                     # 0xFF42
+  @scx : UInt8 = 0x00_u8                                     # 0xFF43
+  @ly : UInt8 = 0x00_u8                                      # 0xFF44
+  @lyc : UInt8 = 0x00_u8                                     # 0xFF45
+  @dma : UInt8 = 0x00_u8                                     # 0xFF46
+  @bgp : Array(UInt8) = Array(UInt8).new 4, 0                # 0xFF47
+  @obp0 : Array(UInt8) = Array(UInt8).new 4, 0               # 0xFF48
+  @obp1 : Array(UInt8) = Array(UInt8).new 4, 0               # 0xFF49
+  @wy : UInt8 = 0x00_u8                                      # 0xFF4A
+  @wx : UInt8 = 0x00_u8                                      # 0xFF4B
+
+  # At some point, wy _must_ equal ly to enable the window
+  @window_trigger = false
+  @current_window_line = 0
+
+  @old_stat_flag = false
+
+  @hdma1 : UInt8 = 0xFF
+  @hdma2 : UInt8 = 0xFF
+  @hdma3 : UInt8 = 0xFF
+  @hdma4 : UInt8 = 0xFF
+  @hdma5 : UInt8 = 0xFF
+  @hdma_src : UInt16 = 0x0000
+  @hdma_dst : UInt16 = 0x8000
+  @hdma_pos : UInt16 = 0x0000
+  @hdma_active : Bool = false
+
+  @first_line = true
+
+  # count number of cycles into current line on fifo, or the number of cycles into the current mode on scanline
+  @cycle_counter : Int32 = 0
+
+  def initialize(@gb : Motherboard)
+    @cgb_ptr = gb.cgb_ptr
+    unless @cgb_ptr.value # fill default color palettes
+      {% if flag? :pink %}
+        @palettes[0] = @obj_palettes[0] = @obj_palettes[1] = [
+          RGB.new(0xFF, 0xF6, 0xD3), RGB.new(0xF9, 0xA8, 0x75),
+          RGB.new(0xEB, 0x6B, 0x6F), RGB.new(0x7C, 0x3F, 0x58),
+        ]
+      {% elsif flag? :graphics_test %}
+        @palettes[0] = @obj_palettes[0] = @obj_palettes[1] = [
+          RGB.new(0xFF, 0xFF, 0xFF), RGB.new(0xAA, 0xAA, 0xAA),
+          RGB.new(0x55, 0x55, 0x55), RGB.new(0x00, 0x00, 0x00),
+        ]
+      {% else %}
+        @palettes[0] = @obj_palettes[0] = @obj_palettes[1] = [
+          RGB.new(0xE0, 0xF8, 0xCF), RGB.new(0x86, 0xC0, 0x6C),
+          RGB.new(0x30, 0x68, 0x50), RGB.new(0x07, 0x17, 0x20),
+        ]
+      {% end %}
+    end
+    @ran_bios = @cgb_ptr.value
+  end
+
+  def skip_boot : Nil
+    POST_BOOT_VRAM.each_with_index do |byte, idx|
+      @vram[0][idx] = byte.to_u8
+    end
+  end
+
+  # handle stat interrupts
+  # stat interrupts are only requested on the rising edge
+  def handle_stat_interrupt : Nil
+    self.coincidence_flag = @ly == @lyc
+    stat_flag = (coincidence_flag && coincidence_interrupt_enabled) ||
+                (mode_flag == 2 && oam_interrupt_enabled) ||
+                (mode_flag == 0 && hblank_interrupt_enabled) ||
+                (mode_flag == 1 && vblank_interrupt_enabled)
+    if !@old_stat_flag && stat_flag
+      @gb.interrupts.lcd_stat_interrupt = true
+    end
+    @old_stat_flag = stat_flag
+  end
+
+  # Copy 16-byte block from hdma_src to hdma_dst, then decrement value in hdma5
+  def copy_hdma_block(block_number : Int) : Nil
+    0x10.times do |byte|
+      offset = 0x10 * block_number + byte
+      @gb.memory.write_byte @hdma_dst &+ offset, @gb.memory.read_byte @hdma_src &+ offset
+      @gb.memory.tick_components 2, from_cpu: false, ignore_speed: true
+    end
+    @hdma5 &-= 1
+  end
+
+  def start_hdma(value : UInt8) : Nil
+    @hdma_src = ((@hdma1.to_u16 << 8) | @hdma2) & 0xFFF0
+    @hdma_dst = 0x8000_u16 + (((@hdma3.to_u16 << 8) | @hdma4) & 0x1FF0)
+    @hdma5 = value & 0x7F
+    if value & 0x80 > 0 # hdma
+      @hdma_active = true
+      @hdma_pos = 0
+    else # gdma
+      unless @hdma_active
+        (@hdma5 + 1).times do |block_num|
+          copy_hdma_block block_num
+        end
+      end
+      @hdma_active = false
+    end
+  end
+
+  def step_hdma : Nil
+    copy_hdma_block @hdma_pos
+    @hdma_pos += 1
+    @hdma_active = false if @hdma5 == 0xFF
+  end
+
+  # read from ppu memory
+  def [](index : Int) : UInt8
+    case index
+    when Memory::VRAM then @vram[@vram_bank][index - Memory::VRAM.begin]
+    when Memory::OAM  then @sprite_table[index - Memory::OAM.begin]
+    when 0xFF40       then @lcd_control
+    when 0xFF41
+      if @first_line && mode_flag == 2
+        @lcd_status & 0b11111100
+      else
+        @lcd_status
+      end
+    when 0xFF42 then @scy
+    when 0xFF43 then @scx
+    when 0xFF44 then @ly
+    when 0xFF45 then @lyc
+    when 0xFF46 then @dma
+    when 0xFF47 then palette_from_array @bgp
+    when 0xFF48 then palette_from_array @obp0
+    when 0xFF49 then palette_from_array @obp1
+    when 0xFF4A then @wy
+    when 0xFF4B then @wx
+    when 0xFF4F then @cgb_ptr.value ? 0xFE_u8 | @vram_bank : 0xFF_u8
+    when 0xFF51 then @cgb_ptr.value ? @hdma1 : 0xFF_u8
+    when 0xFF52 then @cgb_ptr.value ? @hdma2 : 0xFF_u8
+    when 0xFF53 then @cgb_ptr.value ? @hdma3 : 0xFF_u8
+    when 0xFF54 then @cgb_ptr.value ? @hdma4 : 0xFF_u8
+    when 0xFF55 then @cgb_ptr.value ? @hdma5 : 0xFF_u8
+    when 0xFF68 then @cgb_ptr.value ? 0x40_u8 | (@auto_increment ? 0x80 : 0) | @palette_index : 0xFF_u8
+    when 0xFF69
+      if @cgb_ptr.value
+        palette_number = @palette_index >> 3
+        color_number = (@palette_index & 7) >> 1
+        color = @palettes[palette_number][color_number]
+        if @palette_index & 1 == 0
+          color.red | (color.green << 5)
+        else
+          (color.green >> 3) | (color.blue << 2)
+        end
+      else
+        0xFF_u8
+      end
+    when 0xFF6A then @cgb_ptr.value ? 0x40_u8 | (@obj_auto_increment ? 0x80 : 0) | @obj_palette_index : 0xFF_u8
+    when 0xFF6B
+      if @cgb_ptr.value
+        palette_number = @obj_palette_index >> 3
+        color_number = (@obj_palette_index & 7) >> 1
+        color = @obj_palettes[palette_number][color_number]
+        if @palette_index & 1 == 0
+          color.red | (color.green << 5)
+        else
+          (color.green >> 3) | (color.blue << 2)
+        end
+      else
+        0xFF_u8
+      end
+    else raise "Reading from invalid ppu register: #{hex_str index.to_u16!}"
+    end
+  end
+
+  # write to ppu memory
+  def []=(index : Int, value : UInt8) : Nil
+    case index
+    when Memory::VRAM then @vram[@vram_bank][index - Memory::VRAM.begin] = value
+    when Memory::OAM  then @sprite_table[index - Memory::OAM.begin] = value
+    when 0xFF40
+      if value & 0x80 > 0 && !lcd_enabled?
+        @ly = 0
+        self.mode_flag = 2
+        @first_line = true
+      end
+      @lcd_control = value
+      handle_stat_interrupt
+    when 0xFF41
+      @lcd_status = (@lcd_status & 0b10000111) | (value & 0b01111000)
+      handle_stat_interrupt
+    when 0xFF42 then @scy = value
+    when 0xFF43 then @scx = value
+    when 0xFF44 then nil # read only
+    when 0xFF45
+      @lyc = value
+      handle_stat_interrupt
+    when 0xFF46 then @dma = value
+    when 0xFF47 then @bgp = palette_to_array value
+    when 0xFF48 then @obp0 = palette_to_array value
+    when 0xFF49 then @obp1 = palette_to_array value
+    when 0xFF4A then @wy = value
+    when 0xFF4B then @wx = value
+    when 0xFF4F then @vram_bank = value & 1 if @cgb_ptr.value
+    when 0xFF51 then @hdma1 = value if @cgb_ptr.value
+    when 0xFF52 then @hdma2 = value if @cgb_ptr.value
+    when 0xFF53 then @hdma3 = value if @cgb_ptr.value
+    when 0xFF54 then @hdma4 = value if @cgb_ptr.value
+    when 0xFF55 then start_hdma value if @cgb_ptr.value
+    when 0xFF68
+      if @cgb_ptr.value
+        @palette_index = value & 0x3F
+        @auto_increment = value & 0x80 > 0
+      end
+    when 0xFF69
+      if @cgb_ptr.value
+        palette_number = @palette_index >> 3
+        color_number = (@palette_index & 7) >> 1
+        color = @palettes[palette_number][color_number]
+        if @palette_index & 1 == 0
+          color.red = value & 0b00011111
+          color.green = ((value & 0b11100000) >> 5) | (color.green & 0b11000)
+        else
+          color.green = ((value & 0b00000011) << 3) | (color.green & 0b00111)
+          color.blue = (value & 0b01111100) >> 2
+        end
+        @palettes[palette_number][color_number] = color
+        @palette_index += 1 if @auto_increment
+        @palette_index &= 0x3F
+      end
+    when 0xFF6A
+      if @cgb_ptr.value
+        @obj_palette_index = value & 0x3F
+        @obj_auto_increment = value & 0x80 > 0
+      end
+    when 0xFF6B
+      if @cgb_ptr.value
+        palette_number = @obj_palette_index >> 3
+        color_number = (@obj_palette_index & 7) >> 1
+        color = @obj_palettes[palette_number][color_number]
+        if @obj_palette_index & 1 == 0
+          color.red = value & 0b00011111
+          color.green = ((value & 0b11100000) >> 5) | (color.green & 0b11000)
+        else
+          color.green = ((value & 0b00000011) << 3) | (color.green & 0b00111)
+          color.blue = (value & 0b01111100) >> 2
+        end
+        @obj_palettes[palette_number][color_number] = color
+        @obj_palette_index += 1 if @obj_auto_increment
+        @obj_palette_index &= 0x3F
+      end
+    else raise "Writing to invalid ppu register: #{hex_str index.to_u16!}"
+    end
+  end
+
+  # LCD Control Register
+
+  def lcd_enabled? : Bool
+    @lcd_control & (0x1 << 7) != 0
+  end
+
+  def window_tile_map : UInt8
+    @lcd_control & (0x1 << 6)
+  end
+
+  def window_enabled? : Bool
+    @lcd_control & (0x1 << 5) != 0
+  end
+
+  def bg_window_tile_data : UInt8
+    @lcd_control & (0x1 << 4)
+  end
+
+  def bg_tile_map : UInt8
+    @lcd_control & (0x1 << 3)
+  end
+
+  def sprite_height
+    @lcd_control & (0x1 << 2) != 0 ? 16 : 8
+  end
+
+  def sprite_enabled? : Bool
+    @lcd_control & (0x1 << 1) != 0
+  end
+
+  def bg_display? : Bool
+    @lcd_control & 0x1 != 0
+  end
+
+  # LCD Status Register
+
+  def coincidence_interrupt_enabled : Bool
+    @lcd_status & (0x1 << 6) != 0
+  end
+
+  def oam_interrupt_enabled : Bool
+    @lcd_status & (0x1 << 5) != 0
+  end
+
+  def vblank_interrupt_enabled : Bool
+    @lcd_status & (0x1 << 4) != 0
+  end
+
+  def hblank_interrupt_enabled : Bool
+    @lcd_status & (0x1 << 3) != 0
+  end
+
+  def coincidence_flag : Bool
+    @lcd_status & (0x1 << 2) != 0
+  end
+
+  def coincidence_flag=(on : Bool) : Nil
+    @lcd_status = (@lcd_status & ~(0x1 << 2)) | (on ? (0x1 << 2) : 0)
+  end
+
+  def mode_flag : UInt8
+    @lcd_status & 0x3
+  end
+
+  def mode_flag=(mode : UInt8)
+    step_hdma if mode == 0 && @hdma_active
+    @first_line = false if @first_line && mode_flag == 0 && mode == 2
+    @window_trigger = false if mode == 1
+    @lcd_status = (@lcd_status & 0b11111100) | mode
+    handle_stat_interrupt
+  end
+
+  # palettes
+
+  def palette_to_array(palette : UInt8) : Array(UInt8)
+    [palette & 0x3, (palette >> 2) & 0x3, (palette >> 4) & 0x3, (palette >> 6) & 0x3]
+  end
+
+  def palette_from_array(palette_array : Array(UInt8)) : UInt8
+    palette_array.each_with_index.reduce(0x00_u8) do |palette, (color, idx)|
+      palette | color << (idx * 2)
+    end
+  end
+
+  def write_png : Nil
+    @gb.display.write_png @framebuffer
   end
 end
