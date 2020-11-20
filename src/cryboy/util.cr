@@ -93,7 +93,7 @@ macro trace(value, newline = true)
 end
 
 macro log(value, newline = true)
-  {% if flag?(:log) %}
+  {% if flag? :log %}
     {% if newline %}
       puts {{value}}
     {% else %}

@@ -32,14 +32,15 @@ OptionParser.parse do |parser|
   parser.invalid_option { abort parser }
 end
 
+system "shards build -Dgraphics_test > /dev/null"
+
 unless acid_dir == ""
-  system "shards build -Dheadless -Dgraphics_test"
   [true, false].each do |fifo|
     test_results << {suite: "Acid#{" Fifo" if fifo}", results: [] of TestResult}
     puts "Acid #{"Fifo " if fifo}Tests"
     Dir.glob("#{acid_dir}/*acid2.gb*").sort.each do |path|
       test_name = get_test_name acid_dir, path
-      Process.run "bin/cryboy", [path] + (fifo ? ["--fifo"] : [] of String) do |process|
+      Process.run "bin/cryboy", [path, "--headless"] + (fifo ? ["--fifo"] : [] of String) do |process|
         kill process, after: 1
       end
       system %[touch out.png] # touch image in case something went wrong
@@ -55,10 +56,10 @@ end
 
 unless mealybug_dir == ""
   test_results << {suite: "Mealybug Fifo", results: [] of TestResult}
-  puts "Mealybug Fifo Tests" # don't need to recompile because the acid tests take the same compile-time flags
+  puts "Mealybug Fifo Tests"
   Dir.glob("#{mealybug_dir}/**/*.gb").sort.each do |path|
     test_name = get_test_name mealybug_dir, path
-    Process.run "bin/cryboy", [path, "--fifo"] do |process|
+    Process.run "bin/cryboy", [path, "--headless", "--fifo"] do |process|
       kill process, after: 1
     end
     system %[touch out.png] # touch image in case something went wrong
@@ -71,16 +72,17 @@ unless mealybug_dir == ""
   print "\n"
 end
 
+system "shards build --release -Dprint_serial > /dev/null"
+
 unless mooneye_dir == ""
   test_results << {suite: "Mooneye", results: [] of TestResult}
   puts "Mooneye Tests"
-  system "shards build -Dheadless -Dprint_serial"
   fib_string = "358132134"
   Dir.glob("#{mooneye_dir}/**/*.gb").sort.each do |path|
     next if path.includes?("util") || path.includes?("manual-only") || path.includes?("dmg") || path.includes?("mgb") || path.includes?("sgb")
     test_name = get_test_name mooneye_dir, path
     passed = false
-    Process.run("bin/cryboy", [path]) do |process|
+    Process.run("bin/cryboy", [path, "--headless"]) do |process|
       kill process, after: 10 # seconds
       result = process.output.gets 9
       process.terminate if process.exists?

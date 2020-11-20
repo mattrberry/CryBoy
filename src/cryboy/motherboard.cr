@@ -32,7 +32,7 @@ class Motherboard
   getter! scheduler : Scheduler
   getter! timer : Timer
 
-  def initialize(@bootrom : String?, rom_path : String, @fifo : Bool)
+  def initialize(@bootrom : String?, rom_path : String, @fifo : Bool, @sync : Bool, @headless : Bool)
     @cartridge = Cartridge.new rom_path
     @cgb_enabled = !(bootrom.nil? && @cartridge.cgb == Cartridge::CGB::NONE)
 
@@ -44,8 +44,8 @@ class Motherboard
   def post_init : Nil
     @scheduler = Scheduler.new
     @interrupts = Interrupts.new
-    @apu = APU.new self
-    @display = Display.new self
+    @apu = APU.new self, @headless, @sync
+    @display = Display.new self, @headless
     @joypad = Joypad.new
     @ppu = @fifo ? FifoPPU.new self : ScanlinePPU.new self
     @timer = Timer.new self

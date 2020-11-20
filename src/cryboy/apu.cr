@@ -4,6 +4,7 @@ require "./audio/*"
 lib LibSDL
   fun queue_audio = SDL_QueueAudio(dev : AudioDeviceID, data : Void*, len : UInt32) : Int
   fun get_queued_audio_size = SDL_GetQueuedAudioSize(dev : AudioDeviceID) : UInt32
+  fun clear_queued_audio = SDL_ClearQueuedAudio(dev : AudioDeviceID)
   fun delay = SDL_Delay(ms : UInt32) : Nil
 end
 
@@ -36,24 +37,25 @@ class APU
   @audiospec : LibSDL::AudioSpec
   @obtained_spec : LibSDL::AudioSpec
 
-  def initialize(@gb : Motherboard)
+  def initialize(@gb : Motherboard, headless : Bool, @sync : Bool)
+    @sync = false if headless
+
     @audiospec = LibSDL::AudioSpec.new
-    @audiospec.not_nil!.freq = SAMPLE_RATE
-    @audiospec.not_nil!.format = LibSDL::AUDIO_F32SYS
-    @audiospec.not_nil!.channels = CHANNELS
-    @audiospec.not_nil!.samples = BUFFER_SIZE
-    @audiospec.not_nil!.callback = nil
-    @audiospec.not_nil!.userdata = nil
+    @audiospec.freq = SAMPLE_RATE
+    @audiospec.format = LibSDL::AUDIO_F32SYS
+    @audiospec.channels = CHANNELS
+    @audiospec.samples = BUFFER_SIZE
+    @audiospec.callback = nil
+    @audiospec.userdata = nil
 
     @obtained_spec = LibSDL::AudioSpec.new
 
     tick_frame_sequencer
     get_sample
 
-    {% unless flag? :headless %}
-      raise "Failed to open audio" if LibSDL.open_audio(pointerof(@audiospec), pointerof(@obtained_spec)) > 0
-      LibSDL.pause_audio 0
-    {% end %}
+    raise "Failed to open audio" if LibSDL.open_audio(pointerof(@audiospec), pointerof(@obtained_spec)) > 0
+
+    LibSDL.pause_audio 0 unless headless
   end
 
   def tick_frame_sequencer : Nil
@@ -112,12 +114,11 @@ class APU
 
     # push to SDL if buffer is full
     if @buffer_pos >= BUFFER_SIZE
-      {% unless flag? :headless %}
-        while LibSDL.get_queued_audio_size(1) > BUFFER_SIZE * sizeof(Float32) * 2
-          LibSDL.delay(1)
-        end
-        LibSDL.queue_audio 1, @buffer, BUFFER_SIZE * sizeof(Float32)
-      {% end %}
+      LibSDL.clear_queued_audio 1 unless @sync
+      while LibSDL.get_queued_audio_size(1) > BUFFER_SIZE * sizeof(Float32) * 2
+        LibSDL.delay(1)
+      end
+      LibSDL.queue_audio 1, @buffer, BUFFER_SIZE * sizeof(Float32)
       @buffer_pos = 0
     end
 

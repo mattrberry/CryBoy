@@ -9,10 +9,12 @@ module CryBoy
   extend self
 
   def run
-    fifo = false
-    pink = false
     rom = nil
     bootrom = nil
+    fifo = false
+    pink = false
+    sync = true
+    headless = false
     OptionParser.parse do |parser|
       parser.banner = "#{"CryBoy".colorize.bold} - An accurate and readable Game Boy emulator in Crystal"
       parser.separator
@@ -24,6 +26,8 @@ module CryBoy
       end
       parser.on("--fifo", "Enable FIFO rendering") { fifo = true }
       parser.on("--pink", "Set the 2-bit DMG color theme to pink") { pink = true }
+      parser.on("--no-sync", "Disable audio syncing") { sync = false }
+      parser.on("--headless", "Don't open window or play audio") { headless = true }
       parser.unknown_args do |args|
         case args.size
         when 1 then rom = args[0]
@@ -33,7 +37,7 @@ module CryBoy
       end
     end
 
-    motherboard = Motherboard.new bootrom, rom.not_nil!, fifo
+    motherboard = Motherboard.new bootrom, rom.not_nil!, fifo, sync, headless
     motherboard.post_init
     motherboard.run
   end

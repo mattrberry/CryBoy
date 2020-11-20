@@ -7,23 +7,22 @@ class Display
   PIXELFORMAT_RGB24       = (1 << 28) | (7 << 24) | (1 << 20) | (0 << 16) | (24 << 8) | (3 << 0)
   TEXTUREACCESS_STREAMING = 1
 
-  @window : SDL::Window?
-  @renderer : SDL::Renderer?
-  @texture : Pointer(LibSDL::Texture)?
+  @window : SDL::Window
+  @renderer : SDL::Renderer
+  @texture : Pointer(LibSDL::Texture)
 
   @title : String
 
   @fps = 30
   @seconds : Int32 = Time.utc.second
 
-  def initialize(gb : Motherboard)
+  def initialize(gb : Motherboard, headless : Bool)
     @title = gb.cartridge.title
-    {% unless flag? :headless %}
-      @window = SDL::Window.new(window_title, WIDTH * DISPLAY_SCALE, HEIGHT * DISPLAY_SCALE)
-      @renderer = SDL::Renderer.new @window.not_nil!
-      @renderer.not_nil!.logical_size = {WIDTH, HEIGHT}
-      @texture = LibSDL.create_texture @renderer.not_nil!, PIXELFORMAT_RGB24, TEXTUREACCESS_STREAMING, WIDTH, HEIGHT
-    {% end %}
+    flags = headless ? SDL::Window::Flags::HIDDEN : SDL::Window::Flags::SHOWN
+    @window = SDL::Window.new(window_title, WIDTH * DISPLAY_SCALE, HEIGHT * DISPLAY_SCALE, flags: flags)
+    @renderer = SDL::Renderer.new @window
+    @renderer.logical_size = {WIDTH, HEIGHT}
+    @texture = LibSDL.create_texture @renderer, PIXELFORMAT_RGB24, TEXTUREACCESS_STREAMING, WIDTH, HEIGHT
   end
 
   def window_title : String
@@ -31,18 +30,16 @@ class Display
   end
 
   def draw(framebuffer : Array(RGB)) : Nil
-    {% unless flag? :headless %}
-      LibSDL.update_texture @texture, nil, framebuffer, WIDTH * sizeof(RGB)
-      @renderer.not_nil!.clear
-      @renderer.not_nil!.copy @texture
-      @renderer.not_nil!.present
-      @fps += 1
-      if Time.utc.second != @seconds
-        @window.not_nil!.title = window_title
-        @fps = 0
-        @seconds = Time.utc.second
-      end
-    {% end %}
+    LibSDL.update_texture @texture, nil, framebuffer, WIDTH * sizeof(RGB)
+    @renderer.clear
+    @renderer.copy @texture
+    @renderer.present
+    @fps += 1
+    if Time.utc.second != @seconds
+      @window.title = window_title
+      @fps = 0
+      @seconds = Time.utc.second
+    end
   end
 
   def write_png(framebuffer : Array(RGB)) : Nil
