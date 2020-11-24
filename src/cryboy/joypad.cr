@@ -13,6 +13,9 @@ class Joypad
   property b = false
   property a = false
 
+  def initialize(@gb : Motherboard)
+  end
+
   def read : UInt8
     array_to_uint8 [
       1,
@@ -43,6 +46,7 @@ class Joypad
       when .l?          then @select = event.pressed?
       when .b?, .j?     then @b = event.pressed?
       when .a?, .k?     then @a = event.pressed?
+      when .tab?        then @gb.apu.sync = !event.pressed?
       else                   nil
       end
     when SDL::Event::JoyHat

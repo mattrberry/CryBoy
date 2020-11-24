@@ -46,7 +46,7 @@ class Motherboard
     @interrupts = Interrupts.new
     @apu = APU.new self, @headless, @sync
     @display = Display.new self, @headless
-    @joypad = Joypad.new
+    @joypad = Joypad.new self
     @ppu = @fifo ? FifoPPU.new self : ScanlinePPU.new self
     @timer = Timer.new self
     @memory = Memory.new self

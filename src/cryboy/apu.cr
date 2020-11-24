@@ -37,6 +37,8 @@ class APU
   @audiospec : LibSDL::AudioSpec
   @obtained_spec : LibSDL::AudioSpec
 
+  setter sync : Bool
+
   def initialize(@gb : Motherboard, headless : Bool, @sync : Bool)
     @sync = false if headless
 
