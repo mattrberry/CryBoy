@@ -87,26 +87,31 @@ struct RGB
     @red = @green = @blue = grey
   end
 
-  def convert_from_cgb(should_convert : Bool) : RGB
-    if should_convert
-      {% unless flag? :graphics_test %}
-        # correction algorithm from: https://byuu.net/video/color-emulation
-        RGB.new(
-          Math.min(240, (26_u32 * @red + 4_u32 * @green + 2_u32 * @blue) >> 2).to_u8,
-          Math.min(240, (24_u32 * @green + 8_u32 * @blue) >> 2).to_u8,
-          Math.min(240, (6_u32 * @red + 4_u32 * @green + 22_u32 * @blue) >> 2).to_u8
-        )
-      {% else %}
-        # documented in https://github.com/mattcurrie/mealybug-tearoom-tests
-        RGB.new(
-          @red << 3 | @red >> 2,
-          @green << 3 | @green >> 2,
-          @blue << 3 | @blue >> 2
-        )
-      {% end %}
-    else
-      self
-    end
+  def self.from_bgr16(bgr : UInt16, should_convert : Bool) : RGB
+    color = RGB.new(
+      0x1F_u8 & bgr,
+      0x1F_u8 & (bgr >> 5),
+      0x1F_u8 & (bgr >> 10)
+    )
+    should_convert ? color.convert_from_cgb : color
+  end
+
+  def convert_from_cgb : RGB
+    {% unless flag? :graphics_test %}
+      # correction algorithm from: https://byuu.net/video/color-emulation
+      RGB.new(
+        Math.min(240, (26_u32 * @red + 4_u32 * @green + 2_u32 * @blue) >> 2).to_u8,
+        Math.min(240, (24_u32 * @green + 8_u32 * @blue) >> 2).to_u8,
+        Math.min(240, (6_u32 * @red + 4_u32 * @green + 22_u32 * @blue) >> 2).to_u8
+      )
+    {% else %}
+      # documented in https://github.com/mattcurrie/mealybug-tearoom-tests
+      RGB.new(
+        @red << 3 | @red >> 2,
+        @green << 3 | @green >> 2,
+        @blue << 3 | @blue >> 2
+      )
+    {% end %}
   end
 end
 
@@ -145,10 +150,12 @@ abstract class PPU
 
   @framebuffer = Array(RGB).new Display::WIDTH * Display::HEIGHT, RGB.new(0, 0, 0)
 
+  @pram = Bytes.new 64
   @palettes = Array(Array(RGB)).new 8 { Array(RGB).new 4, RGB.new(0, 0, 0) }
   @palette_index : UInt8 = 0
   @auto_increment = false
 
+  @obj_pram = Bytes.new 64
   @obj_palettes = Array(Array(RGB)).new 8 { Array(RGB).new 4, RGB.new(0, 0, 0) }
   @obj_palette_index : UInt8 = 0
   @obj_auto_increment = false
@@ -295,34 +302,10 @@ abstract class PPU
     when 0xFF54 then @cgb_ptr.value ? @hdma4 : 0xFF_u8
     when 0xFF55 then @cgb_ptr.value ? @hdma5 : 0xFF_u8
     when 0xFF68 then @cgb_ptr.value ? 0x40_u8 | (@auto_increment ? 0x80 : 0) | @palette_index : 0xFF_u8
-    when 0xFF69
-      if @cgb_ptr.value
-        palette_number = @palette_index >> 3
-        color_number = (@palette_index & 7) >> 1
-        color = @palettes[palette_number][color_number]
-        if @palette_index & 1 == 0
-          color.red | (color.green << 5)
-        else
-          (color.green >> 3) | (color.blue << 2)
-        end
-      else
-        0xFF_u8
-      end
+    when 0xFF69 then @cgb_ptr.value ? @pram[@palette_index] : 0xFF_u8
     when 0xFF6A then @cgb_ptr.value ? 0x40_u8 | (@obj_auto_increment ? 0x80 : 0) | @obj_palette_index : 0xFF_u8
-    when 0xFF6B
-      if @cgb_ptr.value
-        palette_number = @obj_palette_index >> 3
-        color_number = (@obj_palette_index & 7) >> 1
-        color = @obj_palettes[palette_number][color_number]
-        if @palette_index & 1 == 0
-          color.red | (color.green << 5)
-        else
-          (color.green >> 3) | (color.blue << 2)
-        end
-      else
-        0xFF_u8
-      end
-    else raise "Reading from invalid ppu register: #{hex_str index.to_u16!}"
+    when 0xFF6B then @cgb_ptr.value ? @obj_pram[@obj_palette_index] : 0xFF_u8
+    else             raise "Reading from invalid ppu register: #{hex_str index.to_u16!}"
     end
   end
 
@@ -367,17 +350,11 @@ abstract class PPU
       end
     when 0xFF69
       if @cgb_ptr.value
+        @pram[@palette_index] = value
+        bgr16 = @pram[@palette_index | 1].to_u16 << 8 | @pram[@palette_index & ~1]
         palette_number = @palette_index >> 3
         color_number = (@palette_index & 7) >> 1
-        color = @palettes[palette_number][color_number]
-        if @palette_index & 1 == 0
-          color.red = value & 0b00011111
-          color.green = ((value & 0b11100000) >> 5) | (color.green & 0b11000)
-        else
-          color.green = ((value & 0b00000011) << 3) | (color.green & 0b00111)
-          color.blue = (value & 0b01111100) >> 2
-        end
-        @palettes[palette_number][color_number] = color
+        @palettes[palette_number][color_number] = RGB.from_bgr16 bgr16, @ran_bios
         @palette_index += 1 if @auto_increment
         @palette_index &= 0x3F
       end
@@ -388,17 +365,11 @@ abstract class PPU
       end
     when 0xFF6B
       if @cgb_ptr.value
+        @obj_pram[@obj_palette_index] = value
+        bgr16 = @obj_pram[@obj_palette_index | 1].to_u16 << 8 | @obj_pram[@obj_palette_index & ~1]
         palette_number = @obj_palette_index >> 3
         color_number = (@obj_palette_index & 7) >> 1
-        color = @obj_palettes[palette_number][color_number]
-        if @obj_palette_index & 1 == 0
-          color.red = value & 0b00011111
-          color.green = ((value & 0b11100000) >> 5) | (color.green & 0b11000)
-        else
-          color.green = ((value & 0b00000011) << 3) | (color.green & 0b00111)
-          color.blue = (value & 0b01111100) >> 2
-        end
-        @obj_palettes[palette_number][color_number] = color
+        @obj_palettes[palette_number][color_number] = RGB.from_bgr16 bgr16, @ran_bios
         @obj_palette_index += 1 if @obj_auto_increment
         @obj_palette_index &= 0x3F
       end

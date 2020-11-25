@@ -202,7 +202,7 @@ class FifoPPU < PPU
           palettes = @palettes
         end
         color = @cgb_ptr.value ? pixel.color : palette[pixel.color]
-        @framebuffer[Display::WIDTH * @ly + @lx] = palettes[pixel.palette][color].convert_from_cgb @ran_bios
+        @framebuffer[Display::WIDTH * @ly + @lx] = palettes[pixel.palette][color]
       end
       @lx += 1
       if @lx == Display::WIDTH
