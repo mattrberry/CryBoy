@@ -71,12 +71,13 @@ class Motherboard
       else nil
       end
     end
+    scheduler.schedule 70224, Scheduler::EventType::HandleInput, ->handle_events
   end
 
   def run : Nil
+    handle_events
     loop do
-      handle_events
-      cpu.tick 70224
+      cpu.tick
     end
   end
 end

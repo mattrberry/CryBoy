@@ -151,24 +151,21 @@ class CPU
   # Runs for the specified number of machine cycles. If no argument provided,
   # runs only one instruction. Handles interrupts _after_ the instruction is
   # executed.
-  def tick(cycles = 1) : Nil
-    while cycles > 0
-      if @halted
-        cycles_taken = 4
-      else
-        opcode = @memory[@pc]
-        {% if flag? :graphics_test %}
-          if opcode == 0x40
-            @gb.ppu.write_png
-            exit 0
-          end
-        {% end %}
-        cycles_taken = Opcodes::UNPREFIXED[opcode].call self
-      end
-      @cached_hl_read = nil           # clear hl read cache
-      @memory.tick_extra cycles_taken # tell memory component to tick extra cycles
-      cycles -= cycles_taken
-      handle_interrupts
+  def tick : Nil
+    if @halted
+      cycles_taken = 4
+    else
+      opcode = @memory[@pc]
+      {% if flag? :graphics_test %}
+        if opcode == 0x40
+          @gb.ppu.write_png
+          exit 0
+        end
+      {% end %}
+      cycles_taken = Opcodes::UNPREFIXED[opcode].call self
     end
+    @cached_hl_read = nil           # clear hl read cache
+    @memory.tick_extra cycles_taken # tell memory component to tick extra cycles
+    handle_interrupts
   end
 end

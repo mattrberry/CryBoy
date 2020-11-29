@@ -2,6 +2,7 @@ class Scheduler
   enum EventType
     APU
     IME
+    HandleInput
   end
 
   private record Event, cycles : UInt64, type : EventType, proc : Proc(Void) do
@@ -12,16 +13,17 @@ class Scheduler
 
   @events : Deque(Event) = Deque(Event).new 10
   @cycles : UInt64 = 0
+  @next_event : UInt64 = UInt64::MAX
 
   @current_speed : UInt8 = 0
 
   def schedule(cycles : Int, type : EventType, proc : Proc(Void)) : Nil
-    cycles = cycles << @current_speed if type == EventType::APU
+    cycles = cycles << @current_speed if type == EventType::APU || type == EventType::HandleInput
     self << Event.new @cycles + cycles, type, proc
   end
 
   def schedule(cycles : Int, type : EventType, &block : ->)
-    cycles = cycles << @current_speed if type == EventType::APU
+    cycles = cycles << @current_speed if type == EventType::APU || type == EventType::HandleInput
     self << Event.new @cycles + cycles, type, block
   end
 
@@ -42,15 +44,20 @@ class Scheduler
     idx = @events.bsearch_index { |e, i| e.cycles > event.cycles }
     unless idx.nil?
       @events.insert(idx, event)
+      @next_event = @events[0].cycles
     else
       @events << event
     end
   end
 
   def tick(cycles : Int) : Nil
-    cycles.times do
-      @cycles += 1
-      call_current
+    if @cycles + cycles < @next_event
+      @cycles += cycles
+    else
+      cycles.times do
+        @cycles += 1
+        call_current
+      end
     end
   end
 
@@ -61,7 +68,12 @@ class Scheduler
         event.proc.call
         @events.shift
       else
-        break
+        if event
+          @next_event = event.cycles
+        else
+          @next_event = UInt64::MAX
+        end
+        return
       end
     end
   end
