@@ -71,7 +71,6 @@ class Memory
     @cycle_tick_count += cycles if from_cpu
     @scheduler.tick cycles
     @ppu.tick ignore_speed ? cycles : cycles >> @current_speed
-    @apu.tick ignore_speed ? cycles : cycles >> @current_speed
     @timer.tick cycles
     dma_tick cycles
   end

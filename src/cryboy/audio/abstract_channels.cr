@@ -7,21 +7,17 @@ abstract class SoundChannel
 
   # NRx1
   property length_counter = 0
-  @cycles_since_length_step : UInt16 = 0x0000
 
   # NRx4
   @length_enable : Bool = false
-  @frequency_timer : UInt32 = 0x00000000
+
+  def initialize(@gb : Motherboard)
+  end
 
   # Step the channel, calling helpers to reload the period and step the wave generation
   def step : Nil
-    if @frequency_timer == 0
-      reload_frequency_timer
-      step_wave_generation
-    end
-    @frequency_timer -= 1
-    # Update frame sequencer counters
-    @cycles_since_length_step += 1
+    step_wave_generation
+    schedule_reload frequency_timer
   end
 
   # Step the length, disabling the channel if the length counter expires
@@ -30,14 +26,15 @@ abstract class SoundChannel
       @length_counter -= 1
       @enabled = false if @length_counter == 0
     end
-    @cycles_since_length_step = 0
   end
 
   # Used so that channels can be matched with case..when statements
   abstract def ===(value) : Bool
 
-  # Called when @frequency_timer reaches 0 and on trigger
-  abstract def reload_frequency_timer : Nil
+  # Calculate the frequency timer
+  abstract def frequency_timer : UInt32
+
+  abstract def schedule_reload(frequency_timer : UInt32) : Nil
 
   # Called when @period reaches 0
   abstract def step_wave_generation : Nil

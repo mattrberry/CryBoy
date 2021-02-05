@@ -1,6 +1,10 @@
 class Scheduler
   enum EventType
     APU
+    APUChannel1
+    APUChannel2
+    APUChannel3
+    APUChannel4
     IME
     HandleInput
   end
@@ -18,20 +22,24 @@ class Scheduler
   @current_speed : UInt8 = 0
 
   def schedule(cycles : Int, type : EventType, proc : Proc(Void)) : Nil
-    cycles = cycles << @current_speed if type == EventType::APU || type == EventType::HandleInput
+    cycles = cycles << @current_speed unless type == EventType::IME
     self << Event.new @cycles + cycles, type, proc
   end
 
   def schedule(cycles : Int, type : EventType, &block : ->)
-    cycles = cycles << @current_speed if type == EventType::APU || type == EventType::HandleInput
+    cycles = cycles << @current_speed unless type == EventType::IME
     self << Event.new @cycles + cycles, type, block
+  end
+
+  def clear(type : EventType) : Nil
+    @events.delete_if { |event| event.type == type }
   end
 
   # Set the current speed to 1x (0) or 2x (1)
   def speed_mode=(speed : UInt8) : Nil
     @current_speed = speed
     @events.each_with_index do |event, idx|
-      if event.type == EventType::APU
+      unless event.type == EventType::IME
         remaining_cycles = event.cycles - @cycles
         # divide by two if entering single speed, else multiply by two
         offset = remaining_cycles >> (@current_speed - speed)
@@ -44,10 +52,10 @@ class Scheduler
     idx = @events.bsearch_index { |e, i| e.cycles > event.cycles }
     unless idx.nil?
       @events.insert(idx, event)
-      @next_event = @events[0].cycles
     else
       @events << event
     end
+    @next_event = @events[0].cycles
   end
 
   def tick(cycles : Int) : Nil

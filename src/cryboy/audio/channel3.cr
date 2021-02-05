@@ -26,8 +26,12 @@ class Channel3 < SoundChannel
     @wave_ram_sample_buffer = @wave_ram[@wave_ram_position // 2]
   end
 
-  def reload_frequency_timer : Nil
-    @frequency_timer = (2048_u32 - @frequency) * 2
+  def frequency_timer : UInt32
+    (0x800_u32 - @frequency) * 2
+  end
+
+  def schedule_reload(frequency_timer : UInt32) : Nil
+    @gb.scheduler.schedule frequency_timer, Scheduler::EventType::APUChannel3, ->step
   end
 
   def get_amplitude : Float32
@@ -82,7 +86,7 @@ class Channel3 < SoundChannel
       @frequency = (@frequency & 0x00FF) | (value.to_u16 & 0x07) << 8
       length_enable = value & 0x40 > 0
       # Obscure length counter behavior #1
-      if @cycles_since_length_step < 2 ** 13 && !@length_enable && length_enable && @length_counter > 0
+      if @gb.apu.first_half_of_length_period && !@length_enable && length_enable && @length_counter > 0
         @length_counter -= 1
         @enabled = false if @length_counter == 0
       end
@@ -99,15 +103,16 @@ class Channel3 < SoundChannel
         if @length_counter == 0
           @length_counter = 0x100
           # Obscure length counter behavior #2
-          @length_counter -= 1 if @length_enable && @cycles_since_length_step < 2 ** 13
+          @length_counter -= 1 if @length_enable && @gb.apu.first_half_of_length_period
         end
         # Init frequency
-        # todo: I'm patching in an extra cycle here with the `+ 4`. This is specifically
-        #       to get blargg's "09-wave read while on.s" to pass. I'm _not_ refilling
-        #       the frequency timer with this extra cycle when it reaches 0. For now,
-        #       I'm letting this be to work on other audio behavior. Note that this is
-        #       pretty brittle in it's current state though...
-        @frequency_timer = (0x800_u32 - @frequency) * 2 + 4
+        # todo: I'm patching in an extra 6 T-cycles here with the `+ 6`. This is specifically
+        #       to get blargg's "09-wave read while on.s" to pass. I'm _not_ refilling the
+        #       frequency timer with this extra cycles when it reaches 0. For now, I'm letting
+        #       this be in order to work on other audio behavior. Note that this is pretty
+        #       brittle in it's current state though...
+        @gb.scheduler.clear Scheduler::EventType::APUChannel3
+        schedule_reload frequency_timer + 6
         # Init wave ram position
         @wave_ram_position = 0
       end

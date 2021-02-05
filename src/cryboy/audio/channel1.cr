@@ -35,8 +35,12 @@ class Channel1 < VolumeEnvelopeChannel
     @wave_duty_position = (@wave_duty_position + 1) & 7
   end
 
-  def reload_frequency_timer : Nil
-    @frequency_timer = (2048_u32 - @frequency) * 4
+  def frequency_timer : UInt32
+    (0x800_u32 - @frequency) * 4
+  end
+
+  def schedule_reload(frequency_timer : UInt32) : Nil
+    @gb.scheduler.schedule frequency_timer, Scheduler::EventType::APUChannel1, ->step
   end
 
   def sweep_step : Nil
@@ -105,7 +109,7 @@ class Channel1 < VolumeEnvelopeChannel
       @frequency = (@frequency & 0x00FF) | (value.to_u16 & 0x07) << 8
       length_enable = value & 0x40 > 0
       # Obscure length counter behavior #1
-      if @cycles_since_length_step < 2 ** 13 && !@length_enable && length_enable && @length_counter > 0
+      if @gb.apu.first_half_of_length_period && !@length_enable && length_enable && @length_counter > 0
         @length_counter -= 1
         @enabled = false if @length_counter == 0
       end
@@ -122,10 +126,11 @@ class Channel1 < VolumeEnvelopeChannel
         if @length_counter == 0
           @length_counter = 0x40
           # Obscure length counter behavior #2
-          @length_counter -= 1 if @length_enable && @cycles_since_length_step < 2 ** 13
+          @length_counter -= 1 if @length_enable && @gb.apu.first_half_of_length_period
         end
         # Init frequency
-        @frequency_timer = (0x800_u32 - @frequency) * 4
+        @gb.scheduler.clear Scheduler::EventType::APUChannel1
+        schedule_reload frequency_timer
         # Init volume envelope
         init_volume_envelope
         # Init sweep

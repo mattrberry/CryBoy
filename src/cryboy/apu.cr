@@ -17,15 +17,13 @@ class APU
   FRAME_SEQUENCER_RATE   = 512 # Hz
   FRAME_SEQUENCER_PERIOD = CPU::CLOCK_SPEED // FRAME_SEQUENCER_RATE
 
-  @channel1 = Channel1.new
-  @channel2 = Channel2.new
-  @channel3 = Channel3.new
-  @channel4 = Channel4.new
   @sound_enabled : Bool = false
 
   @buffer = Slice(Float32).new BUFFER_SIZE
   @buffer_pos = 0
+
   @frame_sequencer_stage = 0
+  getter first_half_of_length_period = false
 
   @left_enable = false
   @left_volume = 0_u8
@@ -52,6 +50,11 @@ class APU
 
     @obtained_spec = LibSDL::AudioSpec.new
 
+    @channel1 = Channel1.new @gb
+    @channel2 = Channel2.new @gb
+    @channel3 = Channel3.new @gb
+    @channel4 = Channel4.new @gb
+
     tick_frame_sequencer
     get_sample
 
@@ -61,6 +64,7 @@ class APU
   end
 
   def tick_frame_sequencer : Nil
+    @first_half_of_length_period = @frame_sequencer_stage & 1 == 0
     case @frame_sequencer_stage
     when 0
       @channel1.length_step
@@ -125,16 +129,6 @@ class APU
     end
 
     @gb.scheduler.schedule SAMPLE_PERIOD, Scheduler::EventType::APU, ->get_sample
-  end
-
-  # tick apu forward by specified number of cycles
-  def tick(cycles : Int) : Nil
-    cycles.times do
-      @channel1.step
-      @channel2.step
-      @channel3.step
-      @channel4.step
-    end
   end
 
   # read from apu memory
