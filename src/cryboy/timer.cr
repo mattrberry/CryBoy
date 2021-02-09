@@ -20,19 +20,9 @@ class Timer
   def tick(cycles : Int) : Nil
     cycles.times do
       @countdown -= 1 if @countdown > -1
-      if @countdown == 0
-        @gb.interrupts.timer_interrupt = true
-        @tima = @tma
-      end
-
+      reload_tima if @countdown == 0
       @div &+= 1
-      current_bit = @enabled && (@div & (1 << @bit_for_tima) != 0)
-      if @previous_bit && !current_bit
-        @tima &+= 1
-        @countdown = 4 if @tima == 0
-      end
-
-      @previous_bit = current_bit
+      check_edge
     end
   end
 
@@ -50,7 +40,9 @@ class Timer
   # write to timer memory
   def []=(index : Int, value : UInt8) : Nil
     case index
-    when 0xFF04 then @div = 0x0000_u16
+    when 0xFF04
+      @div = 0x0000_u16
+      check_edge on_write: true
     when 0xFF05
       if @countdown != 0 # ignore writes on cycle that tma is loaded
         @tima = value
@@ -69,7 +61,32 @@ class Timer
                       when 0b11 then 7
                       else           raise "Selecting bit for TIMA. Will never be reached."
                       end
+      check_edge on_write: true
     else raise "Writing to invalid timer register: #{hex_str index.to_u16!}"
     end
+  end
+
+  private def reload_tima : Nil
+    @gb.interrupts.timer_interrupt = true
+    @tima = @tma
+  end
+
+  # Check the falling edge in div counter
+  # Note: reload and interrupt flag happen immediately on write
+  #       This isn't actually entirely true. For more details on how this _actually_ works, read from gekkio
+  #       starting here: https://discord.com/channels/465585922579103744/465586075830845475/793581987512188961
+  private def check_edge(on_write = false) : Nil
+    current_bit = @enabled && (@div & (1 << @bit_for_tima) != 0)
+    if @previous_bit && !current_bit
+      @tima &+= 1
+      if @tima == 0
+        if on_write
+          reload_tima
+        else
+          @countdown = 4
+        end
+      end
+    end
+    @previous_bit = current_bit
   end
 end

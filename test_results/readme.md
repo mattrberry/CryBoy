@@ -99,7 +99,7 @@
 | 👌 | acceptance/reti_timing |
 | 👌 | acceptance/rst_timing |
 | 👌 | acceptance/timer/div_write |
-| 👀 | acceptance/timer/rapid_toggle |
+| 👌 | acceptance/timer/rapid_toggle |
 | 👌 | acceptance/timer/tim00 |
 | 👌 | acceptance/timer/tim00_div_trigger |
 | 👌 | acceptance/timer/tim01 |
