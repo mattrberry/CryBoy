@@ -8,15 +8,15 @@ targets:
   cryboy:
     main: src/cryboy.cr
 
-crystal: 0.35.1
+crystal: 0.36.1
 
 dependencies:
   sdl:
-    git: git@github.com:ysbaddaden/sdl.cr.git
+    github: ysbaddaden/sdl.cr
 
 development_dependencies:
   stumpy_png:
     github: stumpycr/stumpy_png
-    version: "~> 4.5"
+    version: "~> 5.0"
 
 license: MIT

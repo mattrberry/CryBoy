@@ -32,7 +32,7 @@ class Scheduler
   end
 
   def clear(type : EventType) : Nil
-    @events.delete_if { |event| event.type == type }
+    @events.reject! { |event| event.type == type }
   end
 
   # Set the current speed to 1x (0) or 2x (1)
