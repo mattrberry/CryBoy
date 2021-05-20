@@ -1,3 +1,5 @@
+***Ported into my GBA emulator [Crab](https://github.com/mattrberry/crab) to reduce common logic and bugs between the two***
+
 # <img height="46" src="README/cryboy.svg"/> ![](README/gameboy.png)
 
 CryBoy is a Game Boy (Color) emulator written in Crystal. The goal of this project is to create an efficient Game Boy emulator with highly readable code.
